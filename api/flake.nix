@@ -1,5 +1,5 @@
 {
-  description = "Development environment for the judge API";
+  description = "Development environment for the judge API and infrastructure";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -27,6 +27,9 @@
               gofumpt
               golangci-lint
               gopls
+              awscli2
+              python3Packages.cfn-lint
+              zip
             ];
 
             GOTOOLCHAIN = "local";
