@@ -1,2 +1,5 @@
-/.agents/
+/.codex/
+/.agents/skills/hallmark/
+/graphify-out/
 /skills-lock.json
+/infra/.build/

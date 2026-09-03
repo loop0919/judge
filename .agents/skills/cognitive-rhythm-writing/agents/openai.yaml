@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cognitive Rhythm Writing"
+  short_description: "説明文の認知モードと緊張を設計し、読み進める力を作る"
+  default_prompt: "$cognitive-rhythm-writing を使い、この説明文の認知リズムを診断して整えてください。"
