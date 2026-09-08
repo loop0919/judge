@@ -4,19 +4,26 @@ Goで実装するAPIと非同期Lambdaのためのモジュールである。
 
 ## 開発環境
 
-初回だけ、このディレクトリでdirenvを許可する。
+APIとinfraは、リポジトリのルートにあるNix開発シェルを共用する。
+初回はルートでdirenvを許可する。
+以下は、この`api/`ディレクトリから実行する。
 
 ```console
+cd ..
 direnv allow
+cd api
 ```
 
-direnvを使わない場合は、Nixから開発シェルを起動する。
+direnvを使わない場合は、ルートで開発シェルを起動してからAPIへ移動する。
 
 ```console
+cd ..
 nix develop 'path:.'
+cd api
 ```
 
-開発シェルにはGo、gopls、gofumpt、golangci-lintが含まれる。
+開発シェルにはGo、gopls、gofumpt、golangci-lint、AWS CLI、Terraform、zipが含まれる。
+以降のコマンドは`api/`ディレクトリで実行する。
 
 ## ローカル起動
 

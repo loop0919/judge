@@ -18,7 +18,10 @@
       devShells = forAllSystems (
         system:
         let
-          pkgs = import nixpkgs { inherit system; };
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "terraform";
+          };
         in
         {
           default = pkgs.mkShell {
@@ -28,7 +31,7 @@
               golangci-lint
               gopls
               awscli2
-              python3Packages.cfn-lint
+              terraform
               zip
             ];
 

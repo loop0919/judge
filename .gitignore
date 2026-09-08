@@ -3,3 +3,11 @@
 /graphify-out/
 /skills-lock.json
 /infra/.build/
+
+# Nix development environment
+/.direnv/
+/result
+/result-*
+
+# Local environment settings
+/.env
