@@ -1,0 +1,39 @@
+mock_provider "aws" {
+  mock_resource "aws_s3_bucket" { defaults = { arn = "arn:aws:s3:::example-web-artifacts" } }
+  mock_resource "aws_cloudwatch_log_group" { defaults = { arn = "arn:aws:logs:ap-northeast-1:123456789012:log-group:example" } }
+  mock_resource "aws_iam_role" { defaults = { arn = "arn:aws:iam::123456789012:role/example" } }
+  mock_resource "aws_lambda_function" { defaults = { invoke_arn = "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:123456789012:function:example/invocations" } }
+  mock_resource "aws_apigatewayv2_api" { defaults = { execution_arn = "arn:aws:execute-api:ap-northeast-1:123456789012:example", api_endpoint = "https://example.execute-api.ap-northeast-1.amazonaws.com" } }
+}
+variables { api_endpoint = "https://api.example.com" }
+run "frontend_contract" {
+  command = apply
+  assert {
+    condition = (
+      aws_lambda_function.web.runtime == "nodejs22.x" &&
+      aws_lambda_function.web.handler == "server/index.handler" &&
+      aws_lambda_function.web.architectures == tolist(["arm64"]) &&
+      aws_lambda_function.web.memory_size == 512 &&
+      aws_lambda_function.web.environment[0].variables["NUXT_API_BASE_URL"] == var.api_endpoint &&
+      aws_lambda_function.web.environment[0].variables["NUXT_PUBLIC_SITE_URL"] == aws_apigatewayv2_api.web.api_endpoint &&
+      aws_lambda_function.web.s3_object_version == aws_s3_object.web_package.version_id
+    )
+    error_message = "Deploy the exact Lambda bundle and use the public HTTPS origin for canonical URLs."
+  }
+  assert {
+    condition = (
+      aws_apigatewayv2_route.default.target == "integrations/${aws_apigatewayv2_integration.web.id}" &&
+      aws_apigatewayv2_integration.web.payload_format_version == "2.0" &&
+      aws_lambda_permission.gateway.source_arn == "${aws_apigatewayv2_api.web.execution_arn}/*" &&
+      aws_cloudwatch_log_group.lambda.retention_in_days == 14 &&
+      aws_s3_bucket_public_access_block.artifacts.block_public_policy &&
+      aws_s3_bucket_versioning.artifacts.versioning_configuration[0].status == "Enabled"
+    )
+    error_message = "Keep public routing, scoped invocation, log retention, and private versioned artifacts."
+  }
+}
+run "reject_non_https_api" {
+  command = plan
+  variables { api_endpoint = "http://api.example.com" }
+  expect_failures = [var.api_endpoint]
+}

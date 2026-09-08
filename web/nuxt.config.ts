@@ -1,6 +1,12 @@
+import process from 'node:process'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-08',
   ssr: true,
+  nitro: {
+    serveStatic: true,
+    ...(process.env.OPENOJ_LAMBDA_BUILD === '1' ? { preset: 'aws-lambda', output: { dir: '.output-lambda' } } : {}),
+  },
   devtools: { enabled: false },
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/editor.css', '~/assets/css/blog.css'],
   runtimeConfig: {
