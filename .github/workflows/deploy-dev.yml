@@ -1,0 +1,141 @@
+name: Deploy dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - api/**
+      - infra/**
+      - .github/workflows/deploy-dev.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_project_name: judge
+  TF_VAR_environment: dev
+  TF_VAR_aws_region: ap-northeast-1
+
+jobs:
+  deploy:
+    name: Test and deploy API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: dev
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+
+      - name: Test API
+        working-directory: api
+        run: |
+          go test ./...
+          go vet ./...
+
+      - name: Build Lambda package
+        working-directory: api
+        run: make package
+
+      - name: Validate deployment configuration
+        shell: bash
+        env:
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::Set AWS_ACCOUNT_ID to a 12-digit account ID in the dev environment variables."
+            exit 1
+          fi
+
+          if [[ "$AWS_DEPLOY_ROLE_ARN" != "arn:aws:iam::$AWS_ACCOUNT_ID:role/"* ]]; then
+            echo "::error::Set AWS_DEPLOY_ROLE_ARN to an IAM role ARN in the configured AWS account."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Validate and test Terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in bootstrap api; do
+            terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="infra/$root" validate
+            terraform -chdir="infra/$root" test
+          done
+
+      - name: Initialize API state
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          test -n "$TF_STATE_BUCKET" || { echo "::error::Set TF_STATE_BUCKET in the dev environment variables."; exit 1; }
+          terraform -chdir=infra/api init -input=false -lockfile=readonly \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=judge/dev/api.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="allowed_account_ids=[\"${{ vars.AWS_ACCOUNT_ID }}\"]"
+
+      - name: Plan API deployment
+        run: terraform -chdir=infra/api plan -lock-timeout=5m -out=deploy.tfplan
+
+      - name: Apply API deployment
+        run: terraform -chdir=infra/api apply -lock-timeout=5m deploy.tfplan
+
+      - name: Verify health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          health_url="$(terraform -chdir=infra/api output -raw health_url)"
+
+          for attempt in {1..12}; do
+            response="$(curl --fail --show-error --silent "$health_url" || true)"
+            if jq -e '.status == "ok"' <<< "$response" > /dev/null; then
+              {
+                echo "### dev deployment"
+                echo
+                echo "Health check: $health_url"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            echo "Health check attempt $attempt failed; retrying in 5 seconds."
+            sleep 5
+          done
+
+          echo "::error::Health check failed for $health_url"
+          exit 1

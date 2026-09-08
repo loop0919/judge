@@ -115,6 +115,44 @@ APIのパッケージ用バケットとポリシーにも`prevent_destroy`を設
 削除する場合は保持対象と削除対象を確認し、バケットをTerraformの管理から外すか、保護設定を明示的に変更する。
 `prevent_destroy`は構成からリソース定義を消した場合の保護にはならない。
 
+## CI/CD
+
+`.github/workflows/ci.yml`はGoのテスト、静的解析、Lambdaのビルド、Terraformの整形確認、`validate`、モックProviderによる`terraform test`を実行する。
+Terraformのテストは実際のAWSリソースを作成しない。
+ローカルでも同じ検証を実行できる。
+
+```console
+make -C api package
+terraform fmt -check -recursive infra
+for root in bootstrap api; do
+  terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
+  terraform -chdir="infra/$root" validate
+  terraform -chdir="infra/$root" test
+done
+```
+
+`.github/workflows/deploy-dev.yml`は`main`へのAPIまたはinfraの変更と手動実行を契機に、同じ検証を通してAPIをplan、applyし、ヘルスチェックする。
+bootstrapのapplyは手動で行う。
+同時デプロイは一つに制限し、実行中のデプロイを後続のpushで中止しない。
+
+GitHub ActionsはOIDCでAWSのデプロイロールを引き受ける。
+初回にOIDCプロバイダー（`https://token.actions.githubusercontent.com`、Audienceは`sts.amazonaws.com`）とIAMロールを作成する。
+Trust policyの`sub`条件を対象リポジトリのEnvironment `dev`に限定する。
+詳細は[GitHubのAWS向けOIDC設定手順](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)を参照する。
+ロールにはAPIのS3、Lambda、API Gateway、IAM、CloudWatch Logsの管理権限と、APIの実行ロールに限定した`iam:PassRole`、前述のstateとロックへの権限が必要になる。
+
+GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
+
+| 変数 | 値 |
+| --- | --- |
+| `AWS_ACCOUNT_ID` | 12桁のAWSアカウントID |
+| `AWS_DEPLOY_ROLE_ARN` | デプロイ用IAMロールのARN |
+| `TF_STATE_BUCKET` | bootstrapが作成したstate用バケット名 |
+
+ローカルとCIは同じアカウント、東京リージョンのstateバケット、`judge/dev/api.tfstate`を使う。
+初回の自動デプロイ前にbootstrapとVariablesの設定を済ませる。
+ブランチ保護の必須チェックには`CI / Test and package API`を指定する。
+
 ## dev環境の管理
 
 既存のdev APIは、CloudFormationからリソースを保持してTerraformへ移管済みである。

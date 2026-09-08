@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and package API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: api/go.sum
+
+      - name: Run tests
+        working-directory: api
+        run: go test ./...
+
+      - name: Run static analysis
+        working-directory: api
+        run: go vet ./...
+
+      - name: Build Lambda package
+        working-directory: api
+        run: make package
+
+      - name: Verify Lambda package
+        run: test -s api/.build/api.zip
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+
+      - name: Validate and test Terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in bootstrap api; do
+            terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="infra/$root" validate
+            terraform -chdir="infra/$root" test
+          done
