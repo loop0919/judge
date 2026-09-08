@@ -1,5 +1,5 @@
 {
-  description = "Development environment for the judge API and infrastructure";
+  description = "Development environment for the judge API, web, and infrastructure";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -30,6 +30,7 @@
               gofumpt
               golangci-lint
               gopls
+              nodejs_22
               awscli2
               terraform
               zip

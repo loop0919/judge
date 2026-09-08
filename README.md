@@ -1,11 +1,13 @@
-# judge
+# OpenOJ
 
-Go APIとAWS上のジャッジ基盤を開発するリポジトリ。
+OpenOJ（Open Online Judge）は、オンラインジャッジサービス。
+
+Go API、Nuxtフロントエンド、AWS上のジャッジ基盤を開発するリポジトリ。
 
 ## 開発環境
 
-ルートの`flake.nix`と`flake.lock`で、APIとinfraに共通する開発ツールを管理する。
-Go、gopls、gofumpt、golangci-lint、AWS CLI、Terraform、zipを利用できる。
+ルートの`flake.nix`と`flake.lock`で、API、フロントエンド、infraに共通する開発ツールを管理する。
+Go、gopls、gofumpt、golangci-lint、Node.js 22（npmを含む）、AWS CLI、Terraform、zipを利用できる。
 
 リポジトリのルートで開発シェルを起動する。
 
@@ -65,6 +67,7 @@ set +a
 ## 開発手順
 
 - [APIの起動とテスト](api/README.md)
+- [フロントエンドの起動とSSRの確認](web/README.md)
 - [AWSインフラの作成とデプロイ](infra/README.md)
 - [設計文書](docs/README.md)
 
