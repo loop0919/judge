@@ -16,7 +16,7 @@ createServer((req, res) => {
         '$$' + Array.from({ length: 30 }, (_, i) => `x_{${i}}`).join('+') + '$$',
       ],
       constraints: [String.raw`$1 \le n \le 10^9$`],
-      inputFormat: '$A \\quad B$\n$C \\quad D$', outputFormat: '答えを出力してください。',
+      inputFormat: '$A \\quad B$\n$\\mathrm{case}_T$', outputFormat: '答えを出力してください。',
       samples: [{ input: '$literal input$\n', output: '$literal output$\n', explanation: '$1 + 2 = 3$' }],
       timeLimitMs: 2000, memoryLimitMb: 256, isSample: true,
     }))

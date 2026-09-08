@@ -50,6 +50,10 @@ test('display math is rendered in SSR; invalid content is text; code stays liter
   await expect(page.locator('#input .katex').first()).toBeVisible()
   await expect(page.locator('#input annotation').first()).toHaveText(String.raw`A \quad B`)
   expect(await page.locator('.input-format').evaluate(element => getComputedStyle(element).whiteSpace)).toBe('pre-wrap')
+  // Subscripts must not create tiny horizontal scrollbars under individual expressions.
+  expect(await page.locator('.input-format .math-expression').evaluateAll(elements =>
+    elements.every(element => getComputedStyle(element).overflowX === 'visible'),
+  )).toBe(true)
   await expect(page.locator('#samples pre').first()).toHaveText('$literal input$\n')
   await expect(page.locator('pre .katex')).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
