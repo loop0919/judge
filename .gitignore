@@ -4,6 +4,19 @@
 /skills-lock.json
 /infra/.build/
 
+# Terraform local data, state, inputs, and saved plans. Commit provider lock files.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+*.tfvars
+*.tfvars.json
+*.tfbackend
+crash.log
+crash.*.log
+/infra/bootstrap/backend.tf
+
 # Nix development environment
 /.direnv/
 /result

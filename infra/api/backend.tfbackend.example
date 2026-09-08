@@ -1,0 +1,3 @@
+bucket = "REPLACE_WITH_YOUR_STATE_BUCKET"
+key    = "judge/dev/api.tfstate"
+region = "ap-northeast-1"
