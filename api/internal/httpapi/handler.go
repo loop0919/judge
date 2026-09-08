@@ -10,6 +10,7 @@ import (
 func NewHandler(auth ...AuthConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health)
+	mux.HandleFunc("GET /problems/{id}", problemDetail)
 	var config AuthConfig
 	if len(auth) > 0 {
 		config = auth[0]

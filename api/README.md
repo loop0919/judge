@@ -52,6 +52,19 @@ curl -i http://localhost:8080/health
 {"status":"ok"}
 ```
 
+## 公開問題API
+
+`GET /problems/a-plus-b` はサンプル問題の本文、制約、入出力例、実行時間制限とメモリ制限をJSONで返す。
+認証は不要であり、未登録のIDは `404` と `{"error":"problem_not_found"}` を返す。
+現在のカタログは固定のサンプル1件であり、問題の保存や提出のAPIは含まれない。
+採点用の非公開テストケースはこの応答に含めない。
+
+```console
+curl -i http://localhost:8080/problems/a-plus-b
+```
+
+Nuxtからの取得とSSRの確認方法は[フロントエンドの手順](../web/README.md)を参照する。
+
 ## ログインAPI
 
 独自のログイン画面からCognito User Poolを使って認証する。
