@@ -1,0 +1,33 @@
+import { expect, test } from '@playwright/test'
+
+test('unsaved navigation can be cancelled or discarded without writing a draft', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  await page.goto('/problems/new?fresh=1')
+  await page.locator('#problem-title').fill('未保存の問題')
+  await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  const dialog = await page.getByRole('dialog').boundingBox()
+  expect(dialog!.x).toBeGreaterThanOrEqual(0)
+  expect(dialog!.x + dialog!.width).toBeLessThanOrEqual(320)
+  await page.screenshot({ path: testInfo.outputPath('leave-dialog.png') })
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(page.locator('#problem-title')).toHaveValue('未保存の問題')
+  await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
+  await page.getByRole('button', { name: '保存せずに移動', exact: true }).click()
+  await expect(page).toHaveURL('/')
+  await page.goto('/my/problems')
+  await expect(page.getByText('まだ問題がありません')).toBeVisible()
+})
+
+test('failed save keeps the confirmation open', async ({ page }) => {
+  await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new Error('Full') } })
+  await page.goto('/problems/new?fresh=1')
+  await page.locator('#problem-title').fill('保存に失敗')
+  await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
+  await page.getByRole('button', { name: '保存して移動', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('保存できませんでした')
+  await page.getByRole('button', { name: '編集を続ける', exact: true }).click()
+  await expect(page.locator('#problem-title')).toHaveValue('保存に失敗')
+})
