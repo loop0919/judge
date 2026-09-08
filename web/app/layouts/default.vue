@@ -11,6 +11,7 @@ const route = useRoute()
         <NuxtLink to="/">公開問題</NuxtLink>
         <NuxtLink to="/problems/new?fresh=1">問題を作成</NuxtLink>
         <NuxtLink to="/my/problems">自分の問題</NuxtLink>
+        <NuxtLink to="/blog">Blog</NuxtLink>
       </nav>
     </header>
     <main id="main" tabindex="-1"><slot /></main>

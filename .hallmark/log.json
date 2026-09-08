@@ -1,5 +1,14 @@
 [
   {
+    "date": "2026-09-09",
+    "macrostructure": "Workbench",
+    "theme": "Plain (existing OpenOJ system)",
+    "nav": "N1a (shared site navigation)",
+    "footer": "Ft2 (shared site footer)",
+    "enrichment": "none",
+    "brief": "OpenOJ viewport-height Markdown workspace with compact controls, edit/split/preview modes, independent pane scrolling, local drafts, and a separate Blog writing guide"
+  },
+  {
     "date": "2026-09-08",
     "macrostructure": "Long Document",
     "theme": "Plain",
