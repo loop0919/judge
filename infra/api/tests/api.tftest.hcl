@@ -21,6 +21,30 @@ run "api_contract" {
 
   assert {
     condition = (
+      aws_lambda_function.api.environment[0].variables["COGNITO_CLIENT_ID"] == aws_cognito_user_pool_client.api.id &&
+      aws_lambda_function.api.environment[0].variables["COGNITO_CLIENT_SECRET"] == aws_cognito_user_pool_client.api.client_secret &&
+      aws_cognito_user_pool_client.api.user_pool_id == aws_cognito_user_pool.users.id &&
+      aws_cognito_user_pool_client.api.generate_secret &&
+      aws_cognito_user_pool_client.api.explicit_auth_flows == toset(["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]) &&
+      aws_cognito_user_pool_client.api.prevent_user_existence_errors == "ENABLED" &&
+      aws_cognito_user_pool_client.api.access_token_validity == 60 &&
+      aws_cognito_user_pool_client.api.token_validity_units[0].access_token == "minutes"
+    )
+    error_message = "Connect the password login API to its private Cognito client and prevent user enumeration."
+  }
+  assert {
+    condition = (
+      aws_cognito_user_pool.users.username_attributes == toset(["email"]) &&
+      !aws_cognito_user_pool.users.username_configuration[0].case_sensitive &&
+      aws_cognito_user_pool.users.admin_create_user_config[0].allow_admin_create_user_only &&
+      aws_cognito_user_pool.users.deletion_protection == "ACTIVE" &&
+      aws_cognito_user_pool.users.mfa_configuration == "OFF" &&
+      aws_cognito_user_pool.users.user_pool_tier == "LITE"
+    )
+    error_message = "Keep email sign-in, protect the user directory, and avoid requiring unimplemented enrollment flows."
+  }
+  assert {
+    condition = (
       aws_lambda_function.api.runtime == "provided.al2023" &&
       aws_lambda_function.api.architectures == tolist(["arm64"]) &&
       aws_lambda_function.api.handler == "bootstrap" &&

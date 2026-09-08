@@ -9,7 +9,7 @@ Client -> API Gateway HTTP API -> API Lambda -> CloudWatch Logs
 | ディレクトリ | 管理するリソース | state |
 | --- | --- | --- |
 | `bootstrap/` | Terraform state用S3バケット | 初回はローカル、作成後にS3へ移行 |
-| `api/` | パッケージ用S3、Lambda、HTTP API、IAM、ログ | S3の`judge/dev/api.tfstate` |
+| `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、IAM、ログ | S3の`judge/dev/api.tfstate` |
 
 採点処理に使うSQS、Launcher Lambda、ECS/Fargate、テストセット用S3、PostgreSQLは後続の構成として追加する。
 請求アラートはAWSアカウント全体の設定として、別フォルダ`~/aws-setting`へ分離している。
@@ -115,6 +115,46 @@ APIのパッケージ用バケットとポリシーにも`prevent_destroy`を設
 削除する場合は保持対象と削除対象を確認し、バケットをTerraformの管理から外すか、保護設定を明示的に変更する。
 `prevent_destroy`は構成からリソース定義を消した場合の保護にはならない。
 
+## Cognitoによるログイン
+
+`api/auth.tf`がメールアドレスでサインインするUser Poolと、API専用のアプリクライアントを作成する。
+独自画面から`POST /auth/login`を呼び出す構成で、Cognitoのログイン画面やドメインは作成しない。
+Lambdaには`COGNITO_CLIENT_ID`と`COGNITO_CLIENT_SECRET`が自動設定される。
+シークレットはTerraformの出力へ公開しないが、stateと保存済みplan、Lambdaの環境変数には含まれるため、これらの読み取り権限を制限する。
+
+初期構成では、ユーザー登録は管理者による作成に限定する。
+MFA登録画面が未実装のためMFAは無効とし、必須の追加認証は仮パスワードからの変更だけにする。
+パスワードは12文字以上で英大文字、英小文字、数字、記号が必要であり、仮パスワードの有効期間は7日である。
+アクセストークンとIDトークンは60分、リフレッシュトークンは30日有効である。
+APIのトークン更新処理は未実装のため、現時点では期限切れ後に再ログインする。
+
+デプロイ後のUser Pool IDとクライアントIDは次のコマンドで確認できる。
+
+```console
+terraform -chdir=infra/api output -raw cognito_user_pool_id
+terraform -chdir=infra/api output -raw cognito_client_id
+terraform -chdir=infra/api output -raw login_url
+```
+
+AWSコンソールのCognitoから、このUser Poolへテストユーザーを作成する。
+メールアドレスを設定して仮パスワードを発行し、[ログインAPI](../api/README.md#ログインapi)でログインする。
+`NEW_PASSWORD_REQUIRED`が返ったら`POST /auth/challenge`へ新しいパスワードを送る。
+ユーザーのパスワードはTerraformで管理しない。
+
+User PoolにはCognitoの削除保護とTerraformの`prevent_destroy`を設定している。
+サインイン属性などの変更で置換が必要になった場合は、ユーザーの移行方法を決めてから保護設定を変更する。
+
+料金プランはパスワード認証に対応するLiteを明示する。
+InfracostではUser Poolの料金が未対応であり、利用量未設定のスキャン結果にある月額0ドルは実運用の見積もりではない。
+2026年9月8日時点の[AWS料金表](https://aws.amazon.com/cognito/pricing/)では、Liteの直接ログインはアカウントまたはAWS組織ごとに月1万MAUの無料枠がある。
+API Gateway、Lambda、ログ、メールなどの料金と、他のUser Poolによる無料枠の消費は別途確認する。
+組織のコストガードレールは月額250ドルの増加をブロックするが、今回のスキャンには比較元とCognitoの利用料金がないため、この上限への適合は未判定である。
+
+APIルートの共通タグには`Service=judge`を追加し、`Environment`は`dev`から`Dev`へ表記を揃える。
+これは組織のタグポリシーに合わせた変更で、既存リソースにもタグ更新が発生する。
+環境名を`stage`または`prod`にした場合のタグは`Stage`または`Prod`になる。
+リソース名やstateのkeyに使う環境名は変わらない。
+
 ## CI/CD
 
 `.github/workflows/ci.yml`はGoのテスト、静的解析、Lambdaのビルド、Terraformの整形確認、`validate`、モックProviderによる`terraform test`を実行する。
@@ -139,7 +179,9 @@ GitHub ActionsはOIDCでAWSのデプロイロールを引き受ける。
 初回にOIDCプロバイダー（`https://token.actions.githubusercontent.com`、Audienceは`sts.amazonaws.com`）とIAMロールを作成する。
 Trust policyの`sub`条件を対象リポジトリのEnvironment `dev`に限定する。
 詳細は[GitHubのAWS向けOIDC設定手順](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)を参照する。
-ロールにはAPIのS3、Lambda、API Gateway、IAM、CloudWatch Logsの管理権限と、APIの実行ロールに限定した`iam:PassRole`、前述のstateとロックへの権限が必要になる。
+ロールにはAPIのS3、Lambda、API Gateway、Cognito User Poolとアプリクライアント、IAM、CloudWatch Logsの管理権限と、APIの実行ロールに限定した`iam:PassRole`、前述のstateとロックへの権限が必要になる。
+Cognitoの作成、参照、更新、削除、タグ管理の権限が既存ロールにない場合は、デプロイ前に追加する。
+Lambdaの実行ロールにはCognitoの管理権限を追加しない。
 
 GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
 
@@ -205,4 +247,5 @@ Lambda Permissionの`statement_id`も既存の値に合わせる。
 ## 公開範囲
 
 現在の`$default`ルートは認証なしで公開される。
-ヘルスチェック以外のAPIを追加する際は、利用者の認証方式を決め、API GatewayのJWT Authorizerなどを追加する。
+`GET /health`、`POST /auth/login`、`POST /auth/challenge`は認証前に呼び出すエンドポイントである。
+業務APIを追加する際は、API GatewayのJWT AuthorizerやAPI内のトークン検証を追加する。

@@ -2,6 +2,9 @@
 package main
 
 import (
+	"log"
+	"os"
+
 	"github.com/aws/aws-lambda-go/lambda"
 
 	"judge/api/internal/httpapi"
@@ -9,6 +12,10 @@ import (
 )
 
 func main() {
-	adapter := lambdaapi.New(httpapi.NewHandler())
+	handler, err := httpapi.NewConfiguredHandler(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
+	}
+	adapter := lambdaapi.New(handler)
 	lambda.Start(adapter.ProxyWithContext)
 }

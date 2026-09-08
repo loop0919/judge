@@ -35,9 +35,17 @@ func run(parent context.Context, logger *slog.Logger, lookupEnv func(string) (st
 		return err
 	}
 
+	handler, err := httpapi.NewConfiguredHandler(func(key string) string {
+		value, _ := lookupEnv(key)
+		return value
+	})
+	if err != nil {
+		return err
+	}
+
 	server := &http.Server{
 		Addr:              address,
-		Handler:           httpapi.NewHandler(),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

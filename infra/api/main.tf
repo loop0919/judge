@@ -47,6 +47,13 @@ resource "aws_lambda_function" "api" {
   s3_object_version = aws_s3_object.api_package.version_id
   source_code_hash  = filebase64sha256(local.lambda_package_path)
   depends_on        = [aws_iam_role_policy.logs]
+
+  environment {
+    variables = {
+      COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.api.id
+      COGNITO_CLIENT_SECRET = aws_cognito_user_pool_client.api.client_secret
+    }
+  }
 }
 
 resource "aws_apigatewayv2_api" "api" {

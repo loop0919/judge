@@ -1,0 +1,58 @@
+resource "aws_cognito_user_pool" "users" {
+  name                     = "${local.name}-users"
+  user_pool_tier           = "LITE"
+  username_attributes      = ["email"]
+  auto_verified_attributes = ["email"]
+  deletion_protection      = "ACTIVE"
+  mfa_configuration        = "OFF"
+
+  username_configuration {
+    case_sensitive = false
+  }
+
+  # Registration and MFA enrollment screens are not implemented yet.
+  admin_create_user_config {
+    allow_admin_create_user_only = true
+  }
+
+  password_policy {
+    minimum_length                   = 12
+    require_lowercase                = true
+    require_uppercase                = true
+    require_numbers                  = true
+    require_symbols                  = true
+    temporary_password_validity_days = 7
+  }
+
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_cognito_user_pool_client" "api" {
+  name                          = "${local.name}-api"
+  user_pool_id                  = aws_cognito_user_pool.users.id
+  generate_secret               = true
+  explicit_auth_flows           = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+  auth_session_validity         = 3
+  access_token_validity         = 60
+  id_token_validity             = 60
+  refresh_token_validity        = 30
+  read_attributes               = ["email", "email_verified"]
+  write_attributes              = ["email"]
+
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "days"
+  }
+}
