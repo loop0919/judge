@@ -38,6 +38,21 @@ jobs:
         run: npm run typecheck
       - name: Build SSR server
         run: npm run build
+      - name: Build and test frontend Lambda
+        run: |
+          npm run package:lambda
+          npm run test:lambda
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+      - name: Validate frontend infrastructure
+        working-directory: infra/frontend
+        run: |
+          terraform init -backend=false -input=false -lockfile=readonly
+          terraform validate
+          terraform test
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Test SSR and browser rendering
@@ -86,7 +101,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for root in bootstrap api; do
+          for root in bootstrap api deploy-access; do
             terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="infra/$root" validate
             terraform -chdir="infra/$root" test

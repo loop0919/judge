@@ -1,15 +1,17 @@
 # AWSインフラストラクチャ
 
-Go APIをAmazon API Gateway HTTP APIとAWS Lambdaで公開するTerraform構成である。
+Go APIとNuxtのSSRフロントエンドをAmazon API Gateway HTTP APIとAWS Lambdaで公開するTerraform構成である。
 
 ```text
-Client -> API Gateway HTTP API -> API Lambda -> CloudWatch Logs
+Browser -> Frontend HTTP API -> Nuxt Lambda -> API HTTP API -> Go Lambda
 ```
 
 | ディレクトリ | 管理するリソース | state |
 | --- | --- | --- |
 | `bootstrap/` | Terraform state用S3バケット | 初回はローカル、作成後にS3へ移行 |
 | `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、IAM、ログ | S3の`judge/dev/api.tfstate` |
+| `frontend/` | Nuxt Lambda、HTTP API、パッケージ用S3、IAM、ログ | S3の`judge/dev/frontend.tfstate` |
+| `deploy-access/` | 既存GitHubデプロイロールの信頼関係・操作権限 | S3の`judge/dev/deploy-access.tfstate` |
 
 採点処理に使うSQS、Launcher Lambda、ECS/Fargate、テストセット用S3、PostgreSQLは後続の構成として追加する。
 請求アラートはAWSアカウント全体の設定として、別フォルダ`~/aws-setting`へ分離している。
@@ -115,6 +117,37 @@ APIのパッケージ用バケットとポリシーにも`prevent_destroy`を設
 削除する場合は保持対象と削除対象を確認し、バケットをTerraformの管理から外すか、保護設定を明示的に変更する。
 `prevent_destroy`は構成からリソース定義を消した場合の保護にはならない。
 
+## フロントエンドのデプロイ
+
+Node.js 22とPython 3を使い、NuxtのAWS Lambda用出力をzipにまとめる。
+通常のローカル用ビルドは`.output/`、Lambda用は`.output-lambda/`へ出力する。
+
+```console
+npm --prefix web ci
+npm --prefix web run package:lambda
+npm --prefix web run test:lambda
+terraform -chdir=infra/frontend init \
+  -backend-config="bucket=$JUDGE_STATE_BUCKET" \
+  -backend-config="key=judge/dev/frontend.tfstate" \
+  -backend-config="region=ap-northeast-1"
+export TF_VAR_api_endpoint="$(terraform -chdir=infra/api output -raw api_endpoint)"
+terraform -chdir=infra/frontend plan -out=deploy.tfplan
+terraform -chdir=infra/frontend apply deploy.tfplan
+terraform -chdir=infra/frontend output -raw site_url
+node web/scripts/smoke-frontend.mjs "$(terraform -chdir=infra/frontend output -raw site_url)"
+```
+
+`site_url`がブラウザーで開くHTTPS URLになる。
+Nuxt LambdaはNode.js 22、ARM64、512 MiBで動作し、HTML、JavaScript、CSS、KaTeXフォントを配信する。
+問題ページはAPIのデータを使ってSSRし、canonical URLも公開先に合わせる。
+API接続先は入力変数で渡し、フロントエンドからAPIのstateを読み取らない。
+編集画面の下書きは引き続きブラウザー内に保存される。
+
+常時稼働するサーバーは設けず、API Gateway、Lambda、S3、ログなどの利用量に応じて課金される。
+静的ファイルの取得もGatewayとLambdaのリクエストとして数える。
+ログは14日、パッケージの非現行バージョンは30日保持する。
+利用量未指定の費用表示は実運用の見積もりにならない。
+
 ## Cognitoによるログイン
 
 `api/auth.tf`がメールアドレスでサインインするUser Poolと、API専用のアプリクライアントを作成する。
@@ -157,7 +190,8 @@ APIルートの共通タグには`Service=judge`を追加し、`Environment`は`
 
 ## CI/CD
 
-`.github/workflows/ci.yml`はGoのテスト、静的解析、Lambdaのビルド、Terraformの整形確認、`validate`、モックProviderによる`terraform test`を実行する。
+`.github/workflows/ci.yml`はGoのテスト・静的解析、フロントエンドの型チェック・ブラウザーテスト、各Lambdaのビルド、Terraformの整形確認・`validate`・モックテストを実行する。
+フロントエンドのLambdaテストは、ZIPをリポジトリ外へ展開してSSR・API接続・静的ファイル・404を確認する。
 Terraformのテストは実際のAWSリソースを作成しない。
 ローカルでも同じ検証を実行できる。
 
@@ -171,16 +205,17 @@ for root in bootstrap api; do
 done
 ```
 
-`.github/workflows/deploy-dev.yml`は`main`へのAPIまたはinfraの変更と手動実行を契機に、同じ検証を通してAPIをplan、applyし、ヘルスチェックする。
-bootstrapのapplyは手動で行う。
+`.github/workflows/deploy-dev.yml`は`main`へのAPI・web・infraの変更と手動実行を契機に、検証後にAPI、フロントエンドの順でplan、applyする。
+APIのヘルスチェックと公開フロントエンドのSSR・静的ファイル確認を行い、ActionsのSummaryにURLを出力する。
+bootstrapとdeploy-accessのapplyは管理者が手動で行う。
 同時デプロイは一つに制限し、実行中のデプロイを後続のpushで中止しない。
 
 GitHub ActionsはOIDCでAWSのデプロイロールを引き受ける。
 初回にOIDCプロバイダー（`https://token.actions.githubusercontent.com`、Audienceは`sts.amazonaws.com`）とIAMロールを作成する。
 Trust policyの`sub`条件を対象リポジトリのEnvironment `dev`に限定する。
 詳細は[GitHubのAWS向けOIDC設定手順](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)を参照する。
-ロールにはAPIのS3、Lambda、API Gateway、Cognito User Poolとアプリクライアント、IAM、CloudWatch Logsの管理権限と、APIの実行ロールに限定した`iam:PassRole`、前述のstateとロックへの権限が必要になる。
-Cognitoの作成、参照、更新、削除、タグ管理の権限が既存ロールにない場合は、デプロイ前に追加する。
+ロールにはAPIとフロントエンドの更新に必要な操作権限と、実行ロールに限定した`iam:PassRole`、前述のstateとロックへの権限を設定する。
+具体的な範囲は後述の`deploy-access/`で管理する。
 Lambdaの実行ロールにはCognitoの管理権限を追加しない。
 
 GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
@@ -193,7 +228,43 @@ GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
 
 ローカルとCIは同じアカウント、東京リージョンのstateバケット、`judge/dev/api.tfstate`を使う。
 初回の自動デプロイ前にbootstrapとVariablesの設定を済ませる。
-ブランチ保護の必須チェックには`CI / Test and package API`を指定する。
+ブランチ保護の必須チェックには`CI / Test and package API`と`CI / Test SSR frontend`を指定する。
+
+## GitHubデプロイロール
+
+`judge-dev-github-deploy`には`deploy-access/`で専用のインラインポリシーを設定する。
+この構成はコンソールで作成済みの同名ロールをimportし、再作成せず更新する。
+OIDCプロバイダーは事前に作成する。
+
+GitHubのsubjectには所有者ID・リポジトリIDを含む場合があるため、名前だけで組み立てない。
+次のAPIで`sub_claim_prefix`を確認し、その末尾に`:environment:dev`を付けた値を`github_subject`へ設定する。
+
+```console
+gh api repos/OWNER/REPO/actions/oidc/customization/sub
+cp infra/deploy-access/terraform.tfvars.example infra/deploy-access/terraform.tfvars
+```
+
+例の各値を実環境に合わせて入力し、管理者のAWSプロファイルで実行する。
+`gateway_ids`にはAPIとフロントエンド双方のHTTP API IDを指定する。
+
+```console
+terraform -chdir=infra/deploy-access init \
+  -backend-config="bucket=$JUDGE_STATE_BUCKET" \
+  -backend-config="key=judge/dev/deploy-access.tfstate" \
+  -backend-config="region=ap-northeast-1"
+terraform -chdir=infra/deploy-access plan -out=access.tfplan
+terraform -chdir=infra/deploy-access apply access.tfplan
+```
+
+信頼関係はGitHubのAudienceとdev環境のsubjectに一致する場合だけを許可する。
+操作権限はアプリのstate・ロック、dev用パッケージバケット、Lambda、ログ、指定済みのGateway・Cognitoに限定する。
+IAM操作と`PassRole`の対象はAPI・フロントエンドの実行ロールだけにする。
+GitHubデプロイロール自身とそのstateの更新権限は付けない。
+GatewayやUser Poolの新設・置換は管理者が実施し、IDをこの構成へ反映してからCIを再開する。
+
+`Could not assume role with OIDC`は操作権限に到達する前の認証エラーなので、信頼関係を確認する。
+認証後の`AccessDenied`は、失敗した操作と対象ARNに対応する許可ポリシーを確認する。
+GitHub Environment `dev`のデプロイ対象ブランチも運用に合わせて制限する。
 
 ## dev環境の管理
 
