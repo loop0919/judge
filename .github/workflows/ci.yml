@@ -66,7 +66,11 @@ jobs:
           terraform validate
           terraform test
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          # Playwright downloads its own Chromium. The runner's unrelated Chrome
+          # APT feed can have inconsistent indexes while Google publishes updates.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          npx playwright install --with-deps chromium
       - name: Test SSR and browser rendering
         run: npm test
       - name: Test account persistence and publication with PostgreSQL
