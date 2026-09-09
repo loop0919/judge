@@ -126,8 +126,9 @@ async function saveDraft(manual = false, updateLocation = true): Promise<boolean
       saved = snapshot
       allowAutosave = true
       storageError.value = ''
-      status.value = fingerprint() === saved ? '保存済み' : '未保存の変更があります'
+      // Reload must reopen this draft before we announce that saving is complete.
       if (updateLocation && route.query.problem !== id) await router.replace({ path: '/problems/new', query: { problem: id } })
+      status.value = fingerprint() === saved ? '保存済み' : '未保存の変更があります'
       return true
     } catch (error) {
       allowAutosave = false

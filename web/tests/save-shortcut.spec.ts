@@ -13,7 +13,11 @@ for (const modifier of ['Control', 'Meta']) {
         if (event.key.toLowerCase() === 's') document.body.dataset.savePrevented = String(event.defaultPrevented)
       })
     })
+    const savedResponse = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().includes('/api/my/problems/'))
     await page.keyboard.press(`${modifier}+s`)
+    // The write must finish while autosave timers are frozen. Navigation needs the clock.
+    expect((await savedResponse).ok()).toBe(true)
+    await page.clock.resume()
     await expect(page.getByRole('status')).toHaveText('保存済み')
     await expect(page.locator('body')).toHaveAttribute('data-save-prevented', 'true')
     const stored = await page.evaluate(prefix => {
@@ -21,7 +25,6 @@ for (const modifier of ['Control', 'Meta']) {
       return JSON.parse(sessionStorage.getItem(key)!).draft
     }, 'openoj.problem-cache.v1.')
     expect(stored.markdown).toBe('## ショートカットで保存')
-    await page.clock.resume()
     await expect(page).toHaveURL(/problem=/)
     await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
     await expect(page).toHaveURL('/')

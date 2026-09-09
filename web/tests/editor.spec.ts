@@ -17,6 +17,19 @@ test('editing, math preview, automatic save, and reload work together', async ({
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (/hydration/i.test(message.text())) errors.push(message.text()) })
   await page.goto('/problems/new')
+  await expect(page.getByLabel('問題のタイトル', { exact: true })).toBeEnabled()
+  // Hold the first draft URL update to reproduce a reload during navigation.
+  await page.evaluate(() => {
+    const app = (document.querySelector('#__nuxt') as any).__vue_app__
+    app.config.globalProperties.$router.beforeEach(async (to: any) => {
+      if (to.query.problem) {
+        document.documentElement.dataset.draftNavigation = 'pending'
+        await new Promise<void>(resolve => {
+          ;(window as any).finishDraftNavigation = resolve
+        })
+      }
+    })
+  })
   await page.getByLabel('問題のタイトル', { exact: true }).fill('数列の和')
   await page.locator('#time-limit').fill('3000')
   await page.locator('#memory-limit').fill('512')
@@ -25,7 +38,11 @@ test('editing, math preview, automatic save, and reload work together', async ({
   await expect(page.getByRole('region', { name: '問題のプレビュー' }).getByRole('heading', { name: '好きな構成' })).toBeVisible()
   await expect(page.locator('.preview-pane .input-format .katex')).toHaveCount(2)
   await expect(page.locator('.preview-pane .katex-display')).toHaveCount(1)
+  await expect(page.locator('html')).toHaveAttribute('data-draft-navigation', 'pending')
+  await expect(page.getByRole('status')).toHaveText('保存しています…')
+  await page.evaluate(() => (window as any).finishDraftNavigation())
   await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page).toHaveURL(/\/problems\/new\?problem=[^&]+$/)
   await page.reload()
   await expect(page.locator('#problem-title')).toHaveValue('数列の和')
   await expect(page.locator('#problem-source')).toHaveValue(body)
