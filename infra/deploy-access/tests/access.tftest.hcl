@@ -17,6 +17,14 @@ variables {
 run "deployment_boundary" {
   command = plan
   assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      statement.Resource == "arn:aws:ec2:ap-northeast-1:123456789012:vpc/*" &&
+      toset(statement.Action) == toset(["ec2:CreateSubnet", "ec2:CreateSecurityGroup", "ec2:CreateEgressOnlyInternetGateway", "ec2:CreateRouteTable"]) &&
+      tomap(statement.Condition.StringEquals) == tomap({ "ec2:ResourceTag/Project" = "judge", "ec2:ResourceTag/Environment" = "Dev" })
+    ) if statement.Sid == "CreateWithinApplicationVpc"])
+    error_message = "Creation must authorize the parent VPC by existing resource tags, separately from new resource request tags."
+  }
+  assert {
     condition     = length(aws_iam_role_policy.deploy.policy) <= 10240
     error_message = "Deployment permissions must fit the IAM role inline policy size limit."
   }

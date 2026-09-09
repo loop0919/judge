@@ -131,6 +131,14 @@ resource "aws_iam_role_policy" "deploy" {
         Condition = { StringEquals = { "aws:RequestTag/Project" = var.project_name, "aws:RequestTag/Environment" = title(var.environment) } }
       },
       {
+        # EC2 separately authorizes the existing VPC, where RequestTag is absent.
+        Sid       = "CreateWithinApplicationVpc"
+        Effect    = "Allow"
+        Action    = ["ec2:CreateSubnet", "ec2:CreateSecurityGroup", "ec2:CreateEgressOnlyInternetGateway", "ec2:CreateRouteTable"]
+        Resource  = "${local.arn}:ec2:${var.aws_region}:${local.account}:vpc/*"
+        Condition = { StringEquals = { "ec2:ResourceTag/Project" = var.project_name, "ec2:ResourceTag/Environment" = title(var.environment) } }
+      },
+      {
         Sid       = "TagNewNetwork"
         Effect    = "Allow"
         Action    = ["ec2:CreateTags"]

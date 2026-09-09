@@ -30,6 +30,14 @@ mock_provider "aws" {
 
 run "api_contract" {
   command = apply
+  variables {
+    google_client_id     = ""
+    google_client_secret = ""
+  }
+  assert {
+    condition     = !aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client && aws_cognito_user_pool_client.api.default_redirect_uri == "https://disabled.invalid/auth/google/callback" && contains(aws_cognito_user_pool_client.api.callback_urls, aws_cognito_user_pool_client.api.default_redirect_uri)
+    error_message = "Email-only configuration must disable OAuth and replace imported redirects with a consistent inert URL."
+  }
 
   assert {
     condition = (
@@ -129,6 +137,7 @@ run "google_contract" {
   }
   assert {
     condition = (
+      aws_cognito_user_pool_client.api.default_redirect_uri == "https://judge.example/auth/google/callback" &&
       aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client &&
       aws_cognito_user_pool_client.api.allowed_oauth_flows == toset(["code"]) &&
       aws_cognito_user_pool_client.api.callback_urls == toset(["https://judge.example/auth/google/callback"]) &&

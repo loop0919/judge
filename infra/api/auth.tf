@@ -1,3 +1,9 @@
+locals {
+  # The provider cannot clear an imported default redirect (null preserves it;
+  # empty strings are rejected). OAuth-off uses a non-resolving reserved domain.
+  cognito_callback_url = var.google_client_id != "" ? "${var.public_site_url}/auth/google/callback" : "https://disabled.invalid/auth/google/callback"
+}
+
 resource "aws_cognito_user_pool" "users" {
   name                     = "${local.name}-users"
   user_pool_tier           = "LITE"
@@ -57,8 +63,10 @@ resource "aws_cognito_user_pool_client" "api" {
   allowed_oauth_flows_user_pool_client = var.google_client_id != ""
   allowed_oauth_flows                  = var.google_client_id != "" ? ["code"] : []
   allowed_oauth_scopes                 = var.google_client_id != "" ? ["openid", "email"] : []
-  callback_urls                        = var.google_client_id != "" ? ["${var.public_site_url}/auth/google/callback"] : []
-  depends_on                           = [aws_cognito_identity_provider.google]
+  callback_urls                        = [local.cognito_callback_url]
+  # Keep the default and allowlist consistent when adopting existing clients.
+  default_redirect_uri = local.cognito_callback_url
+  depends_on           = [aws_cognito_identity_provider.google]
 
   token_validity_units {
     access_token  = "minutes"
