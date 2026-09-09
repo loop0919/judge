@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { draftPrefix } from '../app/utils/draft-library'
+import { expect, test } from './fixtures/account'
 
 for (const modifier of ['Control', 'Meta']) {
   test(`${modifier}+S saves immediately and prevents browser save`, async ({ page }) => {
@@ -15,15 +14,15 @@ for (const modifier of ['Control', 'Meta']) {
       })
     })
     await page.keyboard.press(`${modifier}+s`)
-    await expect(page.getByRole('status')).toHaveText('このブラウザーに保存済み')
+    await expect(page.getByRole('status')).toHaveText('保存済み')
     await expect(page.locator('body')).toHaveAttribute('data-save-prevented', 'true')
     const stored = await page.evaluate(prefix => {
-      const key = Object.keys(localStorage).find(key => key.startsWith(prefix))!
-      return JSON.parse(localStorage.getItem(key)!).draft
-    }, draftPrefix)
+      const key = Object.keys(sessionStorage).find(key => key.startsWith(prefix))!
+      return JSON.parse(sessionStorage.getItem(key)!).draft
+    }, 'openoj.problem-cache.v1.')
     expect(stored.markdown).toBe('## ショートカットで保存')
     await page.clock.resume()
-    await expect(page).toHaveURL(/draft=/)
+    await expect(page).toHaveURL(/problem=/)
     await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
     await expect(page).toHaveURL('/')
     const prevented = await page.evaluate(() => {

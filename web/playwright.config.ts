@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: '**/account/**',
   fullyParallel: true,
   workers: 2,
   forbidOnly: Boolean(process.env.CI),

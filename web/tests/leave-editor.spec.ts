@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/account'
 
 test('unsaved navigation can be cancelled or discarded without writing a draft', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 700 })
@@ -17,11 +17,11 @@ test('unsaved navigation can be cancelled or discarded without writing a draft',
   await page.getByRole('button', { name: '保存せずに移動', exact: true }).click()
   await expect(page).toHaveURL('/')
   await page.goto('/my/problems')
-  await expect(page.getByText('まだ問題がありません')).toBeVisible()
+  await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
 })
 
 test('failed save keeps the confirmation open', async ({ page }) => {
-  await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new Error('Full') } })
+  await page.route('**/api/my/problems/*', route => route.abort())
   await page.goto('/problems/new?fresh=1')
   await page.locator('#problem-title').fill('保存に失敗')
   await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()

@@ -7,3 +7,5 @@ node_modules/
 !.env.example
 test-results/
 playwright-report/
+
+/test-results-account/

@@ -1,12 +1,21 @@
 <script setup lang="ts">
+import { accountProblemSchema, accountError } from '~/utils/account-problems'
 import { draftErrors, initialProblemMarkdown } from '~/utils/problem-draft'
 
-import { activeDraftKey, deleteDraft, migrateLegacyDraft, readDraft, writeDraft } from '~/utils/draft-library'
+import { readProblemCache, writeProblemCache, removeProblemCache } from '~/utils/problem-cache'
 
 definePageMeta({ editorLayout: true })
 const route = useRoute()
 const router = useRouter()
-const draftId = ref('')
+const { user, refreshAccount } = useAccount()
+const cloudId = ref('')
+const cloudVersion = ref(0)
+const saving = ref(false)
+let cloudOwner = ''
+let disposed = false
+let inFlight: Promise<boolean> | undefined
+const saveLocation = '非公開'
+function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | OpenOJ', robots: 'noindex, nofollow' })
 const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '1024' })
 const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
@@ -48,7 +57,7 @@ function resizeWithKeyboard(event: KeyboardEvent) {
   event.preventDefault()
   setSplit(value)
 }
-const status = ref('下書きを読み込んでいます…')
+const status = ref('問題を読み込んでいます…')
 const storageError = ref('')
 const leaveDialog = ref<HTMLDialogElement>()
 const leaveError = ref('')
@@ -79,25 +88,52 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined
 let previewTimer: ReturnType<typeof setTimeout> | undefined
 const fingerprint = () => JSON.stringify(draft)
 
-function saveDraft(manual = false, updateLocation = true) {
+async function saveDraft(manual = false, updateLocation = true): Promise<boolean> {
   if (deleted || confirmingDelete.value || !ready.value || (!manual && !allowAutosave)) return false
   clearTimeout(saveTimer)
-  try {
-    const id = draftId.value || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const n = crypto.getRandomValues(new Uint8Array(1))[0]! & 15; return (c === 'x' ? n : (n & 3) | 8).toString(16) })
-    writeDraft(localStorage, id, draft)
-    draftId.value = id
-    try { localStorage.setItem(activeDraftKey, id) } catch { /* The draft itself is already saved. */ }
-    saved = fingerprint()
-    allowAutosave = true
-    storageError.value = ''
-    status.value = 'このブラウザーに保存済み'
-    if (updateLocation && route.query.draft !== id) void router.replace({ path: '/problems/new', query: { draft: id } })
-    return true
-  } catch {
-    status.value = '未保存'
-    storageError.value = '下書きを保存できませんでした。入力内容をコピーして手元に残し、ブラウザーの保存容量や設定を確認してください。'
-    return false
+  if (inFlight) {
+    if (!await inFlight) return false
+    if (fingerprint() === saved) return true
+    return saveDraft(manual, updateLocation)
   }
+  const snapshot = fingerprint()
+  const version = cloudVersion.value
+  cloudId.value ||= crypto.randomUUID()
+  const id = cloudId.value
+  saving.value = true
+  status.value = '保存しています…'
+  inFlight = (async () => {
+    try {
+      const account = await refreshAccount()
+      if (!account || account.id !== cloudOwner) throw { statusCode: 401 }
+      let result
+      try {
+        result = accountProblemSchema.parse(await $fetch(`/api/my/problems/${id}`, { method: 'PUT', body: { version, draft: JSON.parse(snapshot) } }))
+      } catch (error) {
+        // A response can be lost after a successful commit. Recognize that exact write.
+        const current = await $fetch(`/api/my/problems/${id}`).catch(() => null)
+        const parsed = accountProblemSchema.safeParse(current)
+        if (!parsed.success || parsed.data.version !== version + 1 || JSON.stringify(parsed.data.draft) !== snapshot) throw error
+        result = parsed.data
+      }
+      if (result.id !== id) throw new Error('Mismatched problem')
+      writeProblemCache(cloudOwner, result)
+      cloudVersion.value = result.version
+      saved = snapshot
+      allowAutosave = true
+      storageError.value = ''
+      status.value = fingerprint() === saved ? '保存済み' : '未保存の変更があります'
+      if (updateLocation && route.query.problem !== id) await router.replace({ path: '/problems/new', query: { problem: id } })
+      return true
+    } catch (error) {
+      allowAutosave = false
+      status.value = '保存に失敗しました'
+      storageError.value = accountError(error)
+      return false
+    } finally { saving.value = false }
+  })()
+  try { return await inFlight }
+  finally { inFlight = undefined }
 }
 
 function saveWithShortcut(event: KeyboardEvent) {
@@ -114,31 +150,40 @@ function flushBeforeLeave(event: BeforeUnloadEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  window.addEventListener('focus', refreshOnFocus)
   if (window.matchMedia('(max-width: 59.999rem)').matches) mode.value = 'edit'
-  try {
-    const requestedId = typeof route.query.draft === 'string' ? route.query.draft : ''
-    if (!requestedId && !route.query.fresh) migrateLegacyDraft(localStorage)
-    const id = requestedId || (route.query.fresh ? '' : localStorage.getItem(activeDraftKey) || (readDraft(localStorage, 'legacy') ? 'legacy' : ''))
-    const entry = id ? readDraft(localStorage, id) : null
-    if (requestedId && !entry) throw new Error('Missing draft')
-    if (entry) {
+  try { await refreshAccount() } catch { user.value = null }
+  if (disposed) return
+  if (!user.value) {
+    await navigateTo({ path: '/login', query: { next: route.fullPath } }, { replace: true })
+    return
+  }
+  cloudOwner = user.value.id
+  if (typeof route.query.problem === 'string') {
+    cloudId.value = route.query.problem
+    try {
+      if (!user.value) throw { statusCode: 401 }
+      cloudOwner = user.value.id
+      const cached = readProblemCache(cloudOwner, cloudId.value)
+      if (cached) { Object.assign(draft, cached.draft); renderedSource.value = draft.markdown }
+      const entry = accountProblemSchema.parse(await $fetch(`/api/my/problems/${encodeURIComponent(cloudId.value)}`))
+      if (disposed) return
+      if (entry.id !== cloudId.value) throw new Error('Mismatched problem')
+      writeProblemCache(cloudOwner, entry)
       Object.assign(draft, entry.draft)
-      const restoredErrors = draftErrors(draft)
-      draft.timeLimitMs = restoredErrors.timeLimitMs ? '2000' : String(Number(draft.timeLimitMs))
-      draft.memoryLimitMb = restoredErrors.memoryLimitMb ? '1024' : String(Number(draft.memoryLimitMb))
-      draftId.value = entry.id
-      try { localStorage.setItem(activeDraftKey, entry.id) } catch { /* Opening remains possible without updating the recent draft. */ }
-      status.value = restoredErrors.timeLimitMs || restoredErrors.memoryLimitMb
-        ? '下書きを復元しました。無効な制限値を標準値（2,000 ms / 1,024 MiB）に戻しました'
-        : 'このブラウザーの下書きを復元しました'
-    } else {
-      status.value = 'サンプルから書き始められます'
+      cloudVersion.value = entry.version
+      status.value = '保存済み'
+    } catch (error) {
+      removeProblemCache(cloudOwner, cloudId.value)
+      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '1024' })
+      renderedSource.value = draft.markdown
+      status.value = '問題を読み込めませんでした'
+      storageError.value = accountError(error)
+      return
     }
-  } catch {
-    allowAutosave = false
-    status.value = '下書きの読み込みに失敗しました'
-    storageError.value = '指定した下書きが見つからないか、保存済みデータを読み込めません。元のデータは保持しています。保存すると別の下書きとして追加します。'
+  } else {
+    status.value = 'サンプルから書き始められます'
   }
   saved = fingerprint()
   renderedSource.value = draft.markdown
@@ -161,6 +206,7 @@ watch(draft, () => {
 })
 
 onBeforeRouteLeave(() => {
+  if (saving.value) return false
   if (!ready.value || fingerprint() === saved) return true
   if (resolveLeave) return false
   clearTimeout(saveTimer)
@@ -170,8 +216,8 @@ onBeforeRouteLeave(() => {
     leaveDialog.value?.showModal()
   })
 })
-function finishLeave(choice: 'stay' | 'discard' | 'save') {
-  if (choice === 'save' && !saveDraft(true, false)) {
+async function finishLeave(choice: 'stay' | 'discard' | 'save') {
+  if (choice === 'save' && !await saveDraft(true, false)) {
     leaveError.value = '保存できませんでした。編集を続けるか、保存せずに移動してください。'
     return
   }
@@ -182,6 +228,8 @@ function finishLeave(choice: 'stay' | 'discard' | 'save') {
   if (choice === 'stay' && fingerprint() !== saved) saveTimer = setTimeout(() => saveDraft(), 600)
 }
 onBeforeUnmount(() => {
+  disposed = true
+  window.removeEventListener('focus', refreshOnFocus)
   resolveLeave?.(false)
   resolveLeave = undefined
   sourceObserver?.disconnect()
@@ -196,6 +244,7 @@ function openManagement() {
 }
 function openDeleteConfirmation() {
   clearTimeout(saveTimer)
+  if (saving.value) return
   confirmingDelete.value = true
   deleteError.value = ''
   manageDialog.value?.showModal()
@@ -208,13 +257,16 @@ function closeDeleteConfirmation() {
 async function removeProblem() {
   clearTimeout(saveTimer)
   try {
-    if (draftId.value) deleteDraft(localStorage, draftId.value)
+    if (cloudId.value && cloudVersion.value > 0) {
+      await $fetch(`/api/my/problems/${cloudId.value}`, { method: 'DELETE', query: { version: cloudVersion.value } })
+    }
+    removeProblemCache(cloudOwner, cloudId.value)
     deleted = true
     saved = fingerprint()
     manageDialog.value?.close()
     await router.replace('/my/problems')
-  } catch {
-    deleteError.value = '削除できませんでした。ブラウザーの保存設定を確認して、もう一度お試しください。'
+  } catch (error) {
+    deleteError.value = accountError(error)
   }
 }
 
@@ -252,7 +304,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     <dialog ref="manageDialog" class="leave-dialog" aria-labelledby="manage-title" @cancel.prevent="closeDeleteConfirmation">
       <h2 id="manage-title">この問題を削除しますか？</h2>
       <p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p>
-      <p>このブラウザーに保存した下書きと、未保存の変更を削除します。この操作は取り消せません。</p>
+      <p>問題と、未保存の変更を削除します。この操作は取り消せません。</p>
       <p v-if="deleteError" role="alert" class="field-error">{{ deleteError }}</p>
       <div class="leave-dialog-actions">
         <button type="button" class="editor-button" autofocus @click="closeDeleteConfirmation">キャンセル</button>
@@ -268,7 +320,11 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </div>
       <div class="author-actions">
         <div class="editor-save-actions">
-        <button type="button" class="editor-button primary" :disabled="!ready" title="下書きを保存（Ctrl+S / ⌘S）" aria-keyshortcuts="Control+s Meta+s" @click="saveDraft(true)">下書きを保存</button>
+        <button type="button" class="editor-button primary save-button" :disabled="!ready || saving" :aria-busy="saving" :aria-label="saving ? '保存中' : '保存'" title="保存（Ctrl+S / ⌘S）" aria-keyshortcuts="Control+s Meta+s" @click="saveDraft(true)">
+          <span :class="{ 'save-label-hidden': saving }">保存</span>
+          <span v-if="saving" class="save-spinner" aria-hidden="true" />
+        </button>
+        <NuxtLink v-if="!user" class="editor-button" to="/login" target="_blank" rel="noopener">ログイン</NuxtLink>
         </div>
       </div>
     </header>
@@ -288,7 +344,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       <div class="editor-main">
     <div class="editor-notices">
       <p v-if="storageError" class="editor-error" role="alert">{{ storageError }}</p>
-      <noscript><p class="editor-error">編集と下書き保存には JavaScript を有効にしてください。</p></noscript>
+      <noscript><p class="editor-error">編集と保存には JavaScript を有効にしてください。</p></noscript>
     </div>
     <div v-show="!managing" class="author-edit-content">
     <div class="author-fields">
@@ -336,15 +392,35 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     </div>
     <section v-if="managing" class="problem-management" aria-labelledby="management-title">
       <div class="management-content">
-        <header><h1 id="management-title">問題管理</h1><p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p><p class="muted">下書き・このブラウザーに保存</p></header>
+        <header><h1 id="management-title">問題管理</h1><p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p><p class="muted">{{ saveLocation }}</p></header>
         <section class="management-row"><div><h2>テスターリンク</h2><p>公開前の問題をテスターに共有します。</p></div><button type="button" class="editor-button" disabled>リンクを発行（準備中）</button></section>
         <section class="management-row"><div><h2>リジャッジ</h2><p>テストケースや採点設定の変更後に、提出を再採点します。</p></div><button type="button" class="editor-button" disabled>リジャッジ（準備中）</button></section>
         <section class="management-row"><div><h2>テストケースの一括削除</h2><p>この問題に登録したテストケースをまとめて削除します。</p></div><button type="button" class="editor-button" disabled>一括削除（準備中）</button></section>
-        <section class="management-row"><div><h2>問題の削除</h2><p>このブラウザーの下書きを削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" @click="openDeleteConfirmation">問題を削除</button></section>
+        <section class="management-row"><div><h2>問題の削除</h2><p>問題を削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" @click="openDeleteConfirmation">問題を削除</button></section>
       </div>
     </section>
       </div>
     </div>
-    <div class="draft-status"><span role="status">{{ status }}</span><span>このブラウザーの下書き・非公開</span></div>
+    <div class="draft-status"><span role="status">{{ status }}</span><span>{{ saveLocation }}</span></div>
   </div>
 </template>
+
+<style scoped>
+.save-button { position: relative; }
+.save-label-hidden { visibility: hidden; }
+.save-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: save-spin .7s linear infinite;
+}
+@keyframes save-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner { animation: none; }
+}
+</style>

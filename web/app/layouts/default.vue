@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
+const { user, refreshAccount, logout } = useAccount()
+onMounted(() => { void refreshAccount().catch(() => {}) })
 </script>
 
 <template>
@@ -9,9 +11,11 @@ const route = useRoute()
       <NuxtLink class="wordmark" to="/" aria-label="OpenOJ ホーム">Open<span>OJ</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
         <NuxtLink to="/">公開問題</NuxtLink>
-        <NuxtLink to="/problems/new?fresh=1">問題を作成</NuxtLink>
-        <NuxtLink to="/my/problems">自分の問題</NuxtLink>
+        <NuxtLink v-if="user" to="/problems/new?fresh=1">問題を作成</NuxtLink>
+        <NuxtLink v-if="user" to="/my/problems">自分の問題</NuxtLink>
         <NuxtLink to="/blog">Blog</NuxtLink>
+        <button v-if="user" class="editor-button" @click="logout">ログアウト</button>
+        <NuxtLink v-else to="/login">ログイン</NuxtLink>
       </nav>
     </header>
     <main id="main" tabindex="-1"><slot /></main>

@@ -11,6 +11,9 @@ export default defineNuxtConfig({
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css', '~/assets/css/editor.css', '~/assets/css/blog.css'],
   runtimeConfig: {
     apiBaseUrl: 'http://127.0.0.1:8080',
+    cognitoDomain: '',
+    cognitoClientId: '',
+    cognitoClientSecret: '',
     public: { siteUrl: 'http://localhost:3000' },
   },
   app: {

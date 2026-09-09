@@ -11,8 +11,11 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
+
+	"judge/api/internal/problems"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -41,7 +44,7 @@ func NewConfiguredHandler(getenv func(string) string) (http.Handler, error) {
 		if secret != "" {
 			return nil, fmt.Errorf("COGNITO_CLIENT_ID is required with COGNITO_CLIENT_SECRET")
 		}
-		return NewHandler(), nil
+		return configuredStorage(getenv, AuthConfig{}, "")
 	}
 	region := getenv("AWS_REGION")
 	if region == "" {
@@ -55,7 +58,43 @@ func NewConfiguredHandler(getenv func(string) string) (http.Handler, error) {
 		HTTPClient:       &http.Client{Timeout: 5 * time.Second},
 		RetryMaxAttempts: 1,
 	})
-	return NewHandler(AuthConfig{Client: client, ClientID: id, ClientSecret: secret}), nil
+	return configuredStorage(getenv, AuthConfig{Client: client, ClientID: id, ClientSecret: secret}, region)
+}
+
+type configuredHandler struct {
+	http.Handler
+	store *problems.Store
+}
+
+func (h *configuredHandler) Close() error {
+	if h.store != nil {
+		h.store.Close()
+	}
+	return nil
+}
+
+func configuredStorage(getenv func(string) string, auth AuthConfig, region string) (http.Handler, error) {
+	private := PrivateProblems{}
+	poolID := getenv("COGNITO_USER_POOL_ID")
+	if auth.ClientID != "" && poolID != "" {
+		if !regexp.MustCompile(`^[a-z0-9-]+_[A-Za-z0-9]+$`).MatchString(poolID) || !strings.HasPrefix(poolID, region+"_") {
+			return nil, errors.New("invalid COGNITO_USER_POOL_ID")
+		}
+		private.Verifier = newCognitoVerifier("https://cognito-idp."+region+".amazonaws.com/"+poolID, auth.ClientID)
+	}
+	var store *problems.Store
+	if url := getenv("DATABASE_URL"); url != "" {
+		if auth.ClientID != "" && private.Verifier == nil {
+			return nil, errors.New("COGNITO_USER_POOL_ID is required with DATABASE_URL and COGNITO_CLIENT_ID")
+		}
+		var err error
+		store, err = problems.Open(context.Background(), url)
+		if err != nil {
+			return nil, err
+		}
+		private.Store = store
+	}
+	return &configuredHandler{Handler: newHandler(auth, private), store: store}, nil
 }
 
 type loginRequest struct {

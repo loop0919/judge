@@ -10,9 +10,12 @@ resource "aws_cognito_user_pool" "users" {
     case_sensitive = false
   }
 
-  # Registration and MFA enrollment screens are not implemented yet.
   admin_create_user_config {
-    allow_admin_create_user_only = true
+    allow_admin_create_user_only = false
+  }
+
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
   }
 
   password_policy {

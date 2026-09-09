@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -43,6 +44,9 @@ func run(parent context.Context, logger *slog.Logger, lookupEnv func(string) (st
 		return err
 	}
 
+	if closer, ok := handler.(io.Closer); ok {
+		defer func() { _ = closer.Close() }()
+	}
 	server := &http.Server{
 		Addr:              address,
 		Handler:           handler,

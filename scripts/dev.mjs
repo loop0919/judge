@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
+import { startDatabase, localDatabaseURL } from './db.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 process.chdir(root)
@@ -89,6 +90,12 @@ try {
   if (apiPort === webPort) throw new Error('API_PORT and WEB_PORT must differ')
   await checkPort(apiPort)
   await checkPort(webPort)
+
+  if (!process.env.DATABASE_URL) {
+    startDatabase()
+    process.env.DATABASE_URL = localDatabaseURL
+    await run('go', ['run', './cmd/migrate'], `${root}api`)
+  }
 
   const fingerprint = createHash('sha256')
     .update(readFileSync('web/package.json'))

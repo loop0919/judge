@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/account'
 
 test('split panes resize by pointer and keyboard without changing content', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })

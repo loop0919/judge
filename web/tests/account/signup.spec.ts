@@ -1,0 +1,60 @@
+import { expect, test } from '@playwright/test'
+
+test('registers, resumes confirmation, resends code and logs in to save a problem', async ({ page }) => {
+  const email = `signup-${Date.now()}@example.test`
+  await page.setViewportSize({ width: 320, height: 740 })
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'アカウントを作成', exact: true }).click()
+  await page.getByLabel('メールアドレス', { exact: true }).fill(email)
+  await page.getByLabel('パスワード', { exact: true }).fill('ValidPassword123!')
+  await page.getByLabel('パスワード（確認）').fill('DifferentPassword123!')
+  await page.getByRole('button', { name: '確認コードを送信', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('一致しません')
+  await page.getByLabel('パスワード（確認）').fill('ValidPassword123!')
+  const response = page.waitForResponse('/api/auth/signup')
+  await page.getByRole('button', { name: '確認コードを送信', exact: true }).click()
+  expect(await (await response).json()).toEqual({ confirmed: false })
+  await expect(page.getByRole('heading', { name: 'メールアドレスを確認' })).toBeVisible()
+  expect((await page.context().cookies()).some(c => c.name === 'openoj_access')).toBe(false)
+  expect((await page.request.post('/api/auth/login', { headers: { origin: 'http://127.0.0.1:13002' }, data: { username: email, password: 'ValidPassword123!' } })).status()).toBe(401)
+  await page.getByLabel('確認コード', { exact: true }).fill('000000')
+  await page.getByRole('button', { name: 'メールアドレスを確認', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('確認コードを確認')
+  // Resume without putting the email, password or code in URL/storage.
+  await page.reload()
+  await page.getByRole('button', { name: '確認コードをお持ちの方' }).click()
+  await page.getByLabel('メールアドレス', { exact: true }).fill(email)
+  await page.getByRole('button', { name: '確認コードを再送', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('新しいコード')
+  await expect(page.getByRole('button', { name: /再送まで/ })).toBeDisabled()
+  await page.getByLabel('確認コード', { exact: true }).fill('123456')
+  await page.getByRole('button', { name: 'メールアドレスを確認', exact: true }).click()
+  await expect(page.getByRole('heading')).toHaveText('メールアドレスの確認が完了しました')
+  expect(await page.evaluate(() => JSON.stringify(localStorage)+JSON.stringify(sessionStorage))).not.toContain('ValidPassword')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('link', { name: 'ログインへ進む' }).click()
+  await page.getByLabel('メールアドレス').fill(email)
+  await page.getByLabel('パスワード', { exact: true }).fill('ValidPassword123!')
+  await page.getByRole('button', { name: 'ログイン', exact: true }).click()
+  await expect(page).toHaveURL('/my/problems')
+  await page.getByRole('link', { name: '新しい問題を作成' }).click()
+  await page.locator('#problem-title').fill('新規ユーザーの問題')
+  await expect(page.getByRole('status')).toHaveText('保存済み')
+  await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
+  await page.getByRole('link', { name: '自分の問題', exact: true }).click()
+  await expect(page.getByRole('link', { name: /新規ユーザーの問題/ })).toBeVisible()
+})
+
+test('registration endpoints reject cross-origin requests and do not reveal duplicate emails', async ({ request }) => {
+  const email = `duplicate-${Date.now()}@example.test`
+  const options = { headers: { origin: 'http://127.0.0.1:13002' }, data: { email, password: 'ValidPassword123!' } }
+  for (const action of ['signup', 'confirm-signup', 'resend-confirmation']) {
+    expect((await request.post(`/api/auth/${action}`, { headers: { origin: 'https://attacker.example' }, data: {} })).status()).toBe(403)
+  }
+  const first = await request.post('/api/auth/signup', options)
+  const second = await request.post('/api/auth/signup', options)
+  expect(first.status()).toBe(200)
+  expect(await second.json()).toEqual(await first.json())
+  expect(first.headers()['cache-control']).toBe('no-store')
+  expect(first.headers()['set-cookie']).toBeUndefined()
+})

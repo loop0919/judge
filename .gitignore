@@ -24,6 +24,7 @@ crash.*.log
 
 # Local environment settings
 /.env
+/.local/
 
 /web/.output-lambda/
 /web/.build/

@@ -1,14 +1,13 @@
-import { expect, test } from '@playwright/test'
-import { draftStorageKey, initialProblemMarkdown } from '../app/utils/problem-draft'
+import { expect, test } from './fixtures/account'
 
 test('multiple drafts remain independent and reopen from the library', async ({ page }) => {
   await page.goto('/my/problems')
-  await expect(page.getByText('まだ問題がありません')).toBeVisible()
+  await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
   for (const title of ['最初の問題', '次の問題']) {
     await page.getByRole('link', { name: '新しい問題を作成' }).click()
     await page.locator('#problem-title').fill(title)
-    await page.getByRole('button', { name: '下書きを保存', exact: true }).click()
-    await expect(page).toHaveURL(/draft=/)
+    await page.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(page).toHaveURL(/problem=/)
     await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
   await page.getByRole('link', { name: '自分の問題', exact: true }).click()
   }
@@ -25,23 +24,11 @@ test('multiple drafts remain independent and reopen from the library', async ({ 
   await expect(page.locator('.draft-list li')).toHaveCount(2)
 })
 
-test('legacy draft is migrated once and its original is retained', async ({ page }) => {
-  const value = JSON.stringify({ version: 1, draft: { title: '移行した問題', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '256' } })
-  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: draftStorageKey, value })
-  await page.goto('/my/problems')
-  await page.locator('.draft-list').getByRole('link', { name: /移行した問題/ }).click()
-  await expect(page.locator('#problem-title')).toHaveValue('移行した問題')
-  await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
-  await page.getByRole('link', { name: '自分の問題', exact: true }).click()
-  await expect(page.locator('.draft-list li')).toHaveCount(1)
-  expect(await page.evaluate(key => localStorage.getItem(key), draftStorageKey)).toBe(value)
-})
-
 for (const width of [320, 375, 414, 768, 1280]) {
   test(`draft library fits ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/my/problems')
-    await expect(page.getByText('まだ問題がありません')).toBeVisible()
+    await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath(`library-${width}.png`), fullPage: true })
   })

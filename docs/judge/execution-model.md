@@ -73,3 +73,4 @@ Fargateのタスクメモリは、ユーザープログラムのMLEを直接判�
 - [ADR 0001](../adr/0001-use-aws-fargate-for-judge-execution.md)
 - [ADR 0002](../adr/0002-standardize-judge-task-resources.md)
 - [ADR 0003](../adr/0003-store-test-sets-in-amazon-s3.md)
+- [ADR 0004](../adr/0004-use-postgresql-as-primary-database.md)

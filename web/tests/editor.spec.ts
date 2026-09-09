@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { draftStorageKey } from '../app/utils/problem-draft'
+import { expect, test } from './fixtures/account'
 
 test('creation page has noindex and is linked from navigation', async ({ page, request }) => {
   const response = await request.get('/problems/new')
@@ -25,7 +24,7 @@ test('editing, math preview, automatic save, and reload work together', async ({
   await expect(page.getByRole('region', { name: '問題のプレビュー' }).getByRole('heading', { name: '好きな構成' })).toBeVisible()
   await expect(page.locator('.preview-pane .input-format .katex')).toHaveCount(2)
   await expect(page.locator('.preview-pane .katex-display')).toHaveCount(1)
-  await expect(page.getByRole('status')).toHaveText('このブラウザーに保存済み')
+  await expect(page.getByRole('status')).toHaveText('保存済み')
   await page.reload()
   await expect(page.locator('#problem-title')).toHaveValue('数列の和')
   await expect(page.locator('#problem-source')).toHaveValue(body)
@@ -37,30 +36,19 @@ test('editing, math preview, automatic save, and reload work together', async ({
 test('incomplete drafts remain saveable', async ({ page }) => {
   await page.goto('/problems/new')
   await expect(page.getByRole('button', { name: 'Markdown を保存', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: '下書きを保存', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('このブラウザーに保存済み')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('保存済み')
 })
 
-test('failed storage is visible without blocking editing', async ({ page }) => {
+test('cache failures do not prevent DB saving', async ({ page }) => {
   await page.addInitScript(() => {
     Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError') }
   })
   await page.goto('/problems/new')
   await page.locator('#problem-title').fill('保存できない問題')
-  await page.getByRole('button', { name: '下書きを保存', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('下書きを保存できませんでした')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('保存済み')
   await expect(page.locator('#problem-title')).toBeEnabled()
-})
-
-test('unreadable saved data is not overwritten by automatic saving', async ({ page }) => {
-  await page.addInitScript(key => { localStorage.setItem(key, '{broken') }, draftStorageKey)
-  await page.goto('/problems/new')
-  await expect(page.getByRole('alert')).toContainText('元のデータは保持しています')
-  await page.locator('#problem-title').fill('復旧後の問題')
-  await page.waitForTimeout(800)
-  expect(await page.evaluate(key => localStorage.getItem(key), draftStorageKey)).toBe('{broken')
-  await page.getByRole('button', { name: '下書きを保存', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('このブラウザーに保存済み')
 })
 
 for (const width of [320, 375, 414, 768, 1280]) {

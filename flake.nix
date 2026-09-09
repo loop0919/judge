@@ -31,6 +31,7 @@
               golangci-lint
               gopls
               nodejs_22
+              postgresql_17
               gnumake
               awscli2
               terraform

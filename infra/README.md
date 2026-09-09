@@ -155,8 +155,10 @@ API接続先は入力変数で渡し、フロントエンドからAPIのstateを
 Lambdaには`COGNITO_CLIENT_ID`と`COGNITO_CLIENT_SECRET`が自動設定される。
 シークレットはTerraformの出力へ公開しないが、stateと保存済みplan、Lambdaの環境変数には含まれるため、これらの読み取り権限を制限する。
 
-初期構成では、ユーザー登録は管理者による作成に限定する。
-MFA登録画面が未実装のためMFAは無効とし、必須の追加認証は仮パスワードからの変更だけにする。
+セルフサインアップを有効にし、`/signup`から登録したメールアドレスへ確認コードを送る。
+既存のUser Poolでサインアップを利用するには、`allow_admin_create_user_only = false`への変更を適用する。
+メール認証はリンクではなく確認コードを使う。
+MFA登録画面が未実装のためMFAは無効とし、管理者が作成したユーザーには仮パスワードからの変更を求める。
 パスワードは12文字以上で英大文字、英小文字、数字、記号が必要であり、仮パスワードの有効期間は7日である。
 アクセストークンとIDトークンは60分、リフレッシュトークンは30日有効である。
 APIのトークン更新処理は未実装のため、現時点では期限切れ後に再ログインする。
@@ -169,7 +171,8 @@ terraform -chdir=infra/api output -raw cognito_client_id
 terraform -chdir=infra/api output -raw login_url
 ```
 
-AWSコンソールのCognitoから、このUser Poolへテストユーザーを作成する。
+テストユーザーは`/signup`から登録できる。
+AWSコンソールで管理者がユーザーを作成する方法も利用できる。
 メールアドレスを設定して仮パスワードを発行し、[ログインAPI](../api/README.md#ログインapi)でログインする。
 `NEW_PASSWORD_REQUIRED`が返ったら`POST /auth/challenge`へ新しいパスワードを送る。
 ユーザーのパスワードはTerraformで管理しない。

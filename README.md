@@ -12,7 +12,7 @@ Nix と make をインストール済みなら、リポジトリのルートで�
 make dev
 ```
 
-Nix 開発環境を読み込み、フロントエンドの依存関係のインストール、Go API のビルド、API と Nuxt の起動を行う。
+Nix 開発環境を読み込み、フロントエンドの依存関係のインストール、Go API のビルド、ローカルPostgreSQLの準備、APIとNuxtの起動を行う。
 依存関係は初回と `web/package.json`、`web/package-lock.json`、Node.js のバージョンが変わったときにインストールする。
 初回はツールと依存関係のダウンロードに時間がかかる。
 
@@ -23,8 +23,14 @@ Nix 開発環境を読み込み、フロントエンドの依存関係のイン�
 Ctrl+C で両サーバーを停止する。
 片方のサーバーが終了した場合も、もう片方を停止する。
 Nuxt は変更を自動反映する。Go の変更は Ctrl+C の後に `make dev` で再起動する。
-DB や AWS の認証情報なしで公開問題を閲覧できる。
-ログイン API を利用する場合は、ルートの `.env` に Cognito の接続設定を記入する（[API の設定](api/README.md#ログインapi)）。
+公開問題の閲覧にはAWSの認証情報を必要としない。
+`DATABASE_URL`が空なら、開発用PostgreSQLを127.0.0.1:15432で起動し、スキーマを自動適用する。
+データは`.local/postgres`へ保存され、APIを再起動しても残る。
+DBはCtrl+Cで停止しないため、停止する場合は`make db-down`を実行する。
+ログイン API を利用する場合は、ルートの `.env` に `AWS_REGION`、`COGNITO_USER_POOL_ID`、`COGNITO_CLIENT_ID`と、必要なら`COGNITO_CLIENT_SECRET`を記入する（[API の設定](api/README.md#ログインapi)）。
+`/signup`で新規登録してメールの確認コードを入力し、`/login`からログインする。
+ログインすると、問題をアカウントへ保存し、`/my/problems`から再編集できる。
+既存のCognitoでは、セルフサインアップを有効にするTerraform変更の適用が必要になる。
 `make dev` はルートの `.env` を読み込み、同名のシェル環境変数があればそちらを優先する。
 
 ポートが使用中の場合は、停止してから起動するか、次のように変更する。
@@ -37,12 +43,12 @@ API_PORT=18080 WEB_PORT=13000 make dev
 ### 開発ツールのみを利用する場合
 
 ルートの`flake.nix`と`flake.lock`で、API、フロントエンド、infraに共通する開発ツールを管理する。
-Go、gopls、gofumpt、golangci-lint、Node.js 22（npmを含む）、AWS CLI、Terraform、zipを利用できる。
+Go、gopls、gofumpt、golangci-lint、Node.js 22（npmを含む）、PostgreSQL 17、AWS CLI、Terraform、zipを利用できる。
 
 リポジトリのルートで開発シェルを起動する。
 
 ```console
-nix develop 'path:.'
+nix develop .
 ```
 
 direnvとnix-direnvを設定済みの場合は、初回にルートで許可する。

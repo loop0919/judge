@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures/account'
 
 test('guide opens in a separate tab while the editor keeps its draft', async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 900 })

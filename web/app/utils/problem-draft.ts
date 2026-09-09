@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-export const draftStorageKey = 'openoj.problem-draft.v1'
 export const problemDraftSchema = z.object({
   title: z.string().max(120),
   markdown: z.string().max(100_000),
