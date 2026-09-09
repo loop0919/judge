@@ -6,6 +6,36 @@ Go API、Nuxtフロントエンド、AWS上のジャッジ基盤を開発する�
 
 ## 開発環境
 
+Nix と make をインストール済みなら、リポジトリのルートで次のコマンドを実行する。
+
+```console
+make dev
+```
+
+Nix 開発環境を読み込み、フロントエンドの依存関係のインストール、Go API のビルド、API と Nuxt の起動を行う。
+依存関係は初回と `web/package.json`、`web/package-lock.json`、Node.js のバージョンが変わったときにインストールする。
+初回はツールと依存関係のダウンロードに時間がかかる。
+
+- サンプル問題: <http://localhost:3000/problems/a-plus-b>
+- 問題作成: <http://localhost:3000/problems/new>
+- API ヘルスチェック: <http://localhost:8080/health>
+
+Ctrl+C で両サーバーを停止する。
+片方のサーバーが終了した場合も、もう片方を停止する。
+Nuxt は変更を自動反映する。Go の変更は Ctrl+C の後に `make dev` で再起動する。
+DB や AWS の認証情報なしで公開問題を閲覧できる。
+ログイン API を利用する場合は、ルートの `.env` に Cognito の接続設定を記入する（[API の設定](api/README.md#ログインapi)）。
+`make dev` はルートの `.env` を読み込み、同名のシェル環境変数があればそちらを優先する。
+
+ポートが使用中の場合は、停止してから起動するか、次のように変更する。
+Nuxt の API 接続先と公開 URL も指定したポートに合わせて設定する。
+
+```console
+API_PORT=18080 WEB_PORT=13000 make dev
+```
+
+### 開発ツールのみを利用する場合
+
 ルートの`flake.nix`と`flake.lock`で、API、フロントエンド、infraに共通する開発ツールを管理する。
 Go、gopls、gofumpt、golangci-lint、Node.js 22（npmを含む）、AWS CLI、Terraform、zipを利用できる。
 
