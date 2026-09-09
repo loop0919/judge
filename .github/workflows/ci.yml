@@ -2,9 +2,7 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -14,7 +12,21 @@ jobs:
   web:
     name: Test SSR frontend
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: openoj_test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: openoj_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openoj_test -d openoj_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql://openoj_test:test-only-password@127.0.0.1:5432/openoj_test?sslmode=disable
     defaults:
       run:
         working-directory: web
@@ -57,11 +69,29 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test SSR and browser rendering
         run: npm test
+      - name: Test account persistence and publication with PostgreSQL
+        run: npx playwright test --config playwright.account.config.ts
+      - name: Test deployment smoke checks
+        run: node --test scripts/smoke-frontend.test.mjs
 
   test:
     name: Test and package API
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: openoj_test
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: openoj_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openoj_test -d openoj_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql://openoj_test:test-only-password@127.0.0.1:5432/openoj_test?sslmode=disable
 
     steps:
       - name: Check out repository

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"judge/api/internal/database"
+
 	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
@@ -90,15 +92,15 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 		private.Verifier = newCognitoVerifier("https://cognito-idp."+region+".amazonaws.com/"+poolID, auth.ClientID)
 	}
 	var store *problems.Store
-	if url := getenv("DATABASE_URL"); url != "" {
+	if getenv("DATABASE_URL") != "" || getenv("DATABASE_SECRET_ARN") != "" {
 		if auth.ClientID != "" && private.Verifier == nil {
 			return nil, errors.New("COGNITO_USER_POOL_ID is required with DATABASE_URL and COGNITO_CLIENT_ID")
 		}
-		var err error
-		store, err = problems.Open(context.Background(), url)
+		pool, err := database.OpenConfigured(context.Background(), getenv)
 		if err != nil {
 			return nil, err
 		}
+		store = problems.New(pool)
 		private.Store = store
 		private.Profiles = profiles.New(store.Pool())
 		private.Posts = posts.New(store.Pool())

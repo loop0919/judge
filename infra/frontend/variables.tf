@@ -31,3 +31,26 @@ variable "lambda_package_path" {
   default  = null
   nullable = true
 }
+
+variable "cognito_domain" {
+  type    = string
+  default = ""
+}
+variable "cognito_client_id" {
+  type    = string
+  default = ""
+}
+variable "cognito_client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+variable "public_site_url" {
+  description = "Optional custom HTTPS origin; defaults to the frontend API Gateway URL."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.public_site_url == "" || can(regex("^https://[a-zA-Z0-9.-]+$", var.public_site_url))
+    error_message = "Use an HTTPS origin without a trailing slash."
+  }
+}

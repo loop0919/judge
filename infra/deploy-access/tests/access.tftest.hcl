@@ -17,6 +17,10 @@ variables {
 run "deployment_boundary" {
   command = plan
   assert {
+    condition     = length(aws_iam_role_policy.deploy.policy) <= 10240
+    error_message = "Deployment permissions must fit the IAM role inline policy size limit."
+  }
+  assert {
     condition     = jsondecode(aws_iam_role.github_deploy.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"] == var.github_subject
     error_message = "Trust must match the exact immutable repository and environment subject."
   }

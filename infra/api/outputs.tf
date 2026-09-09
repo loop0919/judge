@@ -22,6 +22,15 @@ output "cognito_client_id" {
   value = aws_cognito_user_pool_client.api.id
 }
 
+output "cognito_client_secret" {
+  value     = aws_cognito_user_pool_client.api.client_secret
+  sensitive = true
+}
+
+output "cognito_domain" {
+  value = var.google_client_id != "" ? "https://${aws_cognito_user_pool_domain.users[0].domain}.auth.${var.aws_region}.amazoncognito.com" : ""
+}
+
 output "login_url" {
   value = "${aws_apigatewayv2_api.api.api_endpoint}/auth/login"
 }

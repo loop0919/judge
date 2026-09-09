@@ -9,11 +9,11 @@ Browser -> Frontend HTTP API -> Nuxt Lambda -> API HTTP API -> Go Lambda
 | ディレクトリ | 管理するリソース | state |
 | --- | --- | --- |
 | `bootstrap/` | Terraform state用S3バケット | 初回はローカル、作成後にS3へ移行 |
-| `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、IAM、ログ | S3の`judge/dev/api.tfstate` |
+| `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、RDS、VPC、IAM、ログ | S3の`judge/dev/api.tfstate` |
 | `frontend/` | Nuxt Lambda、HTTP API、パッケージ用S3、IAM、ログ | S3の`judge/dev/frontend.tfstate` |
 | `deploy-access/` | 既存GitHubデプロイロールの信頼関係・操作権限 | S3の`judge/dev/deploy-access.tfstate` |
 
-採点処理に使うSQS、Launcher Lambda、ECS/Fargate、テストセット用S3、PostgreSQLは後続の構成として追加する。
+採点処理に使うSQS、Launcher Lambda、ECS/Fargate、テストセット用S3は後続の構成として追加する。
 請求アラートはAWSアカウント全体の設定として、別フォルダ`~/aws-setting`へ分離している。
 
 ## 開発環境
@@ -117,6 +117,46 @@ APIのパッケージ用バケットとポリシーにも`prevent_destroy`を設
 削除する場合は保持対象と削除対象を確認し、バケットをTerraformの管理から外すか、保護設定を明示的に変更する。
 `prevent_destroy`は構成からリソース定義を消した場合の保護にはならない。
 
+## PostgreSQLと外向き通信
+
+`api/database.tf`が東京リージョンにPostgreSQL 17の`db.t4g.micro`を作成する。
+20GBの暗号化gp3ストレージ、7日間の自動バックアップ、削除保護を設定し、ストレージは最大100GBまで自動拡張する。
+開発環境のためSingle-AZで、障害時の自動フェイルオーバーはない。
+DBの接続はアプリのSecurity Groupからの5432番ポートに限り、インターネットには公開しない。
+
+APIとマイグレーション用LambdaはIPv4/IPv6両対応の非公開サブネットに配置する。
+DBへはVPC内のIPv4で接続し、CognitoとSecrets ManagerへのHTTPS通信にはIPv6を使う。
+IPv6の外向き通信には[egress-only Internet Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/egress-only-internet-gateway.html)を使う。
+NAT GatewayとEIPは作成せず、IPv4のインターネット向け経路も設けない。
+今後APIからIPv4専用の外部サービスを呼ぶ場合は、通信経路を追加検討する必要がある。
+
+2026年9月10日のInfracost解析では、DB本体と20GBのストレージは月$21.01だった。
+RDSが管理する認証情報1件のSecrets Manager保管料約$0.40を加えると、固定費の目安は月$21.41になる。
+通信、ログ、APIリクエスト、ストレージ増加、無料枠を超えるバックアップ、CPUクレジットなどの料金は含めない。
+これはアプリ全体の利用料金の上限ではない。
+秘密値を除いたTerraform解析では、費用・タグポリシー違反と警告は0件だった。
+一時解析ディレクトリにはリポジトリのガードレールが関連付かないため、月$250の増加制限は固定費の概算と手動で比較した。
+
+DBパスワードはRDSとSecrets Managerに管理させ、Terraform入力やLambda環境変数へ保存しない。
+Goは新しい物理接続ごとに現在の認証情報を読み、AWSの東京リージョン用CAでDBサーバー証明書とホスト名を検証する。
+リージョンを変更する場合は`api/internal/database/rds-ca-bundle.pem`も更新する。
+ローカル開発では従来どおり`DATABASE_URL`を使える。
+
+`make -C api package`はAPIとマイグレーション用の2つのzipを作る。
+手動でAPIをapplyした場合も、フロントエンドを公開する前に次の処理を実行する。
+
+```console
+JUDGE_MIGRATION_FUNCTION="$(terraform -chdir=infra/api output -raw migration_lambda_function_name)"
+aws lambda wait function-updated-v2 --function-name "$JUDGE_MIGRATION_FUNCTION"
+aws lambda invoke --function-name "$JUDGE_MIGRATION_FUNCTION" \
+  --cli-read-timeout 150 --cli-binary-format raw-in-base64-out \
+  --payload '{}' /tmp/judge-migration-result.json
+cat /tmp/judge-migration-result.json
+```
+
+呼び出し結果に`FunctionError`がなく、レスポンスが`{"migrated":true}`であることを確認する。
+失敗時はデプロイを進めず、専用LambdaのログとDB・Secrets Managerへの接続を確認する。
+
 ## フロントエンドのデプロイ
 
 Node.js 22とPython 3を使い、NuxtのAWS Lambda用出力をzipにまとめる。
@@ -143,7 +183,7 @@ Nuxt LambdaはNode.js 22、ARM64、512 MiBで動作し、HTML、JavaScript、CSS
 API接続先は入力変数で渡し、フロントエンドからAPIのstateを読み取らない。
 編集画面の下書きは引き続きブラウザー内に保存される。
 
-常時稼働するサーバーは設けず、API Gateway、Lambda、S3、ログなどの利用量に応じて課金される。
+RDSは常時稼働し、API Gateway、Lambda、S3、ログなどの利用量に応じて課金される。
 静的ファイルの取得もGatewayとLambdaのリクエストとして数える。
 ログは14日、パッケージの非現行バージョンは30日保持する。
 利用量未指定の費用表示は実運用の見積もりにならない。
@@ -151,9 +191,11 @@ API接続先は入力変数で渡し、フロントエンドからAPIのstateを
 ## Cognitoによるログイン
 
 `api/auth.tf`がメールアドレスでサインインするUser Poolと、API専用のアプリクライアントを作成する。
-独自画面から`POST /auth/login`を呼び出す構成で、Cognitoのログイン画面やドメインは作成しない。
-Lambdaには`COGNITO_CLIENT_ID`と`COGNITO_CLIENT_SECRET`が自動設定される。
-シークレットはTerraformの出力へ公開しないが、stateと保存済みplan、Lambdaの環境変数には含まれるため、これらの読み取り権限を制限する。
+メールログインは独自画面から`POST /auth/login`を呼び出す。
+Googleログインを設定した場合はCognitoドメインとGoogle Identity Providerも作成する。
+Lambdaには`COGNITO_USER_POOL_ID`、`COGNITO_CLIENT_ID`、`COGNITO_CLIENT_SECRET`が自動設定される。
+クライアントシークレットはsensitive出力でフロントエンドへ引き渡す。
+stateと保存済みplan、Lambdaの環境変数には含まれるため、これらの読み取り権限を制限する。
 
 セルフサインアップを有効にし、`/signup`から登録したメールアドレスへ確認コードを送る。
 既存のUser Poolでサインアップを利用するには、`allow_admin_create_user_only = false`への変更を適用する。
@@ -208,7 +250,10 @@ for root in bootstrap api; do
 done
 ```
 
-`.github/workflows/deploy-dev.yml`は`main`へのAPI・web・infraの変更と手動実行を契機に、検証後にAPI、フロントエンドの順でplan、applyする。
+`.github/workflows/deploy-dev.yml`は`main`へのpushと手動実行を契機に、共通のCIワークフローを呼び出す。
+CIが成功した場合だけ、APIのplan・apply、DBマイグレーション、フロントエンドのplan・applyの順に進む。
+CIではPostgreSQL 17を起動し、GoのDB統合テストとアカウントの永続化ブラウザーテストも実行する。
+公開確認は新規DBの空の一覧にも対応し、固定の問題データを必要としない。
 APIのヘルスチェックと公開フロントエンドのSSR・静的ファイル確認を行い、ActionsのSummaryにURLを出力する。
 bootstrapとdeploy-accessのapplyは管理者が手動で行う。
 同時デプロイは一つに制限し、実行中のデプロイを後続のpushで中止しない。
@@ -228,10 +273,27 @@ GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
 | `AWS_ACCOUNT_ID` | 12桁のAWSアカウントID |
 | `AWS_DEPLOY_ROLE_ARN` | デプロイ用IAMロールのARN |
 | `TF_STATE_BUCKET` | bootstrapが作成したstate用バケット名 |
+| `PUBLIC_SITE_URL` | 公開HTTPS origin。Googleを使う場合は必須 |
+| `GOOGLE_CLIENT_ID` | Google OAuthクライアントID。Googleを使わない場合は空 |
+| `OPERATOR_SUBJECTS` | 運営ユーザーのCognito subをカンマ区切りで指定。省略可 |
 
 ローカルとCIは同じアカウント、東京リージョンのstateバケット、`judge/dev/api.tfstate`を使う。
 初回の自動デプロイ前にbootstrapとVariablesの設定を済ませる。
+今回追加したRDS・IPv6ネットワーク・Google連携の操作権限は、管理者が`deploy-access/`のplanを確認してapplyする。
+GitHubのデプロイロールは自身の権限を更新できないため、この更新を済ませてからpushする。
 ブランチ保護の必須チェックには`CI / Test and package API`と`CI / Test SSR frontend`を指定する。
+
+Googleを使う場合は、Environment `dev`のSecretに`GOOGLE_CLIENT_SECRET`も設定する。
+Google CloudでWebアプリ用OAuthクライアントを作り、承認済みリダイレクトURIを`https://<Cognitoドメイン>/oauth2/idpresponse`に設定する。
+CognitoドメインはUser Pool IDの小文字化・アンダースコアのハイフン置換を接頭辞とする。
+東京では`https://<接頭辞>.auth.ap-northeast-1.amazoncognito.com`となり、apply後は`cognito_domain`出力でも確認できる。
+アプリ側のコールバックは`PUBLIC_SITE_URL/auth/google/callback`としてTerraformが設定する。
+OAuth同意画面がテスト公開の場合は、Google側でテストユーザーの登録も必要になる。
+Googleを使わない場合はIDとSecretを両方空にして、メール認証だけでデプロイできる。
+
+手動でフロントエンドをデプロイするときは、APIの`cognito_domain`、`cognito_client_id`、`cognito_client_secret`出力を同名の`TF_VAR_*`へ渡す。
+クライアントシークレットをログへ出力しない。
+Actionsではこの引き渡しとログのマスキングを自動で行う。
 
 ## GitHubデプロイロール
 
@@ -260,7 +322,7 @@ terraform -chdir=infra/deploy-access apply access.tfplan
 ```
 
 信頼関係はGitHubのAudienceとdev環境のsubjectに一致する場合だけを許可する。
-操作権限はアプリのstate・ロック、dev用パッケージバケット、Lambda、ログ、指定済みのGateway・Cognitoに限定する。
+操作権限はアプリのstate・ロック、dev用パッケージバケット、Lambda、ログ、指定済みのGateway・Cognito、アプリのタグを持つネットワーク、指定名のRDSに限定する。
 IAM操作と`PassRole`の対象はAPI・フロントエンドの実行ロールだけにする。
 GitHubデプロイロール自身とそのstateの更新権限は付けない。
 GatewayやUser Poolの新設・置換は管理者が実施し、IDをこの構成へ反映してからCIを再開する。

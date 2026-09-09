@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - api/**
-      - web/**
-      - infra/**
-      - .github/workflows/deploy-dev.yml
   workflow_dispatch:
 
 permissions:
@@ -28,11 +23,24 @@ env:
   TF_VAR_aws_region: ap-northeast-1
 
 jobs:
+  ci:
+    name: CI
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   deploy:
-    name: Test and deploy API and frontend
+    name: Deploy API and frontend
+    needs: ci
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment: dev
+    env:
+      TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
+      TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      TF_VAR_public_site_url: ${{ vars.PUBLIC_SITE_URL }}
+      TF_VAR_operator_subjects: ${{ vars.OPERATOR_SUBJECTS }}
 
     steps:
       - name: Check out repository
@@ -131,6 +139,18 @@ jobs:
       - name: Apply API deployment
         run: terraform -chdir=infra/api apply -lock-timeout=5m deploy.tfplan
 
+      - name: Apply database migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_function="$(terraform -chdir=infra/api output -raw migration_lambda_function_name)"
+          aws lambda wait function-updated-v2 --function-name "$migration_function"
+          aws lambda invoke --function-name "$migration_function" \
+            --cli-read-timeout 150 --cli-binary-format raw-in-base64-out \
+            --payload '{}' "$RUNNER_TEMP/migration-result.json" > "$RUNNER_TEMP/migration-invoke.json"
+          jq -e '.StatusCode == 200 and (.FunctionError | not)' "$RUNNER_TEMP/migration-invoke.json"
+          jq -e '.migrated == true' "$RUNNER_TEMP/migration-result.json"
+
       - name: Verify health endpoint
         shell: bash
         run: |
@@ -168,12 +188,18 @@ jobs:
 
       - name: Plan and apply frontend
         run: |
+          set -euo pipefail
           export TF_VAR_api_endpoint="$(terraform -chdir=infra/api output -raw api_endpoint)"
+          export TF_VAR_cognito_domain="$(terraform -chdir=infra/api output -raw cognito_domain)"
+          export TF_VAR_cognito_client_id="$(terraform -chdir=infra/api output -raw cognito_client_id)"
+          cognito_secret="$(terraform -chdir=infra/api output -raw cognito_client_secret)"
+          echo "::add-mask::$cognito_secret"
+          export TF_VAR_cognito_client_secret="$cognito_secret"
           terraform -chdir=infra/frontend plan -lock-timeout=5m -out=deploy.tfplan
           terraform -chdir=infra/frontend apply -lock-timeout=5m deploy.tfplan
 
       - name: Verify public frontend
         run: |
-          site_url="$(terraform -chdir=infra/frontend output -raw site_url)"
+          site_url="${TF_VAR_public_site_url:-$(terraform -chdir=infra/frontend output -raw site_url)}"
           node web/scripts/smoke-frontend.mjs "$site_url"
           echo "Frontend: $site_url" >> "$GITHUB_STEP_SUMMARY"

@@ -95,8 +95,73 @@ resource "aws_iam_role_policy" "deploy" {
       {
         Sid      = "ApplicationUserPools"
         Effect   = "Allow"
-        Action   = ["cognito-idp:GetUserPoolMfaConfig", "cognito-idp:SetUserPoolMfaConfig", "cognito-idp:DescribeUserPool", "cognito-idp:UpdateUserPool", "cognito-idp:DescribeUserPoolClient", "cognito-idp:CreateUserPoolClient", "cognito-idp:UpdateUserPoolClient", "cognito-idp:DeleteUserPoolClient", "cognito-idp:ListTagsForResource", "cognito-idp:TagResource", "cognito-idp:UntagResource"]
+        Action   = ["cognito-idp:GetUserPoolMfaConfig", "cognito-idp:SetUserPoolMfaConfig", "cognito-idp:DescribeUserPool", "cognito-idp:UpdateUserPool", "cognito-idp:DescribeUserPoolClient", "cognito-idp:CreateUserPoolClient", "cognito-idp:UpdateUserPoolClient", "cognito-idp:DeleteUserPoolClient", "cognito-idp:CreateIdentityProvider", "cognito-idp:DescribeIdentityProvider", "cognito-idp:UpdateIdentityProvider", "cognito-idp:DeleteIdentityProvider", "cognito-idp:CreateUserPoolDomain", "cognito-idp:UpdateUserPoolDomain", "cognito-idp:DeleteUserPoolDomain", "cognito-idp:ListTagsForResource", "cognito-idp:TagResource", "cognito-idp:UntagResource"]
         Resource = [for id in var.user_pool_ids : "${local.arn}:cognito-idp:${var.aws_region}:${local.account}:userpool/${id}"]
+      }
+      ,
+      {
+        Sid      = "DescribeGoogleDomain"
+        Effect   = "Allow"
+        Action   = ["cognito-idp:DescribeUserPoolDomain"]
+        Resource = "*"
+      },
+      {
+        Sid      = "ApplicationDatabase"
+        Effect   = "Allow"
+        Action   = ["rds:CreateDBInstance", "rds:ModifyDBInstance", "rds:DeleteDBInstance", "rds:DescribeDBInstances", "rds:CreateDBSubnetGroup", "rds:ModifyDBSubnetGroup", "rds:DeleteDBSubnetGroup", "rds:DescribeDBSubnetGroups", "rds:AddTagsToResource", "rds:RemoveTagsFromResource", "rds:ListTagsForResource", "rds:CreateDBSnapshot"]
+        Resource = ["${local.arn}:rds:${var.aws_region}:${local.account}:db:${local.name}-postgres", "${local.arn}:rds:${var.aws_region}:${local.account}:subgrp:${local.name}", "${local.arn}:rds:${var.aws_region}:${local.account}:snapshot:${local.name}-postgres-*"]
+      },
+      {
+        Sid      = "DatabaseLogs"
+        Effect   = "Allow"
+        Action   = ["logs:*"]
+        Resource = "${local.arn}:logs:${var.aws_region}:${local.account}:log-group:/aws/rds/instance/${local.name}-postgres/*"
+      },
+      {
+        Sid      = "DescribeNetwork"
+        Effect   = "Allow"
+        Action   = ["ec2:DescribeAvailabilityZones", "ec2:DescribeVpcs", "ec2:DescribeVpcAttribute", "ec2:DescribeSubnets", "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules", "ec2:DescribeEgressOnlyInternetGateways", "ec2:GetSecurityGroupsForVpc", "ec2:DescribeRouteTables", "ec2:DescribeNetworkInterfaces", "ec2:DescribeTags"]
+        Resource = "*"
+      },
+      {
+        Sid       = "CreateTaggedNetwork"
+        Effect    = "Allow"
+        Action    = ["ec2:CreateVpc", "ec2:CreateSubnet", "ec2:CreateSecurityGroup", "ec2:CreateEgressOnlyInternetGateway", "ec2:CreateRouteTable"]
+        Resource  = "*"
+        Condition = { StringEquals = { "aws:RequestTag/Project" = var.project_name, "aws:RequestTag/Environment" = title(var.environment) } }
+      },
+      {
+        Sid       = "TagNewNetwork"
+        Effect    = "Allow"
+        Action    = ["ec2:CreateTags"]
+        Resource  = "${local.arn}:ec2:${var.aws_region}:${local.account}:*/*"
+        Condition = { StringEquals = { "aws:RequestTag/Project" = var.project_name, "aws:RequestTag/Environment" = title(var.environment) } }
+      },
+      {
+        Sid       = "ManageTaggedNetwork"
+        Effect    = "Allow"
+        Action    = ["ec2:ModifyVpcAttribute", "ec2:DeleteVpc", "ec2:ModifySubnetAttribute", "ec2:DeleteSubnet", "ec2:DeleteSecurityGroup", "ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress", "ec2:ModifySecurityGroupRules", "ec2:AssociateVpcCidrBlock", "ec2:DisassociateVpcCidrBlock", "ec2:DeleteEgressOnlyInternetGateway", "ec2:CreateRoute", "ec2:DeleteRoute", "ec2:ReplaceRoute", "ec2:AssociateRouteTable", "ec2:DisassociateRouteTable", "ec2:ReplaceRouteTableAssociation", "ec2:DeleteRouteTable", "ec2:CreateTags", "ec2:DeleteTags"]
+        Resource  = "${local.arn}:ec2:${var.aws_region}:${local.account}:*/*"
+        Condition = { StringEquals = { "ec2:ResourceTag/Project" = var.project_name, "ec2:ResourceTag/Environment" = title(var.environment) } }
+      },
+      {
+        Sid      = "RDSManagedPassword"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:CreateSecret", "secretsmanager:TagResource", "secretsmanager:DescribeSecret", "secretsmanager:RotateSecret"]
+        Resource = "${local.arn}:secretsmanager:${var.aws_region}:${local.account}:secret:rds!db-*"
+      },
+      {
+        Sid      = "DescribeDatabaseKey"
+        Effect   = "Allow"
+        Action   = ["kms:DescribeKey"]
+        Resource = "${local.arn}:kms:${var.aws_region}:${local.account}:key/*"
+      },
+      {
+        Sid       = "RDSServiceLinkedRole"
+        Effect    = "Allow"
+        Action    = ["iam:CreateServiceLinkedRole"]
+        Resource  = "${local.arn}:iam::${local.account}:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS"
+        Condition = { StringEquals = { "iam:AWSServiceName" = "rds.amazonaws.com" } }
       }
     ]
   })

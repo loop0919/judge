@@ -54,6 +54,8 @@ type Repository interface {
 
 type Store struct{ pool *pgxpool.Pool }
 
+func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
 func Open(ctx context.Context, url string) (*Store, error) {
 	pool, err := database.Open(ctx, url)
 	if err != nil {

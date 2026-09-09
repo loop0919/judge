@@ -53,6 +53,13 @@ resource "aws_cognito_user_pool_client" "api" {
   read_attributes               = ["email", "email_verified"]
   write_attributes              = ["email"]
 
+  supported_identity_providers         = var.google_client_id != "" ? ["COGNITO", "Google"] : ["COGNITO"]
+  allowed_oauth_flows_user_pool_client = var.google_client_id != ""
+  allowed_oauth_flows                  = var.google_client_id != "" ? ["code"] : []
+  allowed_oauth_scopes                 = var.google_client_id != "" ? ["openid", "email"] : []
+  callback_urls                        = var.google_client_id != "" ? ["${var.public_site_url}/auth/google/callback"] : []
+  depends_on                           = [aws_cognito_identity_provider.google]
+
   token_validity_units {
     access_token  = "minutes"
     id_token      = "minutes"

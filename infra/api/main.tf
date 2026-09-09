@@ -28,31 +28,40 @@ resource "aws_iam_role_policy" "logs" {
       Sid      = "WriteFunctionLogs"
       Effect   = "Allow"
       Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-      Resource = "${aws_cloudwatch_log_group.lambda.arn}:*"
+      Resource = ["${aws_cloudwatch_log_group.lambda.arn}:*", "${aws_cloudwatch_log_group.migration.arn}:*"]
     }]
   })
 }
 
 resource "aws_lambda_function" "api" {
-  function_name     = "${local.name}-api"
-  description       = "HTTP API for ${var.project_name}"
-  architectures     = ["arm64"]
-  handler           = "bootstrap"
-  runtime           = "provided.al2023"
-  memory_size       = var.lambda_memory_size
-  timeout           = 10
-  role              = aws_iam_role.api.arn
-  s3_bucket         = aws_s3_object.api_package.bucket
-  s3_key            = aws_s3_object.api_package.key
-  s3_object_version = aws_s3_object.api_package.version_id
-  source_code_hash  = filebase64sha256(local.lambda_package_path)
-  depends_on        = [aws_iam_role_policy.logs]
+  function_name                  = "${local.name}-api"
+  description                    = "HTTP API for ${var.project_name}"
+  architectures                  = ["arm64"]
+  handler                        = "bootstrap"
+  runtime                        = "provided.al2023"
+  memory_size                    = var.lambda_memory_size
+  timeout                        = 10
+  role                           = aws_iam_role.api.arn
+  s3_bucket                      = aws_s3_object.api_package.bucket
+  s3_key                         = aws_s3_object.api_package.key
+  s3_object_version              = aws_s3_object.api_package.version_id
+  source_code_hash               = filebase64sha256(local.lambda_package_path)
+  depends_on                     = [aws_iam_role_policy.logs, aws_iam_role_policy.database, aws_iam_role_policy.vpc, aws_route_table_association.private]
+  reserved_concurrent_executions = 10
+
+  vpc_config {
+    ipv6_allowed_for_dual_stack = true
+    subnet_ids                  = aws_subnet.private[*].id
+    security_group_ids          = [aws_security_group.application.id]
+  }
 
   environment {
-    variables = {
+    variables = merge(local.database_environment, {
       COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.api.id
       COGNITO_CLIENT_SECRET = aws_cognito_user_pool_client.api.client_secret
-    }
+      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.users.id
+      OPERATOR_SUBJECTS     = var.operator_subjects
+    })
   }
 }
 

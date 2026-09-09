@@ -43,9 +43,12 @@ resource "aws_lambda_function" "web" {
   source_code_hash  = filebase64sha256(local.lambda_package_path)
   environment {
     variables = {
-      NODE_ENV             = "production"
-      NUXT_API_BASE_URL    = var.api_endpoint
-      NUXT_PUBLIC_SITE_URL = aws_apigatewayv2_api.web.api_endpoint
+      NODE_ENV                   = "production"
+      NUXT_API_BASE_URL          = var.api_endpoint
+      NUXT_PUBLIC_SITE_URL       = var.public_site_url != "" ? var.public_site_url : aws_apigatewayv2_api.web.api_endpoint
+      NUXT_COGNITO_DOMAIN        = var.cognito_domain
+      NUXT_COGNITO_CLIENT_ID     = var.cognito_client_id
+      NUXT_COGNITO_CLIENT_SECRET = var.cognito_client_secret
     }
   }
   depends_on = [aws_iam_role_policy.logs]

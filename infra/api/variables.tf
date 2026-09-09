@@ -62,3 +62,36 @@ variable "lambda_package_path" {
   default     = null
   nullable    = true
 }
+
+variable "google_client_id" {
+  description = "Google OAuth web client ID; leave empty to use email signup only."
+  type        = string
+  default     = ""
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth secret supplied by the dev environment secret."
+  type        = string
+  sensitive   = true
+  default     = ""
+  validation {
+    condition     = (var.google_client_id == "") == (var.google_client_secret == "")
+    error_message = "Configure both Google OAuth client ID and secret, or neither."
+  }
+}
+
+variable "public_site_url" {
+  description = "Deployed HTTPS frontend origin, required when enabling Google OAuth."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.public_site_url == "" ? var.google_client_id == "" : can(regex("^https://[a-zA-Z0-9.-]+$", var.public_site_url))
+    error_message = "Supply the frontend HTTPS origin without a trailing slash when enabling Google OAuth."
+  }
+}
+
+variable "operator_subjects" {
+  description = "Comma-separated Cognito sub values allowed to display the operator badge."
+  type        = string
+  default     = ""
+}
