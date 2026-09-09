@@ -17,6 +17,11 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'ja' },
       title: 'OpenOJ — Open Online Judge',
+      link: [
+        { rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', sizes: 'any' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
+      ],
       meta: [
         { name: 'theme-color', content: '#ffffff' },
         { property: 'og:site_name', content: 'OpenOJ' },

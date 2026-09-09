@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="OpenOJ">
+  <!-- Hallmark · component: favicon · genre: modern-minimal · P4 H4 E4 S4 R5 V4 -->
+  <title>OpenOJ</title>
+  <style>
+    :root { --color-ink: #192431; --color-paper: #fff; --color-accepted: #57e3a0; }
+  </style>
+  <rect width="64" height="64" rx="12" fill="var(--color-ink)"/>
+  <g stroke="var(--color-paper)" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="m15 22-7 10 7 10"/>
+    <path d="m49 22 7 10-7 10"/>
+  </g>
+  <path d="m22 33 8 8 12-18" stroke="var(--color-accepted)" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>

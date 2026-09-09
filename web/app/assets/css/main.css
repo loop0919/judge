@@ -1,14 +1,14 @@
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4
  * genre: modern-minimal · macrostructure: Long Document · theme: Plain
- * accent: ink-blue · nav: N1a · footer: Ft2 · enrichment: none */
+ * accent: green · nav: N1a · footer: Ft2 · enrichment: none */
 :root {
   --color-paper: #fff;
   --color-surface: #f5f7fa;
   --color-ink: #192431;
   --color-muted: #536171;
   --color-line: #dce2e8;
-  --color-accent: #214fbb;
-  --color-accent-soft: #edf2ff;
+  --color-accent: #18794e;
+  --color-accent-soft: #edf9f1;
   --font-body: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
   --font-display: var(--font-body);
   --font-code: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
