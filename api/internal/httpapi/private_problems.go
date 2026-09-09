@@ -15,7 +15,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"judge/api/internal/posts"
 	"judge/api/internal/problems"
+	"judge/api/internal/profiles"
 )
 
 type TokenVerifier interface {
@@ -55,14 +57,25 @@ func (v *cognitoVerifier) Verify(ctx context.Context, raw string) (string, error
 }
 
 type PrivateProblems struct {
-	Store    problems.Repository
-	Verifier TokenVerifier
+	Posts     *posts.Store
+	Operators map[string]bool
+	Store     problems.Repository
+	Profiles  profiles.Repository
+	Verifier  TokenVerifier
 }
 
 var problemID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("PUT /my/problems/{id}/publication", p.handle)
+	mux.HandleFunc("GET /my/posts", p.handle)
+	mux.HandleFunc("GET /my/posts/{id}", p.handle)
+	mux.HandleFunc("PUT /my/posts/{id}", p.handle)
+	mux.HandleFunc("DELETE /my/posts/{id}", p.handle)
+	mux.HandleFunc("PUT /my/posts/{id}/publication", p.handle)
 	mux.HandleFunc("GET /auth/me", p.handle)
+	mux.HandleFunc("GET /my/profile", p.handle)
+	mux.HandleFunc("PUT /my/profile", p.handle)
 	mux.HandleFunc("GET /my/problems", p.handle)
 	mux.HandleFunc("GET /my/problems/{id}", p.handle)
 	mux.HandleFunc("PUT /my/problems/{id}", p.handle)
@@ -89,6 +102,28 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/auth/me" {
 		writeAuthJSON(w, 200, map[string]string{"id": owner})
+		return
+	}
+	if r.URL.Path == "/my/profile" {
+		p.profile(w, r.WithContext(ctx), owner)
+		return
+	}
+	if p.Profiles != nil {
+		if _, err := p.Profiles.Get(ctx, owner); err != nil {
+			if errors.Is(err, profiles.ErrNotFound) {
+				authError(w, 403, "profile_required")
+			} else {
+				authError(w, 503, "database_unavailable")
+			}
+			return
+		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/posts") {
+		p.privatePost(w, r.WithContext(ctx), owner)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/publication") {
+		p.publishProblem(w, r.WithContext(ctx), owner)
 		return
 	}
 	if p.Store == nil {

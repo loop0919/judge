@@ -29,7 +29,9 @@ export async function privateAPI<T>(event: H3Event, path: string, options: { met
     }) as T
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status
-    throw createError({ statusCode: status && [400, 401, 403, 404, 409, 413, 415, 429, 503].includes(status) ? status : 502, statusMessage: 'Request failed' })
+    const upstreamCode = (error as { data?: { error?: string } }).data?.error
+    const code = ['handle_taken', 'profile_conflict', 'profile_required', 'invalid_avatar', 'invalid_profile'].includes(upstreamCode ?? '') ? upstreamCode : undefined
+    throw createError({ statusCode: status && [400, 401, 403, 404, 409, 413, 415, 429, 503].includes(status) ? status : 502, statusMessage: 'Request failed', data: code ? { code } : undefined })
   }
 }
 

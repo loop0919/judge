@@ -3,7 +3,7 @@ const config = useRuntimeConfig()
 const canonical = new URL('/blog/markdown-guide', config.public.siteUrl).href
 const title = 'Markdown と数式の書き方'
 const description = 'OpenOJ の Markdown エディターで、問題文、数式、複数行の入力形式を書く方法を例とともに紹介します。'
-useSeoMeta({ title: `${title} | OpenOJ Blog`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
+useSeoMeta({ title: `${title} | OpenOJ ブログ`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 
 const basic = ['## 問題文', '', '整数 $A$ と $B$ の和を求めてください。', '', '## 制約', '', '- $0 \\le A, B \\le 10^9$', '- 入力はすべて整数です。'].join('\n')
@@ -16,7 +16,7 @@ const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">Blog</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav>
+    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">ブログ</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav>
     <header class="blog-article-header"><p class="eyebrow">OPENOJ GUIDE</p><h1>{{ title }}</h1><p class="lead">問題の構成は自由です。Markdown で文章を組み立て、必要なところに数式を添えられます。</p></header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#structure">基本の書き方</a><a href="#inline-math">文中の数式</a><a href="#input-format">入力形式</a><a href="#display-math">独立した数式</a><a href="#samples">入出力例</a><a href="#drafts">下書きと保存</a></nav>
     <section id="structure"><h2>見出しで問題文を組み立てる</h2><p><code>##</code> で見出し、<code>-</code> で箇条書きを書けます。太字は <code>**強調したい文字**</code>、リンクは <code>[表示する文字](URL)</code> です。表や画像も使えます。</p><p>問題文、制約、入力、出力、入出力例の順に書くと、解く人が情報を見つけやすくなります。見出しの名前や順序は自由に変えられます。</p><pre><code>{{ basic }}</code></pre></section>

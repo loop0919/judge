@@ -70,7 +70,8 @@ async function resend() {
 <template>
   <section class="account-signup">
     <h1>{{ stage === 'complete' ? 'メールアドレスの確認が完了しました' : stage === 'confirm' ? 'メールアドレスを確認' : 'アカウントを作成' }}</h1>
-    <p v-if="providers?.google"><a class="editor-button" href="/auth/google">Googleで登録・ログイン</a></p>
+    <p v-if="providers?.google"><GoogleLoginLink>Googleで登録・ログイン</GoogleLoginLink></p>
+    <AuthDivider v-if="providers?.google && stage === 'signup'" />
     <template v-if="stage === 'signup'">
       <p class="muted">問題を保存して、別の端末でも編集できます。</p>
       <form @submit.prevent="signup">

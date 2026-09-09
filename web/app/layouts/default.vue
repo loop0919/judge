@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
-const { user, refreshAccount, logout } = useAccount()
-onMounted(() => { void refreshAccount().catch(() => {}) })
+const { user, profile, refreshAccount, refreshProfile } = useAccount()
+onMounted(() => { void refreshAccount().then(account => { if (account) return refreshProfile() }).catch(() => {}) })
 </script>
 
 <template>
@@ -10,11 +10,10 @@ onMounted(() => { void refreshAccount().catch(() => {}) })
     <header v-if="!route.meta.editorLayout" class="site-header">
       <NuxtLink class="wordmark" to="/" aria-label="OpenOJ ホーム">Open<span>OJ</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
-        <NuxtLink to="/">公開問題</NuxtLink>
-        <NuxtLink v-if="user" to="/problems/new?fresh=1">問題を作成</NuxtLink>
-        <NuxtLink v-if="user" to="/my/problems">自分の問題</NuxtLink>
-        <NuxtLink to="/blog">Blog</NuxtLink>
-        <button v-if="user" class="editor-button" @click="logout">ログアウト</button>
+        <NuxtLink to="/">ホーム</NuxtLink>
+        <NuxtLink to="/problems">問題</NuxtLink>
+        <NuxtLink to="/blog">ブログ</NuxtLink>
+        <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
       </nav>
     </header>
@@ -25,3 +24,7 @@ onMounted(() => { void refreshAccount().catch(() => {}) })
     </footer>
   </div>
 </template>
+
+<style scoped>
+.account-nav { min-width: 44px; min-height: 44px; justify-content: center; }
+</style>

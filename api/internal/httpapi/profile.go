@@ -1,0 +1,119 @@
+package httpapi
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"image/png"
+	"io"
+	"net/http"
+	"regexp"
+	"strings"
+
+	"judge/api/internal/profiles"
+)
+
+var userHandle = regexp.MustCompile(`^[a-z][a-z0-9_]{2,19}$`)
+
+// Accept only bounded PNGs and re-encode them to discard metadata and trailing data.
+func cleanAvatar(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	if len(value) > 180000 || !strings.HasPrefix(value, "data:image/png;base64,") {
+		return "", errors.New("invalid avatar")
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(value, "data:image/png;base64,"))
+	if err != nil {
+		return "", err
+	}
+	cfg, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	if cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 256 || cfg.Height > 256 {
+		return "", errors.New("invalid dimensions")
+	}
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if err = png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+	result := "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
+	if len(result) > 180000 {
+		return "", errors.New("avatar too large")
+	}
+	return result, nil
+}
+
+func (p PrivateProblems) profile(w http.ResponseWriter, r *http.Request, owner string) {
+	if p.Profiles == nil {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	if r.Method == http.MethodGet {
+		profile, err := p.Profiles.Get(r.Context(), owner)
+		if errors.Is(err, profiles.ErrNotFound) {
+			writeAuthJSON(w, 200, map[string]any{"profile": nil})
+			return
+		}
+		if err != nil {
+			authError(w, 503, "database_unavailable")
+			return
+		}
+		writeAuthJSON(w, 200, map[string]any{"profile": profile})
+		return
+	}
+	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+		authError(w, 415, "json_required")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 200<<10)
+	var input struct {
+		Handle  string `json:"handle"`
+		Avatar  string `json:"avatar"`
+		Version int64  `json:"version"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(&input)
+	if err == nil {
+		if decoder.Decode(new(any)) != io.EOF {
+			err = errors.New("trailing JSON")
+		}
+	}
+	if err != nil {
+		var large *http.MaxBytesError
+		if errors.As(err, &large) {
+			authError(w, 413, "request_too_large")
+		} else {
+			authError(w, 400, "invalid_request")
+		}
+		return
+	}
+	input.Handle = strings.ToLower(strings.TrimSpace(input.Handle))
+	if !userHandle.MatchString(input.Handle) || input.Version < 0 || input.Version > 9007199254740990 {
+		authError(w, 400, "invalid_profile")
+		return
+	}
+	avatar, err := cleanAvatar(input.Avatar)
+	if err != nil {
+		authError(w, 400, "invalid_avatar")
+		return
+	}
+	result, err := p.Profiles.Save(r.Context(), owner, input.Handle, avatar, input.Version)
+	switch {
+	case errors.Is(err, profiles.ErrHandleTaken):
+		authError(w, 409, "handle_taken")
+	case errors.Is(err, profiles.ErrConflict):
+		authError(w, 409, "profile_conflict")
+	case err != nil:
+		authError(w, 503, "database_unavailable")
+	default:
+		writeAuthJSON(w, 200, map[string]any{"profile": result})
+	}
+}

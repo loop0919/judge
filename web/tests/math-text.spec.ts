@@ -39,25 +39,17 @@ test('ordinary HTML is text and KaTeX cannot create links or images', () => {
 test('display math is rendered in SSR; invalid content is text; code stays literal', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 900 } })
   const page = await context.newPage()
-  const response = await page.goto('http://127.0.0.1:13001/problems/math-fixture')
+  const response = await page.goto('http://127.0.0.1:13001/problems/22222222-2222-4222-8222-222222222222')
   expect(response?.status()).toBe(200)
   await expect(page.locator('.katex-display')).toHaveCount(2)
   await expect(page.locator('.katex-display').first()).toBeVisible()
-  await expect(page.locator('#statement img, #statement a')).toHaveCount(0)
+  await expect(page.locator('.markdown-body img, .markdown-body a')).toHaveCount(0)
   await expect(page.getByText('<img src=x onerror="alert(1)">', { exact: true })).toBeVisible()
-  await expect(page.getByText(String.raw`$\unknownCommand{x}$`, { exact: true })).toBeVisible()
-  await expect(page.locator('#input .katex')).toHaveCount(2)
-  await expect(page.locator('#input .katex').first()).toBeVisible()
-  await expect(page.locator('#input annotation').first()).toHaveText(String.raw`A \quad B`)
-  expect(await page.locator('.input-format').evaluate(element => getComputedStyle(element).whiteSpace)).toBe('pre-wrap')
-  // Subscripts must not create tiny horizontal scrollbars under individual expressions.
-  expect(await page.locator('.input-format .math-expression').evaluateAll(elements =>
-    elements.every(element => getComputedStyle(element).overflowX === 'visible'),
-  )).toBe(true)
-  await expect(page.locator('#samples pre').first()).toHaveText('$literal input$\n')
+  await expect(page.locator('.markdown-body')).toContainText(String.raw`\unknownCommand`)
+  await expect(page.locator('.markdown-body pre').first()).toHaveText('$literal input$\n')
   await expect(page.locator('pre .katex')).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  const longMath = page.locator('.math-expression--display').last()
+  const longMath = page.locator('.katex-display').last()
   expect(await longMath.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   // CSS and font assets must be self-hosted and loaded without page JavaScript.
   expect(await page.locator('.katex').first().evaluate(element => getComputedStyle(element).fontFamily)).toContain('KaTeX_Main')

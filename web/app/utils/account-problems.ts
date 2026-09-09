@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import { problemDraftSchema } from './problem-draft'
 
-export const accountProblemSchema = z.object({ id: z.string().uuid(), version: z.number().int().positive(), updatedAt: z.string().datetime({ offset: true }), draft: problemDraftSchema })
+export const accountProblemSchema = z.object({ id: z.string().uuid(), publishedVersion: z.number().int().nonnegative().default(0), version: z.number().int().positive(), updatedAt: z.string().datetime({ offset: true }), draft: problemDraftSchema })
 export const accountListSchema = z.object({
-  items: z.array(z.object({ id: z.string().uuid(), title: z.string(), updatedAt: z.string().datetime({ offset: true }) })),
+  items: z.array(z.object({ id: z.string().uuid(), title: z.string(), publishedVersion: z.number().int().nonnegative().default(0), updatedAt: z.string().datetime({ offset: true }) })),
   nextCursor: z.string(),
 })
 export type AccountSummary = z.infer<typeof accountListSchema>['items'][number]

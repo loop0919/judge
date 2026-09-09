@@ -49,7 +49,7 @@ for (const width of [320, 375, 768, 1440]) {
   test(`blog guide is readable at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/blog')
-    await page.getByRole('link', { name: 'Markdown と数式の書き方' }).click()
+    await page.getByRole('link', { name: 'Markdown・数式の書き方' }).click()
     await expect(page.locator('.blog-article .input-format .katex')).toHaveCount(7)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     expect(await page.locator('.input-format .math-expression').evaluateAll(elements =>

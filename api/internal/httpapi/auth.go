@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"judge/api/internal/posts"
 	"judge/api/internal/problems"
+	"judge/api/internal/profiles"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -74,7 +76,12 @@ func (h *configuredHandler) Close() error {
 }
 
 func configuredStorage(getenv func(string) string, auth AuthConfig, region string) (http.Handler, error) {
-	private := PrivateProblems{}
+	private := PrivateProblems{Operators: make(map[string]bool)}
+	for _, subject := range strings.Split(getenv("OPERATOR_SUBJECTS"), ",") {
+		if subject = strings.TrimSpace(subject); subject != "" {
+			private.Operators[subject] = true
+		}
+	}
 	poolID := getenv("COGNITO_USER_POOL_ID")
 	if auth.ClientID != "" && poolID != "" {
 		if !regexp.MustCompile(`^[a-z0-9-]+_[A-Za-z0-9]+$`).MatchString(poolID) || !strings.HasPrefix(poolID, region+"_") {
@@ -93,6 +100,8 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 			return nil, err
 		}
 		private.Store = store
+		private.Profiles = profiles.New(store.Pool())
+		private.Posts = posts.New(store.Pool())
 	}
 	return &configuredHandler{Handler: newHandler(auth, private), store: store}, nil
 }

@@ -1,27 +1,129 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const canonical = new URL('/', config.public.siteUrl).href
-useSeoMeta({
-  title: '公開問題 | OpenOJ',
-  description: 'プログラミングの問題文、制約、入出力例を確認できます。まずはサンプル問題 A + B から。',
-  ogTitle: '公開問題 | OpenOJ',
-  ogDescription: 'プログラミングの問題文、制約、入出力例を確認できます。',
-  ogType: 'website',
-  ogUrl: canonical,
+// Each dot follows the wave according to its distance from the goal.
+const gridDots = Array.from({ length: 17 * 15 }, (_, index) => {
+  const x = 25 + (index % 17) * 24
+  const y = 25 + Math.floor(index / 17) * 24
+  return { x, y, delay: `${(2.55 + Math.hypot(x - 364, y - 96) / 480 * .9).toFixed(3)}s` }
 })
-useHead({ link: [{ rel: 'canonical', href: canonical }] })
+useSeoMeta({ title: 'ホーム | OpenOJ', description: 'ひらめきを問題に。解き方を記事に。プログラミングの知識を、みんなで持ち寄る場所。', ogTitle: 'OpenOJ — 考える楽しさを、次の一問へ。', ogDescription: 'ひらめきを問題に。解き方を記事に。' })
+useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).href }] })
 </script>
 
 <template>
-  <div class="catalogue">
-    <p class="eyebrow">PROBLEM SET</p>
-    <h1>公開問題</h1>
-    <p class="lead">問題文と入出力例を確認して、自分のコードで解いてみましょう。</p>
-    <NuxtLink class="problem-row" to="/problems/a-plus-b">
-      <span class="problem-id">a-plus-b</span>
-      <span><strong>A + B</strong><span class="row-description">2 つの整数の和を求める</span></span>
-      <span class="row-end">サンプル <span aria-hidden="true">↗</span></span>
-    </NuxtLink>
-    <p class="muted">現在はサンプル問題の閲覧に対応しています。コードの提出・採点は準備中です。</p>
+  <div class="home">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="hero-kicker"><span aria-hidden="true" />OPEN ONLINE JUDGE</p>
+        <h1 id="hero-title">考える楽しさを、<br><span>次の一問へ。</span></h1>
+        <p class="hero-description">ひらめきを問題に。解き方を記事に。<br>プログラミングの知識を、<wbr>みんなで持ち寄る場所。</p>
+        <div class="hero-actions">
+          <NuxtLink class="hero-primary" to="/problems">問題を見る<span aria-hidden="true">↗</span></NuxtLink>
+          <NuxtLink class="hero-secondary" to="/problems/new?fresh=1">問題をつくる<span aria-hidden="true">→</span></NuxtLink>
+        </div>
+      </div>
+      <figure class="hero-figure">
+        <svg class="path-art" viewBox="0 0 440 400" role="img" aria-labelledby="path-title">
+          <title id="path-title">複数のノードと、それらを結ぶ経路のグラフ</title>
+          <g aria-hidden="true">
+            <circle v-for="(dot, index) in gridDots" :key="index" :cx="dot.x" :cy="dot.y" r="1.25" class="grid-dot" :style="{ '--wave-delay': dot.delay }" />
+          </g>
+          <circle cx="236" cy="196" r="144" class="orbit" />
+          <g class="quiet-path"><path d="M64 212 168 104 292 72M168 104 284 184M64 212 184 292 344 312M184 292 284 184" /></g>
+          <path d="M64 212 284 184 364 96" class="quiet-path" />
+          <path d="M64 212 284 184" pathLength="1" class="answer-path answer-path--first" />
+          <path d="M284 184 364 96" pathLength="1" class="answer-path answer-path--second" />
+          <g class="quiet-node"><circle cx="168" cy="104" r="8" /><circle cx="292" cy="72" r="5" /><circle cx="184" cy="292" r="8" /><circle cx="344" cy="312" r="5" /></g>
+          <circle cx="64" cy="212" r="30" class="start-halo" />
+          <circle cx="64" cy="212" r="22" class="start-node" />
+          <text x="64" y="219" class="start-label" text-anchor="middle">?</text>
+          <circle cx="284" cy="184" r="11" class="route-node" />
+          <circle cx="364" cy="96" r="25" class="end-halo" />
+          <circle cx="364" cy="96" r="14" class="end-node" />
+          <path d="m358 96 4 4 8-8" class="check" />
+        </svg>
+      </figure>
+    </section>
+    <aside class="blog-invitation" aria-label="ブログの紹介">
+      <span class="blog-marker" aria-hidden="true">読む・書く</span>
+      <div><h2>その解き方が、誰かのヒントになる。</h2><p>考えたこと、学んだことをブログで共有しよう。</p></div>
+      <NuxtLink to="/blog">ブログを読む<span aria-hidden="true">→</span></NuxtLink>
+    </aside>
   </div>
 </template>
+
+<style scoped>
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R5 V4
+ * component: home hero · genre: modern-minimal · theme: existing OpenOJ tokens
+ * Sequential path reveal with reduced-motion support; navigation states: default, hover, focus-visible, active. */
+.home { padding-bottom: 64px; }
+.hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 24px; min-height: 600px; padding-block: 72px 80px; }
+.hero-copy { position: relative; z-index: 1; }
+.hero-kicker { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; font-family: var(--font-code); font-size: .75rem; letter-spacing: .12em; color: var(--color-muted); }
+.hero-kicker span { width: 8px; height: 8px; background: var(--color-accent); border-radius: 50%; }
+.hero h1 { margin: 0 0 28px; font-size: clamp(2.25rem, 4.5vw, 3.5rem); line-height: 1.55; letter-spacing: -.055em; font-weight: 750; }
+.hero h1 span { color: var(--color-accent); }
+.hero-description { margin-bottom: 36px; font-size: .9375rem; line-height: 2.1; color: var(--color-muted); word-break: keep-all; overflow-wrap: anywhere; }
+.hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
+.hero-actions a { display: inline-flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 52px; font-size: .875rem; font-weight: 600; white-space: nowrap; text-decoration: none; }
+.hero-primary { padding: 12px 24px; border-radius: 4px; background: var(--color-accent); color: var(--color-paper); }
+.hero-primary:hover { background: var(--color-ink); }
+.hero-secondary { color: var(--color-ink); }
+.hero-secondary:hover { text-decoration: underline; text-underline-offset: 6px; }
+.hero-actions a:active, .blog-invitation a:active { transform: translateY(1px); }
+.hero-actions a:focus-visible, .blog-invitation a:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 5px; }
+.hero-figure { margin: 0; min-width: 0; }
+.path-art { display: block; width: 100%; height: auto; overflow: visible; }
+.grid-dot { fill: var(--color-line); }
+.orbit { fill: none; stroke: var(--color-line); stroke-dasharray: 3 7; }
+.quiet-path { fill: none; stroke: var(--color-line); stroke-width: 2; }
+.answer-path { fill: none; stroke: var(--color-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.quiet-node { fill: var(--color-paper); stroke: var(--color-muted); stroke-width: 1.5; }
+.start-halo { fill: var(--color-accent-soft); filter: blur(3px); }
+.start-node { fill: var(--color-paper); stroke: var(--color-accent); stroke-width: 2; }
+.start-label { fill: var(--color-accent); font: 600 22px var(--font-code); }
+.route-node, .end-node { fill: var(--color-accent); }
+.end-halo { fill: var(--color-accent-soft); }
+.check { fill: none; stroke: var(--color-paper); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.blog-invitation { display: flex; align-items: center; gap: 24px 32px; padding-block: 32px; border-top: 1px solid var(--color-line); }
+.blog-marker { color: var(--color-accent); font-size: .75rem; white-space: nowrap; }
+.blog-invitation h2 { margin: 0 0 8px; font-size: 1.125rem; font-weight: 600; }
+.blog-invitation p { margin: 0; color: var(--color-muted); font-size: .8125rem; }
+.blog-invitation a { display: inline-flex; align-items: center; gap: 24px; min-height: 44px; margin-left: auto; font-size: .875rem; white-space: nowrap; text-decoration: none; }
+.blog-invitation a:hover { text-decoration: underline; }
+@media (prefers-reduced-motion: no-preference) {
+  .answer-path { stroke-dasharray: 1; animation: trace-path .8s cubic-bezier(.76, 0, .24, 1) .3s both; }
+  .answer-path--second { animation-duration: .65s; animation-delay: 1.45s; }
+  .start-node { animation: light-start .7s ease-in-out .5s both; }
+  .start-label { animation: light-question .7s ease-in-out .5s both; }
+  .start-halo { animation: reveal-arrival .8s ease-in-out .55s both; }
+  .route-node { animation: light-node .18s ease-out 1.1s both; }
+  .end-node { animation: light-node .18s ease-out 2.1s both; }
+  .end-halo { animation: reveal-arrival .3s ease-out 2.1s both; }
+  .check { animation: reveal-arrival .2s ease-out 2.25s both; }
+  .grid-dot { animation: grid-ripple 1.1s ease-in-out var(--wave-delay) both; }
+}
+@keyframes grid-ripple {
+  0%, 100% { transform: translateY(0); fill: var(--color-line); }
+  30% { transform: translateY(-5px); fill: var(--color-accent); }
+  65% { transform: translateY(2px); fill: var(--color-line); }
+}
+@keyframes light-start { from { stroke: var(--color-muted); } to { stroke: var(--color-accent); } }
+@keyframes light-question { from { fill: var(--color-muted); } to { fill: var(--color-accent); } }
+@keyframes trace-path { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes light-node { from { fill: var(--color-line); } to { fill: var(--color-accent); } }
+@keyframes reveal-arrival { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 800px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-block: 48px; min-height: 0; }
+  .hero h1 { font-size: clamp(2rem, 6.5vw, 3.25rem); }
+  .hero-figure { width: min(100%, 400px); margin-left: auto; }
+  .blog-invitation { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .blog-invitation a { margin-left: 0; }
+}
+@media (max-width: 400px) {
+  .hero h1 { font-size: 1.875rem; }
+  .hero-actions { gap: 12px 20px; }
+  .hero-actions a { gap: 12px; }
+  .hero-primary { padding-inline: 20px; }
+}
+</style>

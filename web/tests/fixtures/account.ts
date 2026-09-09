@@ -4,6 +4,8 @@ import { test as base, expect } from '@playwright/test'
 export const test = base.extend({
   page: async ({ page }, use) => {
     const problems = new Map<string, { id: string, version: number, updatedAt: string, draft: Record<string, string> }>()
+    await page.route('**/api/my/posts', route => route.fulfill({ json: { items: [], nextCursor: '' } }))
+    await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'ui_test', avatar: '', version: 1, createdAt: '2026-09-10T00:00:00Z' } } }))
     await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'ui-test-user' } } }))
     await page.route('**/api/my/problems**', async route => {
       const request = route.request()

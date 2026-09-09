@@ -1,3 +1,4 @@
+import { profileResultSchema } from '../../../../app/utils/profile'
 import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import { googleOAuthConfig, oauthCookie } from '../../../utils/google-oauth'
@@ -25,8 +26,9 @@ export default defineEventHandler(async event => {
     if (config.clientSecret) headers.Authorization = `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`
     const result = tokenSchema.parse(await $fetch(new URL('/oauth2/token', config.domain).href, { method: 'POST', body: body.toString(), headers, timeout: 12000, retry: 0, redirect: 'error' }))
     await privateAPI<{ id: string }>(event, '/auth/me', { token: result.access_token })
+    const account = profileResultSchema.parse(await privateAPI(event, '/my/profile', { token: result.access_token }))
     setCookie(event, sessionCookie, result.access_token, { ...cookieOptions(event), maxAge: Math.min(result.expires_in, 86400) })
-    return sendRedirect(event, '/my/problems', 303)
+    return sendRedirect(event, account.profile ? '/my' : '/onboarding', 303)
   } catch {
     return sendRedirect(event, '/login?socialError=failed', 303)
   }

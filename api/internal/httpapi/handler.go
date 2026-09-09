@@ -18,7 +18,10 @@ func NewHandler(auth ...AuthConfig) http.Handler {
 func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health)
-	mux.HandleFunc("GET /problems/{id}", problemDetail)
+	mux.HandleFunc("GET /problems", private.publicContent)
+	mux.HandleFunc("GET /problems/{id}", private.publicContent)
+	mux.HandleFunc("GET /posts", private.publicContent)
+	mux.HandleFunc("GET /posts/{id}", private.publicContent)
 	mux.HandleFunc("POST /auth/login", config.login)
 	mux.HandleFunc("POST /auth/challenge", config.challenge)
 	mux.HandleFunc("POST /auth/signup", config.registration)

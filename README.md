@@ -16,7 +16,9 @@ Nix 開発環境を読み込み、フロントエンドの依存関係のイン�
 依存関係は初回と `web/package.json`、`web/package-lock.json`、Node.js のバージョンが変わったときにインストールする。
 初回はツールと依存関係のダウンロードに時間がかかる。
 
-- サンプル問題: <http://localhost:3000/problems/a-plus-b>
+- ホーム: <http://localhost:3000/>
+- 公開問題: <http://localhost:3000/problems>
+- ブログ: <http://localhost:3000/blog>
 - 問題作成: <http://localhost:3000/problems/new>
 - API ヘルスチェック: <http://localhost:8080/health>
 

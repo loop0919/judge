@@ -9,7 +9,7 @@ test('multiple drafts remain independent and reopen from the library', async ({ 
     await page.getByRole('button', { name: '保存', exact: true }).click()
     await expect(page).toHaveURL(/problem=/)
     await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
-  await page.getByRole('link', { name: '自分の問題', exact: true }).click()
+  await page.getByRole('link', { name: 'マイページ', exact: true }).click()
   }
   await expect(page.locator('.draft-list li')).toHaveCount(2)
   await page.locator('.draft-list').getByRole('link', { name: /最初の問題/ }).click()
@@ -17,7 +17,7 @@ test('multiple drafts remain independent and reopen from the library', async ({ 
   await page.locator('#problem-title').fill('最初の問題・改訂')
   await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
   await page.getByRole('button', { name: '保存して移動', exact: true }).click()
-  await page.getByRole('link', { name: '自分の問題', exact: true }).click()
+  await page.getByRole('link', { name: 'マイページ', exact: true }).click()
   await expect(page.locator('.draft-list li')).toHaveCount(2)
   await expect(page.locator('.draft-list li').first()).toContainText('最初の問題・改訂')
   await page.reload()

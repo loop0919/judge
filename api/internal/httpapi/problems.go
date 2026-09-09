@@ -1,53 +1,282 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"judge/api/internal/problems"
 )
 
-// The initial public catalogue contains one sample. Test sets and judge-only
-// metadata must remain separate from this public response.
-type publicProblem struct {
-	ID            string          `json:"id"`
-	Title         string          `json:"title"`
-	Description   string          `json:"description"`
-	Statement     []string        `json:"statement"`
-	Constraints   []string        `json:"constraints"`
-	InputFormat   string          `json:"inputFormat"`
-	OutputFormat  string          `json:"outputFormat"`
-	Samples       []problemSample `json:"samples"`
-	TimeLimitMS   int             `json:"timeLimitMs"`
-	MemoryLimitMB int             `json:"memoryLimitMb"`
-	IsSample      bool            `json:"isSample"`
+func contentJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+		authError(w, 415, "json_required")
+		return false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 700<<10)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err := decoder.Decode(target)
+	if err == nil {
+		err = decoder.Decode(new(any))
+		if err == io.EOF {
+			return true
+		}
+	}
+	var large *http.MaxBytesError
+	if errors.As(err, &large) {
+		authError(w, 413, "request_too_large")
+	} else {
+		authError(w, 400, "invalid_request")
+	}
+	return false
 }
 
-type problemSample struct {
-	Input       string `json:"input"`
-	Output      string `json:"output"`
-	Explanation string `json:"explanation"`
+func contentCursor(w http.ResponseWriter, r *http.Request) (*problems.Cursor, bool) {
+	raw := r.URL.Query().Get("cursor")
+	if raw == "" {
+		return nil, true
+	}
+	if len(raw) > 512 {
+		authError(w, 400, "invalid_cursor")
+		return nil, false
+	}
+	data, err := base64.RawURLEncoding.DecodeString(raw)
+	var c problems.Cursor
+	if err != nil || json.Unmarshal(data, &c) != nil || !problemID.MatchString(c.ID) || c.UpdatedAt.IsZero() {
+		authError(w, 400, "invalid_cursor")
+		return nil, false
+	}
+	return &c, true
 }
 
-func problemDetail(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+func nextContentCursor(id string, date time.Time) string {
+	data, _ := json.Marshal(problems.Cursor{ID: id, UpdatedAt: date})
+	return base64.RawURLEncoding.EncodeToString(data)
+}
+
+func (p PrivateProblems) publicContent(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.PathValue("id") != "a-plus-b" {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "problem_not_found"})
+	id := r.PathValue("id")
+	if id != "" && !problemID.MatchString(id) {
+		authError(w, 404, "not_found")
 		return
 	}
-	_ = json.NewEncoder(w).Encode(publicProblem{
-		ID: "a-plus-b", Title: "A + B", IsSample: true,
-		Description: "2 つの整数 A と B を受け取り、その和を出力する問題です。標準入力と標準出力の基本を確認できます。",
-		Statement: []string{
-			"2 つの整数 $A$ と $B$ が与えられます。$A + B$ の値を求めてください。",
-			"入力を標準入力から読み取り、計算した結果を標準出力に出力してください。",
-		},
-		Constraints: []string{`$0 \le A \le 10^9$`, `$0 \le B \le 10^9$`, "入力はすべて整数である。"},
-		InputFormat: `$A \quad B$`, OutputFormat: "$A + B$ の値を 1 行に出力してください。末尾に改行を入れてください。",
-		Samples: []problemSample{
-			{Input: "3 5\n", Output: "8\n", Explanation: "$3 + 5 = 8$ なので、$8$ を出力します。"},
-			{Input: "1000000000 1000000000\n", Output: "2000000000\n", Explanation: "制約の上限の値が与えられる場合もあります。"},
-		},
-		TimeLimitMS: 2000, MemoryLimitMB: 256,
-	})
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	if strings.HasPrefix(r.URL.Path, "/posts") {
+		if p.Posts == nil {
+			authError(w, 503, "database_unavailable")
+			return
+		}
+		if id != "" {
+			post, err := p.Posts.PublicGet(ctx, id)
+			if err != nil {
+				problemError(w, err)
+				return
+			}
+			post.Operator = p.Operators[post.Owner]
+			writeAuthJSON(w, 200, post)
+			return
+		}
+		cursor, ok := contentCursor(w, r)
+		if !ok {
+			return
+		}
+		list, err := p.Posts.PublicList(ctx, cursor)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		next := ""
+		if len(list) > 50 {
+			list = list[:50]
+			last := list[49]
+			next = nextContentCursor(last.ID, *last.PublishedAt)
+		}
+		for i := range list {
+			list[i].Operator = p.Operators[list[i].Owner]
+		}
+		writeAuthJSON(w, 200, map[string]any{"items": list, "nextCursor": next})
+		return
+	}
+	store, ok := p.Store.(problems.Publications)
+	if !ok {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	if id != "" {
+		value, err := store.PublicGet(ctx, id)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		writeAuthJSON(w, 200, value)
+		return
+	}
+	cursor, ok := contentCursor(w, r)
+	if !ok {
+		return
+	}
+	list, err := store.PublicList(ctx, cursor)
+	if err != nil {
+		problemError(w, err)
+		return
+	}
+	next := ""
+	if len(list) > 50 {
+		list = list[:50]
+		last := list[49]
+		next = nextContentCursor(last.ID, last.PublishedAt)
+	}
+	writeAuthJSON(w, 200, map[string]any{"items": list, "nextCursor": next})
+}
+
+type publicationInput struct {
+	Version int64 `json:"version"`
+	Publish *bool `json:"publish"`
+}
+
+func publicationRequest(w http.ResponseWriter, r *http.Request) (publicationInput, bool) {
+	var in publicationInput
+	if !contentJSON(w, r, &in) {
+		return in, false
+	}
+	if in.Version <= 0 || in.Publish == nil {
+		authError(w, 400, "invalid_request")
+		return in, false
+	}
+	return in, true
+}
+
+func (p PrivateProblems) publishProblem(w http.ResponseWriter, r *http.Request, owner string) {
+	id := r.PathValue("id")
+	if !problemID.MatchString(id) {
+		authError(w, 404, "problem_not_found")
+		return
+	}
+	store, ok := p.Store.(problems.Publications)
+	if !ok {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	in, ok := publicationRequest(w, r)
+	if !ok {
+		return
+	}
+	current, err := p.Store.Get(r.Context(), owner, id)
+	if err != nil {
+		problemError(w, err)
+		return
+	}
+	if *in.Publish && (strings.TrimSpace(current.Draft.Title) == "" || strings.TrimSpace(current.Draft.Markdown) == "" || !validDraft(current.Draft)) {
+		authError(w, 400, "incomplete_problem")
+		return
+	}
+	result, err := store.Publish(r.Context(), owner, id, in.Version, *in.Publish)
+	if err != nil {
+		problemError(w, err)
+		return
+	}
+	writeAuthJSON(w, 200, result)
+}
+
+func (p PrivateProblems) privatePost(w http.ResponseWriter, r *http.Request, owner string) {
+	if p.Posts == nil {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	id := r.PathValue("id")
+	if id == "" {
+		cursor, ok := contentCursor(w, r)
+		if !ok {
+			return
+		}
+		list, err := p.Posts.List(r.Context(), owner, cursor)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		next := ""
+		if len(list) > 50 {
+			list = list[:50]
+			last := list[49]
+			next = nextContentCursor(last.ID, last.UpdatedAt)
+		}
+		writeAuthJSON(w, 200, map[string]any{"items": list, "nextCursor": next})
+		return
+	}
+	if !problemID.MatchString(id) {
+		authError(w, 404, "post_not_found")
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/publication") {
+		in, ok := publicationRequest(w, r)
+		if !ok {
+			return
+		}
+		current, err := p.Posts.Get(r.Context(), owner, id)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		if *in.Publish && (strings.TrimSpace(current.Title) == "" || strings.TrimSpace(current.Markdown) == "") {
+			authError(w, 400, "incomplete_post")
+			return
+		}
+		result, err := p.Posts.Publish(r.Context(), owner, id, in.Version, *in.Publish)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		writeAuthJSON(w, 200, result)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		result, err := p.Posts.Get(r.Context(), owner, id)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		writeAuthJSON(w, 200, result)
+	case http.MethodPut:
+		var in struct {
+			Version  int64  `json:"version"`
+			Title    string `json:"title"`
+			Markdown string `json:"markdown"`
+		}
+		if !contentJSON(w, r, &in) {
+			return
+		}
+		if in.Version < 0 || in.Version > 9007199254740990 || utf8.RuneCountInString(in.Title) > 120 || utf8.RuneCountInString(in.Markdown) > 100000 || strings.ContainsRune(in.Title+in.Markdown, '\x00') {
+			authError(w, 400, "invalid_post")
+			return
+		}
+		result, err := p.Posts.Save(r.Context(), owner, id, in.Title, in.Markdown, in.Version)
+		if err != nil {
+			problemError(w, err)
+			return
+		}
+		writeAuthJSON(w, 200, result)
+	case http.MethodDelete:
+		version, err := strconv.ParseInt(r.URL.Query().Get("version"), 10, 64)
+		if err != nil || version <= 0 {
+			authError(w, 400, "invalid_version")
+			return
+		}
+		if err = p.Posts.Delete(r.Context(), owner, id, version); err != nil {
+			problemError(w, err)
+			return
+		}
+		w.WriteHeader(204)
+	}
 }

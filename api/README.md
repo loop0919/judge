@@ -57,14 +57,12 @@ curl -i http://localhost:8080/health
 
 ## 公開問題API
 
-`GET /problems/a-plus-b` はサンプル問題の本文、制約、入出力例、実行時間制限とメモリ制限をJSONで返す。
-認証は不要であり、未登録のIDは `404` と `{"error":"problem_not_found"}` を返す。
-現在のカタログは固定のサンプル1件であり、非公開の下書きとは別に管理する。
-下書き保存には後述の`/my/problems`を使い、提出APIは未実装である。
-採点用の非公開テストケースはこの応答に含めない。
+`GET /problems` は公開済み問題の一覧、`GET /problems/{id}` は公開済み本文と制限値を返します。
+認証は不要です。存在しない問題と非公開の問題は `404` を返します。
+下書きの保存と公開は別の操作です。提出・採点 API は未実装です。
 
 ```console
-curl -i http://localhost:8080/problems/a-plus-b
+curl -i http://localhost:8080/problems
 ```
 
 Nuxtからの取得とSSRの確認方法は[フロントエンドの手順](../web/README.md)を参照する。
@@ -289,3 +287,36 @@ golangci-lint run
 `TEST_DATABASE_URL`が未設定なら実DBのテストはスキップする。
 
 Lambda用バイナリでは、ビルド時に`CGO_ENABLED=0`と対象アーキテクチャを指定する。
+
+## ユーザープロフィール
+
+`GET /my/profile` はログインユーザーの `{ "profile": null }` またはプロフィールを返す。
+`PUT /my/profile` は `{ "handle": "coder_01", "avatar": "", "version": 0 }` を受け取り、ユーザーID・アイコンを登録する。
+更新時は取得した `version` を指定する。
+`handle` は小文字に正規化し、英字で始まる3〜20文字の英小文字・数字・アンダースコアに制限する。
+重複は `409 handle_taken`、古い更新番号は `409 profile_conflict` となる。
+`avatar` は空文字かPNGのdata URLを受け取り、最大256×256px・180,000文字に制限して、サーバーで再エンコードする。
+元画像や任意URL・SVGは保存しない。
+リクエスト全体は200KiBまでで、所有者はアクセストークンの `sub` から決定する。
+ユーザーIDを変更してもCognito内部IDと問題の所有権は変わらない。
+プロフィール未登録時、`/my/problems` は `403 profile_required` を返す。
+
+マイグレーションは `internal/database` にまとめ、バージョン2で `user_profiles` を追加した。
+既存DBは `go run ./cmd/migrate` で更新する。
+`make dev` で自動起動するローカルDBは起動時にマイグレーションを適用する。
+
+## 公開問題とブログ
+
+DB マイグレーション 003 で問題の公開スナップショットと `blog_posts` を追加します。
+既存の問題は非公開のままです。`make dev` は起動時にマイグレーションを適用します。
+個別に適用する場合は `DATABASE_URL=... go run ./cmd/migrate` を実行してください。
+
+- `GET /problems`、`GET /problems/{id}`: 公開された問題の一覧と詳細（認証不要）。
+- `GET /posts`、`GET /posts/{id}`: 公開された記事の一覧と詳細（認証不要）。
+- `GET /my/posts`、`GET|PUT|DELETE /my/posts/{id}`: 自分の記事の保存・取得・削除。
+- `PUT /my/problems/{id}/publication`、`PUT /my/posts/{id}/publication`: `{ "version": 1, "publish": true }` で現在の保存内容を公開。`false` で非公開に戻す。
+
+保存は下書きだけを更新します。公開・公開更新・非公開への変更はバージョン検証を行い、他画面の更新と競合した場合は 409 を返します。
+削除は公開内容も削除します。一覧は 50 件ずつ `nextCursor` を次回の `cursor` に指定して取得できます。
+記事には登録済みユーザー ID を表示します。運営の記事には API 環境変数 `OPERATOR_SUBJECTS` にカンマ区切りで指定した Cognito `sub` の投稿だけ「運営」を表示します。
+一般ユーザーは運営フラグを設定できません。運営も通常のログイン・記事作成画面を使います。

@@ -37,7 +37,7 @@ async function submit() {
     user.value = result.user
     const next = typeof route.query.next === 'string' ? route.query.next : ''
     // Only local, known destinations can be used as a return path.
-    await navigateTo(/^\/(my\/problems|problems\/new)(\?.*)?$/.test(next) ? next : '/my/problems')
+    await navigateTo(/^\/(my(?:\/(?:problems|settings|posts))?|(?:problems|blog)\/new)(\?.*)?$/.test(next) ? next : '/my')
   } catch {
     error.value = 'ログインできませんでした。入力内容と接続を確認して、もう一度お試しください。'
   } finally { busy.value = false }
@@ -47,9 +47,9 @@ async function submit() {
 <template>
   <section class="account-login">
     <h1>ログイン</h1>
-    <p v-if="providers?.google"><a class="editor-button" href="/auth/google">Googleでログイン</a></p>
+    <p v-if="providers?.google"><GoogleLoginLink>Googleでログイン</GoogleLoginLink></p>
     <p v-if="route.query.socialError" role="alert" class="editor-error">Googleでログインできませんでした。もう一度お試しください。</p>
-    <p class="muted">問題をアカウントに保存して、別の端末でも編集できます。</p>
+    <AuthDivider v-if="providers?.google && !challenge" />
     <form @submit.prevent="submit">
       <template v-if="!challenge">
         <label for="login-email">メールアドレス</label>

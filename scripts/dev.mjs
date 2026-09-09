@@ -121,7 +121,7 @@ try {
   }))
   await waitForAPI(apiPort)
   if (!stopping) {
-    console.log(`\nWeb: http://localhost:${webPort}/problems/a-plus-b\nAPI: http://localhost:${apiPort}/health\nStop both servers with Ctrl+C.\n`)
+    console.log(`\nWeb: http://localhost:${webPort}/\nAPI: http://localhost:${apiPort}/health\nStop both servers with Ctrl+C.\n`)
     supervise(run(process.execPath, ['node_modules/nuxt/bin/nuxt.mjs', 'dev', '--host', '127.0.0.1', '--port', String(webPort)], `${root}web`, {
       ...process.env,
       PORT: String(webPort),

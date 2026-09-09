@@ -6,7 +6,7 @@ async function login(page: Page, username = 'alice@example.test') {
   await page.getByLabel('メールアドレス').fill(username)
   await page.getByLabel('パスワード', { exact: true }).fill('test-password')
   await page.getByRole('button', { name: 'ログイン', exact: true }).click()
-  await expect(page).toHaveURL('/my/problems')
+  await expect(page).toHaveURL('/my')
 }
 
 test('login, database save, another browser, ownership, conflict and logout', async ({ page, browser }) => {
@@ -26,7 +26,7 @@ test('login, database save, another browser, ownership, conflict and logout', as
   expect(id).toBeTruthy()
   expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('openoj.problem-drafts')))).toEqual([])
   await page.getByRole('link', { name: 'OpenOJ ホーム', exact: true }).click()
-  await page.getByRole('link', { name: '自分の問題', exact: true }).click()
+  await page.getByRole('link', { name: 'マイページ', exact: true }).click()
   await expect(page.getByRole('link', { name: /DBで保存した問題/ })).toBeVisible()
 
   const secondContext = await browser.newContext({ baseURL: 'http://127.0.0.1:13002' })
@@ -81,11 +81,13 @@ test('DB-only library ignores legacy drafts, refreshes cache and deletes the sav
   await page.locator('#problem-title').fill('キャッシュ対象の問題')
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page).toHaveURL(/problem=/)
   const url = page.url()
   const id = new URL(url).searchParams.get('problem')!
   expect(await page.evaluate(() => Object.keys(sessionStorage).some(k => k.startsWith('openoj.problem-cache.v1.')))).toBe(true)
   const current = await (await page.request.get(`/api/my/problems/${id}`)).json()
-  await page.request.put(`/api/my/problems/${id}`, { headers: { origin: 'http://127.0.0.1:13002' }, data: { version: current.version, draft: { ...current.draft, title: 'DBが最新' } } })
+  const updated = await page.request.put(`/api/my/problems/${id}`, { headers: { origin: 'http://127.0.0.1:13002' }, data: { version: current.version, draft: { ...current.draft, title: 'DBが最新' } } })
+  expect(updated.ok()).toBe(true)
   await page.reload()
   await expect(page.locator('#problem-title')).toHaveValue('DBが最新')
   await expect(page.locator('#problem-title')).toBeEnabled()

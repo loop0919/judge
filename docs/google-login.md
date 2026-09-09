@@ -41,3 +41,7 @@ CognitoアクセストークンをGo APIで検証してから既存のログイ�
 トークン・クライアントシークレットをブラウザーのJavaScriptには返しません。
 
 参考: [AWSのGoogle連携手順](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-social-idp.html)、[認可エンドポイント](https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html)。
+
+Googleで初回ログインしたユーザーは `/onboarding` に進み、OpenOJ用のユーザーIDを登録する。
+Googleの名前・メールアドレスからユーザーIDを自動生成せず、ユーザー本人が決める。
+登録済みユーザーは `/my` に進む。

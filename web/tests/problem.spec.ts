@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('initial HTTP response includes the problem and SEO metadata', async ({ request }) => {
-  const response = await request.get('/problems/a-plus-b?ref=test')
+  const response = await request.get('/problems/11111111-1111-4111-8111-111111111111?ref=test')
   expect(response.status()).toBe(200)
   const html = await response.text()
   // Ignore script contents: serialized hydration data is not SSR content.
@@ -10,11 +10,11 @@ test('initial HTTP response includes the problem and SEO metadata', async ({ req
   expect(markup).toContain('<title>A + B | OpenOJ</title>')
   expect(markup).toContain('name="description"')
   expect(markup).toContain('property="og:title"')
-  expect(markup).toContain('rel="canonical" href="https://judge.example/problems/a-plus-b"')
+  expect(markup).toContain('rel="canonical" href="https://judge.example/problems/11111111-1111-4111-8111-111111111111"')
   expect(markup).toContain('2 つの整数 ')
   expect(markup).toContain('class="katex"')
   expect(markup).toContain('<math xmlns="http://www.w3.org/1998/Math/MathML"')
-  expect(markup).not.toContain('$A$')
+  expect(markup.slice(markup.indexOf('<body'))).not.toContain('$A$')
   expect(markup).toContain('2000000000')
   expect(html).not.toContain('127.0.0.1:18080')
 })
@@ -22,14 +22,11 @@ test('initial HTTP response includes the problem and SEO metadata', async ({ req
 test('problem is readable with JavaScript disabled', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false })
   const page = await context.newPage()
-  await page.goto('http://127.0.0.1:13000/problems/a-plus-b')
+  await page.goto('http://127.0.0.1:13000/problems/11111111-1111-4111-8111-111111111111')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('A + B')
   await expect(page.getByRole('heading', { name: '制約', exact: true })).toBeVisible()
-  await expect(page.locator('#samples .katex').first()).toBeVisible()
-  await expect(page.locator('#constraints .katex')).toHaveCount(2)
-  await expect(page.locator('#samples pre').first()).toHaveText('3 5\n')
-  await page.getByRole('navigation', { name: 'この問題の目次' }).getByRole('link', { name: '入出力例' }).click()
-  await expect(page).toHaveURL(/#samples$/)
+  await expect(page.locator('.markdown-body .katex').first()).toBeVisible()
+  await expect(page.locator('.markdown-body pre').first()).toHaveText('3 5\n')
   await context.close()
 })
 
@@ -39,7 +36,7 @@ test('client navigation and hydration work without errors', async ({ page }) => 
   page.on('console', message => {
     if (message.type() === 'error' || /hydration/i.test(message.text())) errors.push(message.text())
   })
-  await page.goto('/')
+  await page.goto('/problems')
   await page.locator('.problem-row').click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('A + B')
   await expect(page).toHaveTitle('A + B | OpenOJ')
@@ -58,12 +55,12 @@ for (const path of ['/problems/missing', '/problems/INVALID', '/unknown-page']) 
   })
 }
 
-for (const id of ['unavailable', 'invalid-body']) {
+for (const id of ['33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444']) {
   test(`upstream failures return 502 rather than a successful empty page: ${id}`, async ({ request }) => {
     const response = await request.get(`http://127.0.0.1:13001/problems/${id}`)
     expect(response.status()).toBe(502)
     const html = await response.text()
-    expect(html).toContain('問題を取得できませんでした')
+    expect(html).toContain('ページを表示できませんでした')
     expect(html).toContain('name="robots" content="noindex, nofollow"')
     expect(html).not.toContain('private-upstream-diagnostic')
   })
@@ -72,7 +69,7 @@ for (const id of ['unavailable', 'invalid-body']) {
 for (const width of [320, 375, 414, 768, 1280]) {
   test(`problem layout fits ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/problems/a-plus-b')
+    await page.goto('/problems/11111111-1111-4111-8111-111111111111')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('A + B')
     const overflow = await page.evaluate(() => {
       const viewport = document.documentElement.clientWidth

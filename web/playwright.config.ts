@@ -10,9 +10,7 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:13000', trace: 'retain-on-failure' },
   webServer: [
     {
-      command: 'go run ./cmd/api',
-      cwd: '../api',
-      env: { PORT: '18080', COGNITO_CLIENT_ID: '', COGNITO_CLIENT_SECRET: '' },
+      command: 'node tests/fixtures/public-api.mjs',
       url: 'http://127.0.0.1:18080/health',
       timeout: 120_000,
     },

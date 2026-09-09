@@ -30,6 +30,7 @@ const api = createServer(async (req, res) => {
     res.end(JSON.stringify({ access_token: 'test-access-token', id_token: 'private-id-token', refresh_token: 'private-refresh-token', expires_in: 3600 }))
     return
   }
+  if (req.url === '/my/profile') { res.end(JSON.stringify({ profile: null })); return }
   if (req.url === '/auth/me') {
     if (req.headers.authorization !== 'Bearer test-access-token') { res.writeHead(401).end('{}'); return }
     res.end(JSON.stringify({ id: 'alice' })); return
@@ -40,9 +41,9 @@ const api = createServer(async (req, res) => {
     for await (const chunk of req) chunks.push(chunk)
     res.end(Buffer.concat(chunks)); return
   }
-  if (req.url !== '/problems/a-plus-b') { res.writeHead(404).end(); return }
+  if (req.url !== '/problems/11111111-1111-4111-8111-111111111111') { res.writeHead(404).end(); return }
   res.setHeader('content-type', 'application/json')
-  res.end(JSON.stringify({ id: 'a-plus-b', title: 'A + B', description: 'Sample', statement: ['整数 $A$ と $B$ の和'], constraints: [], inputFormat: '$A \\quad B$', outputFormat: '和', samples: [], timeLimitMs: 2000, memoryLimitMb: 256, isSample: true }))
+  res.end(JSON.stringify({ id: '11111111-1111-4111-8111-111111111111', title: 'A + B', markdown: '整数 $A$ と $B$ の和', author: 'alice', publishedAt: '2026-09-10T00:00:00Z', timeLimitMs: 2000, memoryLimitMb: 256 }))
 })
 await new Promise(resolve => api.listen(0, '127.0.0.1', resolve))
 process.env.NUXT_API_BASE_URL = `http://127.0.0.1:${api.address().port}`
@@ -79,16 +80,16 @@ try {
     expectedVerifier = decodeURIComponent(flowCookie.split(';')[0].split('=')[1]).split('.')[1]
     const callback = await invoke(`/auth/google/callback?code=${code}&state=${state}`, { cookies: [flowCookie.split(';')[0]] })
     assert.equal(callback.statusCode, 303)
-    assert.equal(callback.headers.location, code === 'valid' ? '/my/problems' : '/login?socialError=failed')
+    assert.equal(callback.headers.location, code === 'valid' ? '/onboarding' : '/login?socialError=failed')
     assert.equal(callback.cookies.some(cookie => cookie.startsWith('openoj_access=')), code === 'valid')
     assert.ok(!callback.body.includes('test-access-token'))
   }
   assert.equal(exchanges, 2)
   console.log('Google OAuth callback: code exchange, PKCE, secret authentication, verified session and invalid-token rejection passed')
-  const problem = await invoke('/problems/a-plus-b')
+  const problem = await invoke('/problems/11111111-1111-4111-8111-111111111111')
   assert.equal(problem.statusCode, 200)
   assert.match(problem.body, /katex-html/)
-  assert.match(problem.body, /https:\/\/frontend.example\/problems\/a-plus-b/)
+  assert.match(problem.body, /https:\/\/frontend.example\/problems\/11111111-1111-4111-8111-111111111111/)
   const editor = await invoke('/problems/new')
   assert.equal(editor.statusCode, 200)
   assert.match(editor.body, /noindex/)
