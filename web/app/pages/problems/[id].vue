@@ -34,7 +34,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
       <h1>{{ problem.title }}</h1>
       <dl class="limits">
         <div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div>
-        <div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MB</dd></div>
+        <div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div>
       </dl>
     </header>
     <div class="problem-layout">

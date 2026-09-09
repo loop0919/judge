@@ -15,8 +15,8 @@ export function draftErrors(draft: ProblemDraft) {
   return {
     title: draft.title.trim() ? '' : '問題のタイトルを入力してください。',
     markdown: draft.markdown.trim() ? '' : '問題の本文を入力してください。',
-    timeLimitMs: Number.isInteger(time) && time >= 1 && time <= 600_000 ? '' : '1〜600,000 ms の整数を入力してください。',
-    memoryLimitMb: Number.isInteger(memory) && memory >= 1 && memory <= 65_536 ? '' : '1〜65,536 MB の整数を入力してください。',
+    timeLimitMs: Number.isInteger(time) && time >= 100 && time <= 5000 && time % 100 === 0 ? '' : '100〜5,000 ms の範囲で100 ms刻みの値を選んでください。',
+    memoryLimitMb: Number.isInteger(memory) && memory >= 64 && memory <= 1024 ? '' : '64〜1,024 MiB の整数を選んでください。',
   }
 }
 

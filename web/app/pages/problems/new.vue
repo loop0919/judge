@@ -8,7 +8,11 @@ const route = useRoute()
 const router = useRouter()
 const draftId = ref('')
 useSeoMeta({ title: '問題を作成 | OpenOJ', robots: 'noindex, nofollow' })
-const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '256' })
+const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '1024' })
+const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
+const memoryLimitPresets = [64, 128, 256, 512, 1024]
+// Keep in-range memory limits from older drafts selectable.
+const memoryLimitOptions = computed(() => [...new Set([...memoryLimitPresets, Number(draft.memoryLimitMb)])].sort((a, b) => a - b))
 const ready = ref(false)
 const mode = ref<'edit' | 'split' | 'preview'>('split')
 const workspace = ref<HTMLElement>()
@@ -50,12 +54,13 @@ const leaveDialog = ref<HTMLDialogElement>()
 const leaveError = ref('')
 const manageDialog = ref<HTMLDialogElement>()
 const managing = ref(false)
+const sidebarExpanded = ref(false)
 const confirmingDelete = ref(false)
 const deleteError = ref('')
 let deleted = false
 let resolveLeave: ((leave: boolean) => void) | undefined
 const showErrors = ref(false)
-const touched = reactive({ title: false, markdown: false, timeLimitMs: false, memoryLimitMb: false })
+const touched = reactive({ title: false, markdown: false })
 const errors = computed(() => draftErrors(draft))
 const editor = ref<HTMLTextAreaElement>()
 const renderedSource = ref(draft.markdown)
@@ -119,9 +124,14 @@ onMounted(() => {
     if (requestedId && !entry) throw new Error('Missing draft')
     if (entry) {
       Object.assign(draft, entry.draft)
+      const restoredErrors = draftErrors(draft)
+      draft.timeLimitMs = restoredErrors.timeLimitMs ? '2000' : String(Number(draft.timeLimitMs))
+      draft.memoryLimitMb = restoredErrors.memoryLimitMb ? '1024' : String(Number(draft.memoryLimitMb))
       draftId.value = entry.id
       try { localStorage.setItem(activeDraftKey, entry.id) } catch { /* Opening remains possible without updating the recent draft. */ }
-      status.value = 'このブラウザーの下書きを復元しました'
+      status.value = restoredErrors.timeLimitMs || restoredErrors.memoryLimitMb
+        ? '下書きを復元しました。無効な制限値を標準値（2,000 ms / 1,024 MiB）に戻しました'
+        : 'このブラウザーの下書きを復元しました'
     } else {
       status.value = 'サンプルから書き始められます'
     }
@@ -258,15 +268,24 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </div>
       <div class="author-actions">
         <div class="editor-save-actions">
-          <button type="button" class="editor-button editor-related-action" :aria-current="!managing ? 'page' : undefined" aria-label="問題文" title="問題文" @click="managing = false"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8M8 16h6" /></svg></button>
-
-          <button type="button" class="editor-button editor-related-action" disabled aria-label="テストケース（準備中）" title="テストケース（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 2 2 3-4m-5 9 2 2 3-4m-5 9 2 2 3-4M12 6h9M12 13h9M12 20h9" /></svg></button>
-          <button type="button" class="editor-button editor-related-action" disabled aria-label="解説（準備中）" title="解説（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15" /></svg></button>
-          <button type="button" class="editor-button editor-related-action" :disabled="!ready" :aria-current="managing ? 'page' : undefined" aria-label="問題管理" title="問題管理" @click="openManagement"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 .6-2h4.8l.6 2 2 1.2 2.1-.5 2.4 4.2-1.5 1.5v2.3l1.5 1.5-2.4 4.2-2.1-.5-2 1.2-.6 2H9l-.6-2-2-1.2-2.1.5-2.4-4.2 1.5-1.5V9.4L1.9 7.9l2.4-4.2 2.1.5Z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg></button>
         <button type="button" class="editor-button primary" :disabled="!ready" title="下書きを保存（Ctrl+S / ⌘S）" aria-keyshortcuts="Control+s Meta+s" @click="saveDraft(true)">下書きを保存</button>
         </div>
       </div>
     </header>
+    <div class="author-body" :data-sidebar-expanded="sidebarExpanded">
+      <aside class="editor-sidebar" aria-label="問題作成サイドバー">
+        <button type="button" class="editor-button editor-sidebar-toggle" :aria-expanded="sidebarExpanded" aria-controls="editor-section-nav" :aria-label="sidebarExpanded ? 'サイドバーを折りたたむ' : 'サイドバーを展開'" :title="sidebarExpanded ? 'サイドバーを折りたたむ' : 'サイドバーを展開'" @click="sidebarExpanded = !sidebarExpanded">
+          <svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18" /><path :d="sidebarExpanded ? 'm15 9-3 3 3 3' : 'm13 9 3 3-3 3'" /></svg>
+        </button>
+        <nav id="editor-section-nav" class="editor-section-nav" aria-label="問題作成メニュー">
+          <button type="button" class="editor-button editor-sidebar-item" :aria-current="!managing ? 'page' : undefined" aria-label="問題文" title="問題文" @click="managing = false"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8M8 16h6" /></svg><span class="editor-sidebar-label">問題文</span></button>
+
+          <button type="button" class="editor-button editor-sidebar-item" disabled aria-label="テストケース（準備中）" title="テストケース（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 2 2 3-4m-5 9 2 2 3-4m-5 9 2 2 3-4M12 6h9M12 13h9M12 20h9" /></svg><span class="editor-sidebar-label">テストケース</span></button>
+          <button type="button" class="editor-button editor-sidebar-item" disabled aria-label="解説（準備中）" title="解説（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15" /></svg><span class="editor-sidebar-label">解説</span></button>
+          <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready" :aria-current="managing ? 'page' : undefined" aria-label="問題管理" title="問題管理" @click="openManagement"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 .6-2h4.8l.6 2 2 1.2 2.1-.5 2.4 4.2-1.5 1.5v2.3l1.5 1.5-2.4 4.2-2.1-.5-2 1.2-.6 2H9l-.6-2-2-1.2-2.1.5-2.4-4.2 1.5-1.5V9.4L1.9 7.9l2.4-4.2 2.1.5Z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg><span class="editor-sidebar-label">問題管理</span></button>
+        </nav>
+      </aside>
+      <div class="editor-main">
     <div class="editor-notices">
       <p v-if="storageError" class="editor-error" role="alert">{{ storageError }}</p>
       <noscript><p class="editor-error">編集と下書き保存には JavaScript を有効にしてください。</p></noscript>
@@ -274,24 +293,21 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     <div v-show="!managing" class="author-edit-content">
     <div class="author-fields">
       <div class="title-field">
-        <label for="problem-title">問題のタイトル</label>
+        <div class="field-heading"><label for="problem-title">問題のタイトル</label><span id="title-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.title ? errors.title : '' }}</span></div>
         <input id="problem-title" v-model="draft.title" maxlength="120" placeholder="例：A + B" :disabled="!ready" :aria-invalid="(showErrors || touched.title) && !!errors.title" aria-describedby="title-error" @blur="touched.title = true">
-        <p id="title-error" class="field-error">{{ showErrors || touched.title ? errors.title : '' }}</p>
       </div>
       <div>
-        <label for="time-limit">実行時間制限 <span>ms</span></label>
-        <input id="time-limit" v-model="draft.timeLimitMs" inputmode="numeric" maxlength="6" :disabled="!ready" :aria-invalid="(showErrors || touched.timeLimitMs) && !!errors.timeLimitMs" aria-describedby="time-error" @blur="touched.timeLimitMs = true">
-        <p id="time-error" class="field-error">{{ showErrors || touched.timeLimitMs ? errors.timeLimitMs : '' }}</p>
+        <div class="field-heading"><span class="limit-field-label" id="time-limit-label">実行時間制限 <span>ms</span></span></div>
+        <LimitStepper id="time-limit" v-model="draft.timeLimitMs" :options="timeLimitOptions" :default-value="2000" :step="100" label="実行時間制限" labelledby="time-limit-label" :disabled="!ready" />
       </div>
       <div>
-        <label for="memory-limit">メモリ制限 <span>MB</span></label>
-        <input id="memory-limit" v-model="draft.memoryLimitMb" inputmode="numeric" maxlength="5" :disabled="!ready" :aria-invalid="(showErrors || touched.memoryLimitMb) && !!errors.memoryLimitMb" aria-describedby="memory-error" @blur="touched.memoryLimitMb = true">
-        <p id="memory-error" class="field-error">{{ showErrors || touched.memoryLimitMb ? errors.memoryLimitMb : '' }}</p>
+        <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
+        <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="1024" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready" />
       </div>
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
       <section id="source-pane" class="source-pane" aria-label="Markdown 編集">
-        <div class="pane-heading"><div class="source-heading-label"><label for="problem-source">本文 <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink></div><span>{{ draft.markdown.length.toLocaleString('en-US') }} / 100,000</span></div>
+        <div class="pane-heading"><div class="source-heading-label"><label for="problem-source">本文 <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink><span id="source-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.markdown ? errors.markdown : '' }}</span></div><span>{{ draft.markdown.length.toLocaleString('en-US') }} / 100,000</span></div>
         <div class="editor-toolbar" aria-label="記法を挿入">
           <button type="button" :disabled="!ready" @click="insertSnippet('\n## 見出し\n')" aria-label="見出し" title="見出し"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 5v14M5 12h14" /></svg></button>
           <button type="button" :disabled="!ready" @click="insertSnippet('**強調**')" aria-label="太字" title="太字"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2.4" d="M6 12h7a4 4 0 0 1 0 8H6V4h6a4 4 0 0 1 0 8" /></svg></button>
@@ -305,14 +321,13 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
           </div>
         <textarea id="problem-source" ref="editor" v-model="draft.markdown" maxlength="100000" spellcheck="false" :disabled="!ready" :aria-invalid="(showErrors || touched.markdown) && !!errors.markdown" aria-describedby="source-error" @scroll="syncSource" @input="syncSource" @blur="touched.markdown = true" />
         </div>
-        <p id="source-error" class="field-error">{{ showErrors || touched.markdown ? errors.markdown : '' }}</p>
       </section>
       <div class="split-handle" role="separator" tabindex="0" aria-label="編集欄とプレビューの幅を調整" aria-orientation="vertical" aria-controls="source-pane preview-pane" :aria-valuenow="Math.round(splitPercent)" :aria-valuetext="`編集欄 ${Math.round(splitPercent)}%、プレビュー ${100 - Math.round(splitPercent)}%`" :aria-valuemin="30" :aria-valuemax="70" title="ドラッグで幅を調整・ダブルクリックで均等に戻す" @pointerdown="startResize" @pointermove="moveResize" @pointerup="stopResize" @pointercancel="stopResize" @lostpointercapture="resizing = false" @keydown="resizeWithKeyboard" @dblclick="setSplit(50)" />
       <section id="preview-pane" class="preview-pane" aria-label="問題のプレビュー">
         <div class="pane-heading"><h2>プレビュー</h2><span>表示を確認</span></div>
         <div class="preview-document">
           <p class="preview-title">{{ draft.title || '無題の問題' }}</p>
-          <p class="preview-limits">実行時間 {{ draft.timeLimitMs || '—' }} ms ／ メモリ {{ draft.memoryLimitMb || '—' }} MB</p>
+          <p class="preview-limits">実行時間 {{ draft.timeLimitMs || '—' }} ms ／ メモリ {{ draft.memoryLimitMb || '—' }} MiB</p>
           <ProblemMarkdown v-if="renderedSource.trim()" :source="renderedSource" />
           <p v-else class="muted">本文を書くと、ここにプレビューが表示されます。</p>
         </div>
@@ -328,6 +343,8 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <section class="management-row"><div><h2>問題の削除</h2><p>このブラウザーの下書きを削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" @click="openDeleteConfirmation">問題を削除</button></section>
       </div>
     </section>
+      </div>
+    </div>
     <div class="draft-status"><span role="status">{{ status }}</span><span>このブラウザーの下書き・非公開</span></div>
   </div>
 </template>

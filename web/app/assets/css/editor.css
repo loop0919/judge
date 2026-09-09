@@ -171,3 +171,44 @@
 .split-handle:hover, .split-handle:focus-visible, .is-resizing .split-handle { background: var(--color-accent-soft); }
 .split-handle:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 .author-workspace.is-resizing, .author-workspace.is-resizing * { cursor: col-resize; user-select: none; }
+
+/* Collapsible section navigation; the existing editor remains the workspace. */
+.author-body { display: flex; position: relative; flex: 1; min-height: 0; min-width: 0; }
+.editor-main { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.editor-sidebar { display: flex; flex-direction: column; flex: 0 0 56px; width: 56px; min-height: 0; padding: 8px 5px; border-right: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-ink); overflow-y: auto; }
+.editor-sidebar-toggle, .editor-sidebar-item { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 44px; padding: 10px 12px; flex-shrink: 0; border-color: transparent; background: transparent; text-align: left; }
+.editor-sidebar .editor-icon { flex-shrink: 0; }
+.editor-sidebar-label { display: none; }
+.editor-sidebar-toggle { margin-bottom: 12px; color: var(--color-muted); }
+.editor-section-nav { display: flex; flex: 1; flex-direction: column; gap: 4px; min-height: 200px; }
+.editor-sidebar-item:last-child { margin-top: auto; }
+.editor-sidebar-item[aria-current="page"] { background: var(--color-accent-soft); color: var(--color-accent); box-shadow: inset 2px 0 var(--color-accent); font-weight: 600; }
+.editor-sidebar .editor-button:focus-visible { outline-offset: -3px; }
+.editor-sidebar .editor-button:disabled { transform: none; }
+.author-body[data-sidebar-expanded="true"] .editor-sidebar { flex-basis: 184px; width: 184px; }
+.author-body[data-sidebar-expanded="true"] .editor-sidebar-label { display: inline; }
+.author-body[data-sidebar-expanded="true"] .editor-sidebar-item { width: 100%; }
+@media (hover: hover) {
+  .editor-sidebar .editor-button:hover:not(:disabled) { background: var(--color-accent-soft); color: var(--color-accent); }
+}
+@media (max-width: 59.999rem) {
+  .author-body[data-sidebar-expanded="true"] { padding-left: 56px; }
+  .author-body[data-sidebar-expanded="true"] .editor-sidebar { position: absolute; inset: 0 auto 0 0; z-index: 10; }
+  .editor-main .author-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .editor-main .title-field { grid-column: 1 / -1; }
+}
+
+/* Validation stays with the field heading, above the input. */
+.field-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; margin-bottom: 2px; min-width: 0; }
+.author-fields .field-heading label { margin: 0; flex-shrink: 0; }
+.source-heading-label { flex-wrap: wrap; min-width: 0; }
+.source-heading-label > label, .source-heading-label > .source-guide-link { flex-shrink: 0; }
+.author-page .inline-field-error { margin: 0; padding: 0; max-height: none; color: var(--color-error); font-size: .6875rem; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
+
+.author-fields select { width: 100%; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid var(--color-line); border-radius: 4px; font: inherit; font-size: .875rem; color: var(--color-ink); background: var(--color-paper); cursor: pointer; }
+.author-fields select:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+@media (hover: hover) { .author-fields select:hover:not(:disabled) { border-color: var(--color-muted); } }
+@media (max-width: 39.999rem) { .author-fields select { font-size: 1rem; } }
+
+.limit-field-label { font-size: .6875rem; font-weight: 600; }
+.limit-field-label > span { font-weight: 400; color: var(--color-muted); }
