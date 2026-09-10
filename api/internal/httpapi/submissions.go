@@ -49,6 +49,14 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		authError(w, 503, "judging_unavailable")
 		return
 	}
+	runtime := p.JudgeRuntime
+	if runtime == "" {
+		runtime = "cpp17-local"
+	}
+	if runtime != "cpp17-local" && runtime != "cpp17-isolate" {
+		authError(w, 503, "judging_unavailable")
+		return
+	}
 	var input struct {
 		ProblemID string `json:"problemId"`
 		Runtime   string `json:"runtime"`
@@ -62,12 +70,12 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 	if !readJSONBody(w, r, &input, 400<<10) {
 		return
 	}
-	if !problemID.MatchString(input.ProblemID) || input.Runtime != "cpp17-local" ||
+	if !problemID.MatchString(input.ProblemID) || (input.Runtime != "cpp17" && input.Runtime != runtime) ||
 		strings.TrimSpace(input.Source) == "" || len(input.Source) > 64<<10 || !utf8.ValidString(input.Source) || strings.ContainsRune(input.Source, 0) {
 		authError(w, 400, "invalid_submission")
 		return
 	}
-	item, err := p.Submissions.Create(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage)
+	item, err := p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, runtime)
 	if errors.Is(err, submissions.ErrNotReady) {
 		authError(w, 409, "tests_not_ready")
 		return

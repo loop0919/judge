@@ -30,7 +30,7 @@ onMounted(load)
           <tr v-for="item in items" :key="item.id">
             <td class="submission-date"><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td>
             <td class="submission-problem"><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
-            <td class="submission-language">{{ item.runtime === 'cpp17-local' ? 'C++17' : item.runtime }}</td>
+            <td class="submission-language">{{ item.runtime.startsWith('cpp17') ? 'C++17' : item.runtime }}</td>
             <td class="submission-result"><span class="verdict-badge" :data-verdict="item.result?.verdict">{{ item.result?.verdict ?? (item.status === 'QUEUED' ? '待機中' : '採点中') }}</span></td>
             <td><NuxtLink :to="`/my/submissions/${item.id}`" :aria-label="`${item.problemTitle}の提出詳細`">詳細</NuxtLink></td>
           </tr>

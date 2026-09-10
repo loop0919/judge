@@ -34,3 +34,14 @@ output "cognito_domain" {
 output "login_url" {
   value = "${aws_apigatewayv2_api.api.api_endpoint}/auth/login"
 }
+
+output "judge_bridge_database" {
+  description = "Connection metadata for the judge bridge Lambda; no password is exposed."
+  value = {
+    host              = aws_db_instance.application.address
+    name              = aws_db_instance.application.db_name
+    secret_arn        = aws_db_instance.application.master_user_secret[0].secret_arn
+    subnet_ids        = aws_subnet.private[*].id
+    security_group_id = aws_security_group.application.id
+  }
+}

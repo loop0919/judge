@@ -1,0 +1,40 @@
+[Unit]
+Description=Single-slot Lightsail isolate judge
+After=network-online.target nftables.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/judge
+EnvironmentFile=/opt/judge/worker.env
+ExecStart=/usr/bin/python3 /opt/judge/worker.py
+Delegate=cpu memory pids
+MemoryMax=1536M
+MemorySwapMax=0
+TasksMax=128
+CPUQuota=100%
+# A case OOM is an expected MLE; do not kill the controller for child OOM events.
+OOMPolicy=continue
+KillMode=control-group
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=10
+UMask=0077
+LimitCORE=0
+LimitNOFILE=256
+RuntimeDirectory=judge isolate/locks
+RuntimeDirectoryMode=0700
+# This bounds aggregate files/inodes (RLIMIT_FSIZE only bounds a single file).
+TemporaryFileSystem=/var/local/lib/isolate:rw,nosuid,nodev,size=512M,nr_inodes=16384,mode=0700
+ProtectSystem=strict
+ReadWritePaths=/run /sys/fs/cgroup /var/local/lib/isolate
+PrivateTmp=true
+Environment=PYTHONDONTWRITEBYTECODE=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

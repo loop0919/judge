@@ -2,7 +2,7 @@
 
 - 状態：Accepted
 - 決定日：2026-09-03
-- 変更：採点時の取得主体と実行環境は[ADR 0005](0005-use-firecracker-and-isolate-on-ec2.md)で置き換え。保存形式と取り込み用の検証タスクは維持する。
+- 変更：採点時の取得主体と実行環境は[ADR 0005](0005-use-firecracker-and-isolate-on-ec2.md)で置き換え、その実行基盤を[ADR 0006](0006-use-lightsail-and-isolate.md)で変更。保存形式と取り込み用の検証タスクは維持する。
 
 ## 背景
 

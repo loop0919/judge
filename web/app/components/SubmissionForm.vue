@@ -4,7 +4,7 @@ import type { Submission } from '../../shared/types/submission'
 const props = defineProps<{ problemId: string }>()
 const { user } = useAccount()
 const source = ref('')
-const runtime = ref('cpp17-local')
+const runtime = ref('cpp17')
 const sending = ref(false)
 const message = ref('')
 async function submit() {
@@ -42,7 +42,7 @@ async function submit() {
     <form @submit.prevent="submit">
       <label for="submission-language">言語</label>
       <select id="submission-language" v-model="runtime" :disabled="sending">
-        <option value="cpp17-local">C++17</option>
+        <option value="cpp17">C++17</option>
       </select>
       <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>

@@ -24,8 +24,11 @@ type Job struct {
 }
 
 type CaseResult struct {
-	Name    string `json:"name"`
-	Verdict string `json:"verdict"`
+	Name        string   `json:"name"`
+	Verdict     string   `json:"verdict"`
+	CPUTimeMS   *float64 `json:"cpuTimeMs,omitempty"`
+	WallTimeMS  *float64 `json:"wallTimeMs,omitempty"`
+	MemoryBytes *int64   `json:"memoryBytes,omitempty"`
 }
 
 type Result struct {
@@ -64,16 +67,21 @@ func scan(row pgx.Row) (Submission, error) {
 
 // Create pins the published version and limits in the same statement as insertion.
 func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image string) (Submission, error) {
+	return s.CreateRuntime(ctx, owner, id, problemID, source, image, "cpp17-local")
+}
+
+func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source, image, runtime string) (Submission, error) {
 	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
-  SELECT $1,$2,id,published_version,published_draft->>'title','cpp17-local',$4,
+  SELECT $1,$2,id,published_version,published_draft->>'title',$6,$4,
   jsonb_build_object('image',$5::text,'cases',published_draft->'testCases',
   'timeLimitMs',(published_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(published_draft->>'memoryLimitMb')::int)
   FROM problem_drafts WHERE id=$3 AND published_draft IS NOT NULL
   AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) > 0
   AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) <= 100
-  RETURNING `+columns, id, owner, problemID, source, image))
+  AND ($6 <> 'cpp17-isolate' OR (published_draft->>'memoryLimitMb')::int = 512)
+  RETURNING `+columns, id, owner, problemID, source, image, runtime))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady
 	}
@@ -98,14 +106,14 @@ func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
 
 func (s *Store) Claim(ctx context.Context) (Submission, Job, error) {
 	// ponytail: one attempt; interrupted jobs become JE after the judge deadline. Add retry attempts for production.
-	_, err := s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE status='RUNNING' AND started_at < clock_timestamp()-$1::int * interval '1 second'`, int((JudgeTimeout+time.Minute)/time.Second))
+	_, err := s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE runtime='cpp17-local' AND status='RUNNING' AND started_at < clock_timestamp()-$1::int * interval '1 second'`, int((JudgeTimeout+time.Minute)/time.Second))
 	if err != nil {
 		return Submission{}, Job{}, err
 	}
 	var id string
 	var raw []byte
 	err = s.Pool.QueryRow(ctx, `UPDATE submissions SET status='RUNNING',started_at=clock_timestamp()
-		WHERE id=(SELECT id FROM submissions WHERE status='QUEUED' ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
+		WHERE id=(SELECT id FROM submissions WHERE runtime='cpp17-local' AND status='QUEUED' ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
 		RETURNING id,job`).Scan(&id, &raw)
 	if err != nil {
 		return Submission{}, Job{}, err

@@ -106,6 +106,7 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 		private.Posts = posts.New(store.Pool())
 		private.Submissions = &submissions.Store{Pool: store.Pool()}
 		private.JudgeImage = getenv("JUDGE_CPP_IMAGE")
+		private.JudgeRuntime = getenv("JUDGE_RUNTIME")
 	}
 	return &configuredHandler{Handler: newHandler(auth, private), store: store}, nil
 }

@@ -1,6 +1,6 @@
 # ADR 0005: EC2上のFirecrackerとisolateで採点する
 
-- 状態：Accepted
+- 状態：Superseded by [ADR 0006](0006-use-lightsail-and-isolate.md)
 - 決定日：2026-09-11
 - 置き換え対象：[ADR 0001](0001-use-aws-fargate-for-judge-execution.md)、[ADR 0002](0002-standardize-judge-task-resources.md)
 - 一部変更：[ADR 0003](0003-store-test-sets-in-amazon-s3.md)の採点時の取得主体と実行環境

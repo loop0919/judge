@@ -1,0 +1,54 @@
+#!/bin/bash
+set -euo pipefail
+# Lightsail's regional Ubuntu mirrors can be IPv4-only.
+if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+  sed -i 's|^URIs:.*|URIs: https://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
+fi
+printf 'Acquire::ForceIPv6 "true";\n' > /etc/apt/apt.conf.d/99force-ipv6
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nftables ca-certificates
+cat > /etc/nftables.conf <<'NFT'
+#!/usr/sbin/nft -f
+flush ruleset
+table inet judge {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iifname "lo" accept
+    ct state established,related accept
+    meta l4proto ipv6-icmp accept
+    # DHCP replies to multicast/broadcast requests need explicit input rules;
+    # conntrack established,related alone does not cover those exchanges.
+    meta nfproto ipv4 udp sport 67 udp dport 68 accept
+    meta nfproto ipv6 udp sport 547 udp dport 546 accept
+    ip6 saddr ${admin_ipv6_cidr} tcp dport 22 accept
+  }
+  chain forward { type filter hook forward priority 0; policy drop; }
+  chain output {
+    type filter hook output priority 0; policy drop;
+    oifname "lo" accept
+    ct state established,related accept
+    meta l4proto ipv6-icmp accept
+    udp dport 53 accept
+    tcp dport 53 accept
+    ip6 daddr ::/0 tcp dport 443 accept
+    udp dport 123 accept
+    # DHCP renewal, when used by the blueprint.
+    udp sport 68 udp dport 67 accept
+    udp sport 546 udp dport 547 accept
+  }
+}
+NFT
+systemctl enable --now nftables
+swapoff -a
+sed -i '/^[^#].*[[:space:]]swap[[:space:]]/s/^/#/' /etc/fstab
+cat > /etc/sysctl.d/90-judge.conf <<'SYSCTL'
+fs.protected_hardlinks=1
+fs.protected_symlinks=1
+kernel.unprivileged_bpf_disabled=1
+kernel.perf_event_paranoid=3
+kernel.kptr_restrict=2
+kernel.yama.ptrace_scope=2
+SYSCTL
+sysctl --system
+# Configure resources only; no credentials, release download, or judging at boot.
+install -d -m 700 /opt/judge /root/.aws

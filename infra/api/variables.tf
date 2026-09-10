@@ -101,3 +101,13 @@ variable "operator_subjects" {
   type        = string
   default     = ""
 }
+
+variable "judge_runtime_digest" {
+  description = "Empty disables submissions. Set the tested Lightsail isolate runtime manifest digest to enable C++17."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.judge_runtime_digest == "" || can(regex("^sha256:[a-f0-9]{64}$", var.judge_runtime_digest))
+    error_message = "Use the sha256 runtime manifest digest or an empty string."
+  }
+}

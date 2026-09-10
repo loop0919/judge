@@ -61,6 +61,8 @@ resource "aws_lambda_function" "api" {
       COGNITO_CLIENT_SECRET = aws_cognito_user_pool_client.api.client_secret
       COGNITO_USER_POOL_ID  = aws_cognito_user_pool.users.id
       OPERATOR_SUBJECTS     = var.operator_subjects
+      JUDGE_CPP_IMAGE       = var.judge_runtime_digest
+      JUDGE_RUNTIME         = "cpp17-isolate"
     })
   }
 }

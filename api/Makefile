@@ -7,3 +7,9 @@ package:
 	mkdir -p .build/migrate
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -ldflags="-s -w" -o .build/migrate/bootstrap ./cmd/migrate-lambda
 	cd .build/migrate && zip -q -FS ../migrate.zip bootstrap
+
+.PHONY: package-judge
+package-judge:
+	mkdir -p .build/judge-bridge
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -tags lambda.norpc -trimpath -ldflags="-s -w" -o .build/judge-bridge/bootstrap ./cmd/judge-bridge
+	cd .build/judge-bridge && zip -q -FS ../judge-bridge.zip bootstrap

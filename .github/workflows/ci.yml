@@ -117,7 +117,10 @@ jobs:
 
       - name: Build Lambda package
         working-directory: api
-        run: make package
+        run: make package package-judge
+
+      - name: Test judge validation and sandbox metadata
+        run: python3 -m unittest discover -s judge/tests -v
 
       - name: Verify Lambda package
         run: test -s api/.build/api.zip
@@ -135,7 +138,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for root in bootstrap api deploy-access; do
+          for root in bootstrap api deploy-access judge; do
             terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="infra/$root" validate
             terraform -chdir="infra/$root" test

@@ -147,6 +147,15 @@ func TestSubmissionsPostgres(t *testing.T) {
 	if got := request("GET", "/my/submissions", "alice", "", 200); strings.Contains(got, "int main") {
 		t.Fatal("list leaked source")
 	}
+	// The same UI language selects a pinned cloud runtime, never the local worker.
+	localHandler := h
+	h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Profiles: profiles.New(store.Pool()), Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", Verifier: newCognitoVerifier(f.server.URL, "client")})
+	request("POST", "/my/submissions", "alice", body, 400)
+	var cloud submissions.Submission
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "cpp17", 1), 202)), &cloud); err != nil || cloud.Runtime != "cpp17-isolate" {
+		t.Fatalf("cloud runtime not pinned: %+v %v", cloud, err)
+	}
+	h = localHandler
 	// Draft changes must not affect published tests or accepted submissions.
 	changed := published.Draft
 	changed.TestCases = []problems.TestCase{{Input: "secret-input", Output: "999"}}

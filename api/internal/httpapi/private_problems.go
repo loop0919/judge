@@ -56,13 +56,14 @@ func (v *cognitoVerifier) Verify(ctx context.Context, raw string) (string, error
 }
 
 type PrivateProblems struct {
-	Submissions *submissions.Store
-	JudgeImage  string
-	Posts       *posts.Store
-	Operators   map[string]bool
-	Store       problems.Repository
-	Profiles    profiles.Repository
-	Verifier    TokenVerifier
+	JudgeRuntime string
+	Submissions  *submissions.Store
+	JudgeImage   string
+	Posts        *posts.Store
+	Operators    map[string]bool
+	Store        problems.Repository
+	Profiles     profiles.Repository
+	Verifier     TokenVerifier
 }
 
 var problemID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)

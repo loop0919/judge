@@ -1,0 +1,14 @@
+# IPv6 connectivity from the operator machine is required.
+ssh_public_key  = "ssh-ed25519 REPLACE"
+admin_ipv6_cidr = "2001:db8::REPLACE/128"
+# Empty for the initial installation. Copy install.sh's digest after smoke tests.
+runtime_digest = ""
+# terraform -chdir=infra/api output -json judge_bridge_database
+database = {
+  host              = "REPLACE"
+  name              = "openoj"
+  secret_arn        = "REPLACE"
+  subnet_ids        = ["REPLACE", "REPLACE"]
+  security_group_id = "REPLACE"
+}
+enabled = false

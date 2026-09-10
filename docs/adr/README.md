@@ -14,4 +14,5 @@ Architecture Decision Record（ADR）は、採用した設計だけでなく、�
 | [0002](0002-standardize-judge-task-resources.md) | Superseded by 0005 | ジャッジタスクのリソースを統一する |
 | [0003](0003-store-test-sets-in-amazon-s3.md) | Accepted（採点時の取得は0005で変更） | テストセットをAmazon S3へ保存する |
 | [0004](0004-use-postgresql-as-primary-database.md) | Accepted | 主データベースにPostgreSQLを採用する |
-| [0005](0005-use-firecracker-and-isolate-on-ec2.md) | Accepted | EC2上のFirecrackerとisolateで採点する |
+| [0005](0005-use-firecracker-and-isolate-on-ec2.md) | Superseded by 0006 | EC2上のFirecrackerとisolateで採点する |
+| [0006](0006-use-lightsail-and-isolate.md) | Accepted | Lightsailの2 GBインスタンスでisolateを使う |

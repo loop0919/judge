@@ -10,10 +10,13 @@ Browser -> Frontend HTTP API -> Nuxt Lambda -> API HTTP API -> Go Lambda
 | --- | --- | --- |
 | `bootstrap/` | Terraform state用S3バケット | 初回はローカル、作成後にS3へ移行 |
 | `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、RDS、VPC、IAM、ログ | S3の`judge/dev/api.tfstate` |
+| `judge/` | 採点用Lightsail 2 GB、S3、SQS、配送Lambda | S3の`judge/dev/judge.tfstate` |
 | `frontend/` | Nuxt Lambda、HTTP API、パッケージ用S3、IAM、ログ | S3の`judge/dev/frontend.tfstate` |
 | `deploy-access/` | 既存GitHubデプロイロールの信頼関係・操作権限 | S3の`judge/dev/deploy-access.tfstate` |
 
-採点処理に使うSQS、Launcher Lambda、ECS/Fargate、テストセット用S3は後続の構成として追加する。
+採点用のLightsail、SQS、配送用S3、配送と結果反映用Lambdaは`judge/`で管理する。
+[ジャッジ構築手順](../judge/README.md)に従って手動で構築し、IPv6通信と2 GB実機でのisolateの制限と計測を確認してから提出受付を有効にする。
+本番テストセットの取り込みとバンドル展開は未実装である。
 請求アラートはAWSアカウント全体の設定として、別フォルダ`~/aws-setting`へ分離している。
 
 ## 開発環境

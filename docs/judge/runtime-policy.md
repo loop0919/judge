@@ -7,15 +7,16 @@
 
 | 提出形式 | コンパイル | 実行基盤 | 状態 |
 | --- | --- | --- | --- |
-| C | あり | EC2 / Firecracker / isolate | 採用済み |
-| C++ | あり | EC2 / Firecracker / isolate | 採用済み |
-| Rust | あり | EC2 / Firecracker / isolate | 採用済み |
-| Java | あり | EC2 / Firecracker / isolate | 採用済み |
-| Python | 構文検査のみ | EC2 / Firecracker / isolate | 採用済み |
+| C | あり | Lightsail / isolate | 採用済み |
+| C++17 | あり | Lightsail / isolate | 実装済み。Lightsail実機検証は有効化前に実施 |
+| Rust | あり | Lightsail / isolate | 採用済み |
+| Java | あり | Lightsail / isolate | 採用済み |
+| Python | 構文検査のみ | Lightsail / isolate | 採用済み |
 | `txt` | 未決定 | 未決定 | 採用済み（判定方式は未決定） |
 
-コンパイラ、ランタイム、言語仕様の版はまだ決定していない。
-実装前に版を固定し、利用者が選択する識別子とゲストのルートファイルシステムイメージのダイジェストを対応させる。
+C++17はUbuntu 24.04のg++を`-std=c++17 -O2 -pipe`で実行する。
+インストール時に実際のパッケージ一覧、カーネル、isolate、制御コードを指紋化し、採点時に一致を確認する。
+他言語の版と制限値は未決定である。
 
 ## ランタイム識別子
 
@@ -29,23 +30,24 @@
 - コンパイル引数。
 - 実行引数。
 - 利用可能なライブラリとその版。
-- ゲストのルートファイルシステムイメージのダイジェスト。
-- ゲストカーネル、Firecracker、isolateの版と設定。
-- EC2のタイプ、CPU割り当て、VMサイズを特定する実行プロファイル。
+- ホストのパッケージ一覧と制御コードのダイジェスト。
+- ホストカーネルとisolateの版と設定。
+- Lightsailのプランとsystemdの資源制限。
 - 実行時間係数。
 - メモリ制御方法。
 
-既存のランタイム識別子が指す実行条件は変更しない。
-実行条件を変える場合は新しい識別子を追加し、過去の提出を元の条件で再採点できる状態を保つ。
+現在の実装では`cpp17-isolate`とruntime digestの組を実行条件の識別に使う。
+変更時はdigestを更新し、旧digestの提出を異なる条件で採点しない。
+旧環境を保存して再採点する仕組みは未実装である。
 
 ## 共通の計算資源
 
-C、C++、Rust、Java、Pythonは提出ごとのmicroVM内で実行する。
+現在のC++17実装は専用ホスト上のisolateで実行する。
 
 | 項目 | 方針 |
 | --- | --- |
-| EC2のタイプと同時実行数 | 実機検証後に固定する |
-| microVMのCPU数とメモリ | 実機検証後に固定し、ゲストOSと採点制御の余白を確保する |
+| Lightsailのプラン | IPv6専用、2 GB、2 vCPU |
+| 同時実行と管理側上限 | 1提出、CPU 1個相当、サービス全体1.5 GiB |
 | ユーザープログラムのメモリ上限 | 512 MiB |
 | 採点上の実行時間 | 提出プロセスと子孫の合計CPU時間 |
 | 経過時間 | CPU時間とは別の監視上限を設ける |
@@ -53,7 +55,7 @@ C、C++、Rust、Java、Pythonは提出ごとのmicroVM内で実行する。
 
 ユーザープログラムの上限は、そのプログラムが生成した子孫プロセスを含めて適用する。
 コンパイル処理の上限は、この512 MiBとは別にランタイムごとに定める。
-旧Fargate構成の1 vCPUと2 GiBは新構成の固定値として扱わない。
+C++17のコンパイル用上限は1 GiB、CPU 30秒、経過40秒とする。
 計測値の単位と欠測、判定の根拠は[実行モデル](execution-model.md)に従う。
 
 ## 判定結果
@@ -69,17 +71,18 @@ C、C++、Rust、Java、Pythonは提出ごとのmicroVM内で実行する。
 - Output Limit Exceeded。
 - Judge Error。
 
-VM全体やホストのメモリ不足はJudge Errorとし、Memory Limit Exceededへ読み替えない。
+サービス全体やホストのメモリ不足はJudge Errorとし、Memory Limit Exceededへ読み替えない。
 ケース用cgroupのOOMなど、ユーザープロセス群のメモリ制限による停止を確認した場合にMemory Limit Exceededとして記録する。
 
 ## 計測後に決める項目
 
-次の値はランタイムごとのベンチマークと異常系テストを行ってから固定する。
+C++17の初期値は[実行モデル](execution-model.md)に記録した。
+次の項目はLightsail実機での計測と他言語対応時に再検討する。
 
 - コンパイル時間の上限。
 - コンパイル時のメモリ上限。
 - テストケースごとのCPU時間上限と経過時間上限。
-- EC2とmicroVMのサイズ、CPU割り当て、同時実行数。
+- LightsailのCPU残高とホスト競合による計測差、同時実行数。
 - 言語ごとの実行時間係数。
 - 出力サイズの上限。
 - プロセス数とファイル記述子数の上限。
@@ -90,4 +93,4 @@ VM全体やホストのメモリ不足はJudge Errorとし、Memory Limit Exceed
 
 ## 関連する決定
 
-- [ADR 0005](../adr/0005-use-firecracker-and-isolate-on-ec2.md)
+- [ADR 0006](../adr/0006-use-lightsail-and-isolate.md)
