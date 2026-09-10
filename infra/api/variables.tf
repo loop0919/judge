@@ -63,6 +63,12 @@ variable "lambda_package_path" {
   nullable    = true
 }
 
+variable "existing_google_domain" {
+  description = "Existing Cognito domain prefix whose domain and Google provider should be adopted into this state."
+  type        = string
+  default     = ""
+}
+
 variable "google_client_id" {
   description = "Google OAuth web client ID; leave empty to use email signup only."
   type        = string

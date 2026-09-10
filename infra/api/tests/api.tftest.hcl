@@ -28,6 +28,8 @@ mock_provider "aws" {
   }
 }
 
+variables { existing_google_domain = "" }
+
 run "api_contract" {
   command = apply
   variables {
@@ -157,6 +159,25 @@ run "google_contract" {
       aws_cognito_identity_provider.google[0].user_pool_id == aws_cognito_user_pool.users.id
     )
     error_message = "Google must use authorization code flow and the deployed callback without removing email login."
+  }
+}
+
+run "existing_google_domain" {
+  command = plan
+  override_resource { target = aws_cognito_identity_provider.google[0] }
+  override_resource { target = aws_cognito_user_pool_domain.users[0] }
+  variables {
+    google_client_id       = "test.apps.googleusercontent.com"
+    google_client_secret   = "test-only-secret"
+    public_site_url        = "https://judge.example"
+    existing_google_domain = "judge-dev-loop0919"
+  }
+  assert {
+    condition = (
+      aws_cognito_user_pool_domain.users[0].domain == "judge-dev-loop0919" &&
+      output.cognito_domain == "https://judge-dev-loop0919.auth.ap-northeast-1.amazoncognito.com"
+    )
+    error_message = "Keep the existing domain and frontend OAuth endpoint when adopting Google login."
   }
 }
 

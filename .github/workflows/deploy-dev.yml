@@ -37,6 +37,7 @@ jobs:
     timeout-minutes: 60
     environment: dev
     env:
+      TF_VAR_existing_google_domain: judge-dev-loop0919
       TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
       TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       TF_VAR_public_site_url: ${{ vars.PUBLIC_SITE_URL }}

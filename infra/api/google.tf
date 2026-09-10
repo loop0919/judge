@@ -25,6 +25,19 @@ resource "aws_cognito_identity_provider" "google" {
 
 resource "aws_cognito_user_pool_domain" "users" {
   count        = var.google_client_id != "" ? 1 : 0
-  domain       = lower(replace(aws_cognito_user_pool.users.id, "_", "-"))
+  domain       = var.existing_google_domain != "" ? var.existing_google_domain : lower(replace(aws_cognito_user_pool.users.id, "_", "-"))
   user_pool_id = aws_cognito_user_pool.users.id
+}
+
+# Adopt the console-created Google configuration without replacing its redirect domain.
+import {
+  for_each = var.google_client_id != "" && var.existing_google_domain != "" ? toset([var.existing_google_domain]) : toset([])
+  to       = aws_cognito_identity_provider.google[0]
+  id       = "${aws_cognito_user_pool.users.id}:Google"
+}
+
+import {
+  for_each = var.google_client_id != "" && var.existing_google_domain != "" ? toset([var.existing_google_domain]) : toset([])
+  to       = aws_cognito_user_pool_domain.users[0]
+  id       = each.value
 }
