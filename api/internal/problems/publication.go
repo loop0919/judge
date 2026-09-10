@@ -71,14 +71,9 @@ func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	result := make([]PublicProblem, 0)
-	for rows.Next() {
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (PublicProblem, error) {
 		var p PublicProblem
-		if err = rows.Scan(&p.ID, &p.Title, &p.Author, &p.PublishedAt); err != nil {
-			return nil, err
-		}
-		result = append(result, p)
-	}
-	return result, rows.Err()
+		err := row.Scan(&p.ID, &p.Title, &p.Author, &p.PublishedAt)
+		return p, err
+	})
 }

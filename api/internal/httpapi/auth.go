@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"net/http"
 	"regexp"
@@ -241,29 +240,7 @@ func readAuthJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 		authError(w, http.StatusUnsupportedMediaType, "json_required")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 16<<10)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err = decoder.Decode(target)
-	if err == nil {
-		if next := decoder.Decode(new(any)); next != io.EOF {
-			if next == nil {
-				err = errors.New("multiple JSON values")
-			} else {
-				err = next
-			}
-		}
-	}
-	if err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			authError(w, http.StatusRequestEntityTooLarge, "request_too_large")
-		} else {
-			authError(w, http.StatusBadRequest, "invalid_request")
-		}
-		return false
-	}
-	return true
+	return readJSONBody(w, r, target, 16<<10)
 }
 
 func writeAuthResult(w http.ResponseWriter, tokens *types.AuthenticationResultType, challenge types.ChallengeNameType, params map[string]string, session *string) {

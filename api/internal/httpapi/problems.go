@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,23 +18,7 @@ func contentJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 		authError(w, 415, "json_required")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 700<<10)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	err := decoder.Decode(target)
-	if err == nil {
-		err = decoder.Decode(new(any))
-		if err == io.EOF {
-			return true
-		}
-	}
-	var large *http.MaxBytesError
-	if errors.As(err, &large) {
-		authError(w, 413, "request_too_large")
-	} else {
-		authError(w, 400, "invalid_request")
-	}
-	return false
+	return readJSONBody(w, r, target, 700<<10)
 }
 
 func contentCursor(w http.ResponseWriter, r *http.Request) (*problems.Cursor, bool) {

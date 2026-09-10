@@ -96,16 +96,11 @@ func (s *Store) List(ctx context.Context, owner string, cursor *problems.Cursor)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	list := make([]Post, 0)
-	for rows.Next() {
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Post, error) {
 		var p Post
-		if err = rows.Scan(&p.ID, &p.Title, &p.Version, &p.UpdatedAt, &p.PublishedVersion, &p.PublishedAt); err != nil {
-			return nil, err
-		}
-		list = append(list, p)
-	}
-	return list, rows.Err()
+		err := row.Scan(&p.ID, &p.Title, &p.Version, &p.UpdatedAt, &p.PublishedVersion, &p.PublishedAt)
+		return p, err
+	})
 }
 
 func (s *Store) PublicGet(ctx context.Context, id string) (Post, error) {
@@ -128,14 +123,9 @@ func (s *Store) PublicList(ctx context.Context, cursor *problems.Cursor) ([]Post
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	list := make([]Post, 0)
-	for rows.Next() {
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Post, error) {
 		var p Post
-		if err = rows.Scan(&p.ID, &p.Title, &p.PublishedAt, &p.Author, &p.Owner); err != nil {
-			return nil, err
-		}
-		list = append(list, p)
-	}
-	return list, rows.Err()
+		err := row.Scan(&p.ID, &p.Title, &p.PublishedAt, &p.Author, &p.Owner)
+		return p, err
+	})
 }

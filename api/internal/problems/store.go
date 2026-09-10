@@ -98,16 +98,11 @@ func (s *Store) List(ctx context.Context, owner string, cursor *Cursor) ([]Summa
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	items := make([]Summary, 0)
-	for rows.Next() {
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Summary, error) {
 		var p Summary
-		if err := rows.Scan(&p.ID, &p.Title, &p.UpdatedAt, &p.PublishedVersion); err != nil {
-			return nil, err
-		}
-		items = append(items, p)
-	}
-	return items, rows.Err()
+		err := row.Scan(&p.ID, &p.Title, &p.UpdatedAt, &p.PublishedVersion)
+		return p, err
+	})
 }
 
 func (s *Store) Save(ctx context.Context, owner, id string, version int64, draft Draft) (Problem, error) {

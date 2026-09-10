@@ -2,10 +2,7 @@ package httpapi
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"io"
 	"mime"
 	"net/http"
 	"regexp"
@@ -153,25 +150,7 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			authError(w, 415, "json_required")
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 700<<10)
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		decodeErr := decoder.Decode(&input)
-		if decodeErr == nil {
-			if e := decoder.Decode(new(any)); e != io.EOF {
-				decodeErr = errors.New("trailing JSON")
-				if e != nil {
-					decodeErr = e
-				}
-			}
-		}
-		if decodeErr != nil {
-			var tooLarge *http.MaxBytesError
-			if errors.As(decodeErr, &tooLarge) {
-				authError(w, 413, "request_too_large")
-			} else {
-				authError(w, 400, "invalid_request")
-			}
+		if !readJSONBody(w, r, &input, 700<<10) {
 			return
 		}
 		if input.Version < 0 || input.Version > 9007199254740990 || !validDraft(input.Draft) {
@@ -207,22 +186,9 @@ func validDraft(d problems.Draft) bool {
 }
 
 func (p PrivateProblems) list(w http.ResponseWriter, r *http.Request, owner string) {
-	var cursor *problems.Cursor
-	if raw := r.URL.Query().Get("cursor"); raw != "" {
-		if len(raw) > 512 {
-			authError(w, 400, "invalid_cursor")
-			return
-		}
-		data, err := base64.RawURLEncoding.DecodeString(raw)
-		if err != nil {
-			authError(w, 400, "invalid_cursor")
-			return
-		}
-		cursor = &problems.Cursor{}
-		if json.Unmarshal(data, cursor) != nil || !problemID.MatchString(cursor.ID) || cursor.UpdatedAt.IsZero() {
-			authError(w, 400, "invalid_cursor")
-			return
-		}
+	cursor, ok := contentCursor(w, r)
+	if !ok {
+		return
 	}
 	items, err := p.Store.List(r.Context(), owner, cursor)
 	if err != nil {
@@ -233,8 +199,7 @@ func (p PrivateProblems) list(w http.ResponseWriter, r *http.Request, owner stri
 	if len(items) > 50 {
 		items = items[:50]
 		last := items[49]
-		data, _ := json.Marshal(problems.Cursor{UpdatedAt: last.UpdatedAt, ID: last.ID})
-		next = base64.RawURLEncoding.EncodeToString(data)
+		next = nextContentCursor(last.ID, last.UpdatedAt)
 	}
 	writeAuthJSON(w, 200, struct {
 		Items      []problems.Summary `json:"items"`
