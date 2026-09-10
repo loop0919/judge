@@ -4,7 +4,7 @@ defineProps<{ id: string, label: string, disabled: boolean }>()
 const field = ref<HTMLTextAreaElement>()
 const scrollTop = ref(0)
 const height = ref(320)
-const lineHeight = 26
+const lineHeight = 22
 const lineCount = computed(() => {
   let count = 1
   for (let i = 0; i < text.value.length; i++) if (text.value.charCodeAt(i) === 10) count++
@@ -40,8 +40,8 @@ watch(text, () => nextTick(syncScroll))
 .pane-heading span { font-size: .75rem; color: var(--color-muted); }
 .code-surface { position: relative; flex: 1; min-height: 0; }
 .line-gutter { position: absolute; inset: 0 auto 0 0; width: 58px; overflow: hidden; border-right: 1px solid var(--color-line); color: var(--color-muted); user-select: none; pointer-events: none; text-align: right; }
-.line-gutter > div > div { padding-right: 10px; height: 26px; }
-.line-gutter, textarea { font-family: var(--font-code); font-size: 14px; line-height: 26px; }
+.line-gutter > div > div { padding-right: 10px; height: 22px; }
+.line-gutter, textarea { font-family: var(--font-code); font-size: 14px; line-height: 22px; }
 textarea { display: block; margin-left: 59px; width: calc(100% - 59px); height: 100%; box-sizing: border-box; padding: 16px; border: 0; resize: none; background: transparent; color: inherit; tab-size: 2; overscroll-behavior: contain; }
 textarea:focus-visible { outline-offset: -2px; }
 </style>
