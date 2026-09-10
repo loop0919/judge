@@ -1,6 +1,6 @@
 # ADR 0002: ジャッジタスクのリソースを統一する
 
-- 状態：Accepted
+- 状態：Superseded（[ADR 0005](0005-use-firecracker-and-isolate-on-ec2.md)で置き換え）
 - 決定日：2026-09-03
 
 ## 背景

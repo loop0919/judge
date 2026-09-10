@@ -2,19 +2,20 @@
 
 ## 初期対応する提出形式
 
-初期リリースでは、次の提出形式を提供する。
+初期リリースでは、次の提出形式を提供する方針とする。
+表の「採用済み」は設計上の決定を示し、本番基盤と各言語の実装完了を示さない。
 
 | 提出形式 | コンパイル | 実行基盤 | 状態 |
 | --- | --- | --- | --- |
-| C | あり | AWS Fargate | 採用済み |
-| C++ | あり | AWS Fargate | 採用済み |
-| Rust | あり | AWS Fargate | 採用済み |
-| Java | あり | AWS Fargate | 採用済み |
-| Python | 構文検査のみ | AWS Fargate | 採用済み |
+| C | あり | EC2 / Firecracker / isolate | 採用済み |
+| C++ | あり | EC2 / Firecracker / isolate | 採用済み |
+| Rust | あり | EC2 / Firecracker / isolate | 採用済み |
+| Java | あり | EC2 / Firecracker / isolate | 採用済み |
+| Python | 構文検査のみ | EC2 / Firecracker / isolate | 採用済み |
 | `txt` | 未決定 | 未決定 | 採用済み（判定方式は未決定） |
 
 コンパイラ、ランタイム、言語仕様の版はまだ決定していない。
-実装前に版を固定し、利用者が選択する識別子とコンテナイメージのダイジェストを対応させる。
+実装前に版を固定し、利用者が選択する識別子とゲストのルートファイルシステムイメージのダイジェストを対応させる。
 
 ## ランタイム識別子
 
@@ -28,7 +29,9 @@
 - コンパイル引数。
 - 実行引数。
 - 利用可能なライブラリとその版。
-- コンテナイメージのダイジェスト。
+- ゲストのルートファイルシステムイメージのダイジェスト。
+- ゲストカーネル、Firecracker、isolateの版と設定。
+- EC2のタイプ、CPU割り当て、VMサイズを特定する実行プロファイル。
 - 実行時間係数。
 - メモリ制御方法。
 
@@ -37,16 +40,21 @@
 
 ## 共通の計算資源
 
-C、C++、Rust、Java、Pythonには、次のFargateタスクを使用する。
+C、C++、Rust、Java、Pythonは提出ごとのmicroVM内で実行する。
 
-| 項目 | 値 |
+| 項目 | 方針 |
 | --- | --- |
-| CPU | 1 vCPU |
-| タスクメモリ | 2 GiB |
+| EC2のタイプと同時実行数 | 実機検証後に固定する |
+| microVMのCPU数とメモリ | 実機検証後に固定し、ゲストOSと採点制御の余白を確保する |
 | ユーザープログラムのメモリ上限 | 512 MiB |
+| 採点上の実行時間 | 提出プロセスと子孫の合計CPU時間 |
+| 経過時間 | CPU時間とは別の監視上限を設ける |
+| 最大メモリ使用量 | ケース専用cgroupのピーク使用量 |
 
 ユーザープログラムの上限は、そのプログラムが生成した子孫プロセスを含めて適用する。
 コンパイル処理の上限は、この512 MiBとは別にランタイムごとに定める。
+旧Fargate構成の1 vCPUと2 GiBは新構成の固定値として扱わない。
+計測値の単位と欠測、判定の根拠は[実行モデル](execution-model.md)に従う。
 
 ## 判定結果
 
@@ -58,10 +66,11 @@ C、C++、Rust、Java、Pythonには、次のFargateタスクを使用する。
 - Memory Limit Exceeded。
 - Runtime Error。
 - Compile Error。
+- Output Limit Exceeded。
 - Judge Error。
 
-Fargateタスク全体のメモリ不足は、Memory Limit Exceededへ読み替えない。
-`judge-runner`がユーザープロセス群の512 MiB超過を検出した場合だけ、Memory Limit Exceededとして記録する。
+VM全体やホストのメモリ不足はJudge Errorとし、Memory Limit Exceededへ読み替えない。
+ケース用cgroupのOOMなど、ユーザープロセス群のメモリ制限による停止を確認した場合にMemory Limit Exceededとして記録する。
 
 ## 計測後に決める項目
 
@@ -69,7 +78,8 @@ Fargateタスク全体のメモリ不足は、Memory Limit Exceededへ読み替�
 
 - コンパイル時間の上限。
 - コンパイル時のメモリ上限。
-- テストケースごとの実行時間上限。
+- テストケースごとのCPU時間上限と経過時間上限。
+- EC2とmicroVMのサイズ、CPU割り当て、同時実行数。
 - 言語ごとの実行時間係数。
 - 出力サイズの上限。
 - プロセス数とファイル記述子数の上限。
@@ -80,5 +90,4 @@ Fargateタスク全体のメモリ不足は、Memory Limit Exceededへ読み替�
 
 ## 関連する決定
 
-- [ADR 0001](../adr/0001-use-aws-fargate-for-judge-execution.md)
-- [ADR 0002](../adr/0002-standardize-judge-task-resources.md)
+- [ADR 0005](../adr/0005-use-firecracker-and-isolate-on-ec2.md)
