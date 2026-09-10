@@ -133,7 +133,13 @@ try {
   assert.equal(saved.headers['cache-control'], 'no-store')
   assert.equal((await invoke(path, { method: 'PUT', cookies, body: input, origin: 'https://attacker.example' })).statusCode, 403)
   assert.equal((await invoke(path, { method: 'PUT', body: input })).statusCode, 401)
-  assert.equal((await invoke(path, { method: 'PUT', cookies, body: { draft: { markdown: 'x'.repeat(800000) } } })).statusCode, 413)
+  // The proxy allows 3 MiB JSON requests, including the JSON envelope.
+  const problemBodyLimit = 3 * 1024 * 1024
+  const envelopeBytes = Buffer.byteLength(JSON.stringify({ draft: { markdown: '' } }))
+  const boundaryBody = { draft: { markdown: 'x'.repeat(problemBodyLimit - envelopeBytes) } }
+  assert.equal((await invoke(path, { method: 'PUT', cookies, body: boundaryBody })).statusCode, 200)
+  boundaryBody.draft.markdown += 'x'
+  assert.equal((await invoke(path, { method: 'PUT', cookies, body: boundaryBody })).statusCode, 413)
   console.log('Lambda signup, confirmation, resend, login, secure cookie, authenticated body forwarding, CSRF protection, SSR, API proxy, canonical URL, JS/CSS, binary fonts, and 404 passed')
 } finally {
   globalThis.fetch = originalFetch
