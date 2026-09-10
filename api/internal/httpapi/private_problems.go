@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -188,11 +189,20 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func validDraft(d problems.Draft) bool {
-	if len(d.TestCases) > 100 {
+	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
+	if e1 != nil || timeMS < 100 || timeMS > 5000 || timeMS%100 != 0 || len(d.TestCases) > 100 {
 		return false
 	}
 	total := 0
+	names := make(map[string]bool)
 	for _, c := range d.TestCases {
+		name := strings.TrimSpace(c.Name)
+		if utf8.RuneCountInString(c.Name) > 64 || strings.IndexFunc(c.Name, unicode.IsControl) >= 0 || (c.Name != "" && name == "") || (name != "" && names[name]) {
+			return false
+		}
+		if name != "" {
+			names[name] = true
+		}
 		if len(c.Input) > 64<<10 || len(c.Output) > 64<<10 || strings.ContainsRune(c.Input+c.Output, 0) {
 			return false
 		}
@@ -201,7 +211,6 @@ func validDraft(d problems.Draft) bool {
 	if total > 256<<10 {
 		return false
 	}
-	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
 	memory, e2 := strconv.Atoi(d.MemoryLimitMB)
 	return utf8.RuneCountInString(d.Title) <= 120 && utf8.RuneCountInString(d.Markdown) <= 100000 &&
 		!strings.ContainsRune(d.Title+d.Markdown, '\x00') && len(d.TimeLimitMS) <= 10 && len(d.MemoryLimitMB) <= 10 &&

@@ -103,7 +103,7 @@ func container(ctx context.Context, image, dir, input string, memory int, deadli
 // Judge is a local Docker adapter. It never runs submitted code on the worker host.
 func Judge(ctx context.Context, source string, job Job) Result {
 	r := Result{Verdict: "JE", Total: len(job.Cases)}
-	if len(job.Cases) == 0 || len(job.Cases) > 100 || job.TimeLimitMS < 100 || job.TimeLimitMS > 5000 || job.MemoryLimitMB < 64 || job.MemoryLimitMB > 1024 || !strings.HasPrefix(job.Image, "sha256:") {
+	if len(job.Cases) == 0 || job.TimeLimitMS < 100 || job.TimeLimitMS > 5000 || job.TimeLimitMS%100 != 0 || len(job.Cases) > 100 || job.MemoryLimitMB < 64 || job.MemoryLimitMB > 1024 || !strings.HasPrefix(job.Image, "sha256:") {
 		return r
 	}
 	dir, err := os.MkdirTemp("", "openoj-source-")

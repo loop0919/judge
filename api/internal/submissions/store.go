@@ -66,6 +66,7 @@ func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image 
   'memoryLimitMb',(published_draft->>'memoryLimitMb')::int)
   FROM problem_drafts WHERE id=$3 AND published_draft IS NOT NULL
   AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) > 0
+  AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) <= 100
   RETURNING `+columns, id, owner, problemID, source, image))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady

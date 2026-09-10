@@ -1,11 +1,16 @@
 import { z } from 'zod'
 
-export type TestCase = { input: string, output: string }
+export type TestCase = { name?: string, input: string, output: string }
 export function testCaseError(cases: TestCase[]) {
   if (cases.length > 100) return 'テストケースは100件まで登録できます。'
   const encoder = new TextEncoder()
   let total = 0
+  const names = new Set<string>()
   for (const [index, item] of cases.entries()) {
+    const name = (item.name ?? '').trim()
+    if ([...(item.name ?? '')].length > 64 || /[\u0000-\u001f\u007f-\u009f]/.test(item.name ?? '') || (item.name && !name)) return `ケース${index + 1}の名前は64文字以内で、改行や制御文字を含めずに入力してください。`
+    if (name && names.has(name)) return `テストケース名「${name}」が重複しています。`
+    if (name) names.add(name)
     for (const value of [item.input, item.output]) {
       const size = encoder.encode(value).length
       if (value.includes('\0')) return `ケース${index + 1}に使用できない文字が含まれています。`
@@ -21,7 +26,7 @@ export const problemDraftSchema = z.object({
   markdown: z.string().max(100_000),
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
-  testCases: z.array(z.object({ input: z.string(), output: z.string() })).default([]),
+  testCases: z.array(z.object({ name: z.string().optional(), input: z.string(), output: z.string() })).default([]),
 })
 export type ProblemDraft = z.infer<typeof problemDraftSchema>
 

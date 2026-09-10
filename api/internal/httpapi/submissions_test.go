@@ -27,9 +27,15 @@ func TestDraftTestCaseLimits(t *testing.T) {
 	}{
 		{"legacy", nil, true},
 		{"empty input and output", []problems.TestCase{{}}, true},
-		{"too many", make([]problems.TestCase, 101), false},
+		{"at case limit", make([]problems.TestCase, 100), true},
+		{"over case limit", make([]problems.TestCase, 101), false},
 		{"byte limit", []problems.TestCase{{Input: strings.Repeat("あ", 22000)}}, false},
 		{"NUL", []problems.TestCase{{Output: "\x00"}}, false},
+		{"named case", []problems.TestCase{{Name: "最大値のケース"}}, true},
+		{"long name", []problems.TestCase{{Name: strings.Repeat("あ", 65)}}, false},
+		{"duplicate name", []problems.TestCase{{Name: "sample"}, {Name: " sample "}}, false},
+		{"blank name", []problems.TestCase{{Name: "   "}}, false},
+		{"control in name", []problems.TestCase{{Name: "a\nb"}}, false},
 		{"total limit", []problems.TestCase{{Input: strings.Repeat("x", 65536), Output: strings.Repeat("x", 65536)}, {Input: strings.Repeat("x", 65536), Output: strings.Repeat("x", 65536)}, {Input: "x"}}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -38,6 +44,20 @@ func TestDraftTestCaseLimits(t *testing.T) {
 				t.Fatal("unexpected validation result")
 			}
 		})
+	}
+}
+
+func TestDraftCaseLimitIndependentOfTL(t *testing.T) {
+	for _, tl := range []int{100, 1000, 2000, 2300, 5000} {
+		for _, extra := range []int{0, 1} {
+			count := 100 + extra
+			t.Run(fmt.Sprintf("%dms/%dcases", tl, count), func(t *testing.T) {
+				draft := problems.Draft{TimeLimitMS: fmt.Sprint(tl), MemoryLimitMB: "512", TestCases: make([]problems.TestCase, count)}
+				if validDraft(draft) != (extra == 0) {
+					t.Fatal("unexpected case limit validation")
+				}
+			})
+		}
 	}
 }
 
@@ -186,6 +206,18 @@ func TestSubmissionsPostgres(t *testing.T) {
 	current, err := store.Get(ctx, "alice", id)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// A published set over the case limit cannot enqueue a job.
+	for _, tc := range []struct{ tl, count, status int }{{100, 101, 409}, {5000, 100, 202}} {
+		data, err := json.Marshal(problems.Draft{Title: "Budget", TimeLimitMS: fmt.Sprint(tc.tl), MemoryLimitMB: "512", TestCases: make([]problems.TestCase, tc.count)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Pool().Exec(ctx, `UPDATE problem_drafts SET published_draft=$2 WHERE id=$1`, id, data); err != nil {
+			t.Fatal(err)
+		}
+		request("POST", "/my/submissions", "alice", body, tc.status)
 	}
 	current.Draft.TestCases = nil
 	saved, err := store.Save(ctx, "alice", id, current.Version, current.Draft)
