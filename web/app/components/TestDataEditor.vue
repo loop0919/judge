@@ -10,7 +10,7 @@ const lineCount = computed(() => {
   for (let i = 0; i < text.value.length; i++) if (text.value.charCodeAt(i) === 10) count++
   return count
 })
-const firstLine = computed(() => Math.max(0, Math.floor((scrollTop.value - 16) / lineHeight)))
+const firstLine = computed(() => Math.max(0, Math.floor(scrollTop.value / lineHeight)))
 const visibleLines = computed(() => Array.from({ length: Math.max(0, Math.min(lineCount.value - firstLine.value, Math.ceil(height.value / lineHeight) + 2)) }, (_, i) => firstLine.value + i + 1))
 const bytes = computed(() => new TextEncoder().encode(text.value).length)
 function syncScroll() { if (field.value) scrollTop.value = field.value.scrollTop }
@@ -27,7 +27,7 @@ watch(text, () => nextTick(syncScroll))
   <div class="test-data-editor">
     <div class="pane-heading"><label :for="id">{{ label }}</label><span>{{ bytes.toLocaleString('en-US') }} bytes</span></div>
     <div class="code-surface">
-      <div class="line-gutter" aria-hidden="true"><div :style="{ transform: `translateY(${16 + firstLine * lineHeight - scrollTop}px)` }"><div v-for="line in visibleLines" :key="line">{{ line }}</div></div></div>
+      <div class="line-gutter" aria-hidden="true"><div :style="{ transform: `translateY(${firstLine * lineHeight - scrollTop}px)` }"><div v-for="line in visibleLines" :key="line">{{ line }}</div></div></div>
       <textarea :id="id" ref="field" v-model="text" :disabled="disabled" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" @scroll="syncScroll" />
     </div>
   </div>
@@ -42,6 +42,6 @@ watch(text, () => nextTick(syncScroll))
 .line-gutter { position: absolute; inset: 0 auto 0 0; width: 58px; overflow: hidden; border-right: 1px solid var(--color-line); color: var(--color-muted); user-select: none; pointer-events: none; text-align: right; }
 .line-gutter > div > div { padding-right: 10px; height: 22px; }
 .line-gutter, textarea { font-family: var(--font-code); font-size: 14px; line-height: 22px; }
-textarea { display: block; margin-left: 59px; width: calc(100% - 59px); height: 100%; box-sizing: border-box; padding: 16px; border: 0; resize: none; background: transparent; color: inherit; tab-size: 2; overscroll-behavior: contain; }
+textarea { display: block; margin-left: 59px; width: calc(100% - 59px); height: 100%; box-sizing: border-box; padding: 0 16px; border: 0; resize: none; background: transparent; color: inherit; tab-size: 2; overscroll-behavior: contain; }
 textarea:focus-visible { outline-offset: -2px; }
 </style>

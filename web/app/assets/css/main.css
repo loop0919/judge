@@ -76,6 +76,10 @@ code { font-family: var(--font-code); }
 .row-end { color: var(--color-accent); white-space: nowrap; font-size: .75rem; }
 .row-end span { margin-inline-start: 12px; }
 .muted { color: var(--color-muted); font-size: .8125rem; }
+.verdict-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 3em; padding: 2px 8px; border-radius: 4px; background: var(--color-muted); color: #fff; font-family: var(--font-code); font-size: .8125rem; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.verdict-badge[data-verdict] { background: #f2c94c; color: #493600; }
+.verdict-badge[data-verdict="AC"] { background: #18794e; color: #fff; }
+.verdict-badge[data-verdict="JE"] { background: #b42318; color: #fff; }
 .return-link { gap: 16px; margin-top: 20px; }
 .math-expression { vertical-align: baseline; }
 .math-expression--display { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: 4px; margin-block: 20px; }

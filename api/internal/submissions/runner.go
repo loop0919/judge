@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// JudgeTimeout covers up to 100 cases, including container startup, inspection and cleanup.
+const JudgeTimeout = time.Hour
+
 // boundedOutput drains pipes after the limit and stops the container through cancel.
 type boundedOutput struct {
 	buffer bytes.Buffer
@@ -106,6 +109,13 @@ func Judge(ctx context.Context, source string, job Job) Result {
 	if len(job.Cases) == 0 || job.TimeLimitMS < 100 || job.TimeLimitMS > 5000 || job.TimeLimitMS%100 != 0 || len(job.Cases) > 100 || job.MemoryLimitMB < 64 || job.MemoryLimitMB > 1024 || !strings.HasPrefix(job.Image, "sha256:") {
 		return r
 	}
+	for i, c := range job.Cases {
+		name := c.Name
+		if name == "" {
+			name = fmt.Sprintf("ケース%d", i+1)
+		}
+		r.Cases = append(r.Cases, CaseResult{Name: name, Verdict: "SKIPPED"})
+	}
 	dir, err := os.MkdirTemp("", "openoj-source-")
 	if err != nil {
 		return r
@@ -139,30 +149,41 @@ func Judge(ctx context.Context, source string, job Job) Result {
 	if os.Remove(filepath.Join(dir, "main.cpp")) != nil || os.WriteFile(filepath.Join(dir, "main"), compiled.output, 0555) != nil {
 		return r
 	}
-	for _, c := range job.Cases {
+	r.Verdict = "AC"
+	for i, c := range job.Cases {
+		if ctx.Err() != nil {
+			r.Verdict = "JE"
+			return r
+		}
 		limit := time.Duration(job.TimeLimitMS) * time.Millisecond
 		actual := container(ctx, job.Image, dir, c.Input, job.MemoryLimitMB, limit+10*time.Second, 1<<20,
 			"timeout", "--signal=TERM", "--kill-after=0.1s", fmt.Sprintf("%.3fs", limit.Seconds()), "/submission/main")
+		verdict := "AC"
 		switch {
 		case actual.err != nil || actual.timedOut:
-			r.Verdict = "JE"
+			verdict = "JE"
 		case actual.overflow:
-			r.Verdict = "OLE"
+			verdict = "OLE"
 		case actual.oom:
-			r.Verdict = "MLE"
+			verdict = "MLE"
 		case (actual.code == 124 || actual.code == 137) && actual.elapsed >= limit:
-			r.Verdict = "TLE"
+			verdict = "TLE"
 		case actual.code != 0:
-			r.Verdict = "RE"
+			verdict = "RE"
 		case !equalTokens(actual.output, []byte(c.Output)):
-			r.Verdict = "WA"
+			verdict = "WA"
 		default:
 			r.Passed++
-			continue
 		}
-		return r
+		r.Cases[i].Verdict = verdict
+		if verdict == "JE" {
+			r.Verdict = "JE"
+			return r
+		}
+		if r.Verdict == "AC" && verdict != "AC" {
+			r.Verdict = verdict
+		}
 	}
-	r.Verdict = "AC"
 	return r
 }
 

@@ -1,0 +1,68 @@
+<script setup lang="ts">
+import { basicSetup } from 'codemirror'
+import { cpp } from '@codemirror/lang-cpp'
+import { Compartment, EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
+
+const source = defineModel<string>({ required: true })
+const props = defineProps<{ disabled?: boolean, readonly?: boolean }>()
+const container = ref<HTMLDivElement>()
+const bytes = computed(() => new TextEncoder().encode(source.value).length)
+const editable = new Compartment()
+let editor: EditorView | undefined
+const editing = () => [EditorState.readOnly.of(Boolean(props.disabled || props.readonly)), EditorView.editable.of(!props.disabled && !props.readonly)]
+
+onMounted(() => {
+  editor = new EditorView({
+    parent: container.value,
+    doc: source.value,
+    extensions: [
+      basicSetup,
+      cpp(),
+      editable.of(editing()),
+      EditorView.contentAttributes.of({ 'aria-labelledby': 'submission-source-label', 'aria-multiline': 'true', ...(props.readonly ? { tabindex: '0', 'aria-readonly': 'true' } : {}) }),
+      EditorView.updateListener.of(update => {
+        if (update.docChanged) source.value = update.state.doc.toString()
+      }),
+      EditorView.theme({
+        '&': { height: '100%', color: 'var(--color-ink)', backgroundColor: 'var(--color-paper)' },
+        '&.cm-focused': { outline: 'none' },
+        '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--font-code)', fontSize: '14px', lineHeight: '22px' },
+        '.cm-content': { padding: '0' },
+        '.cm-line': { padding: '0 16px' },
+        '.cm-gutters': { backgroundColor: 'var(--color-surface)', color: 'var(--color-muted)', borderRight: '1px solid var(--color-line)' },
+        '.cm-lineNumbers .cm-gutterElement': { minWidth: '44px', paddingRight: '10px' },
+        '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: props.readonly ? 'transparent' : 'var(--color-accent-soft)' },
+      }),
+    ],
+  })
+})
+watch(() => [props.disabled, props.readonly], () => editor?.dispatch({ effects: editable.reconfigure(editing()) }))
+watch(source, value => {
+  if (editor && value !== editor.state.doc.toString()) {
+    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
+  }
+})
+onBeforeUnmount(() => editor?.destroy())
+</script>
+
+<template>
+  <div class="source-code-editor" :class="{ 'is-disabled': disabled, 'is-readonly': readonly }">
+    <div class="pane-heading">
+      <span id="submission-source-label">ソースコード</span>
+      <span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span>
+    </div>
+    <div ref="container" class="code-surface" />
+  </div>
+</template>
+
+<style scoped>
+.source-code-editor { min-width: 0; margin-top: 20px; border: 1px solid var(--color-line); border-radius: 4px; overflow: hidden; }
+.pane-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--color-line); font-size: .875rem; }
+.byte-count { font-size: .75rem; color: var(--color-muted); }
+.code-surface { position: relative; height: 384px; min-height: 180px; overflow: hidden; resize: vertical; }
+.code-surface:focus-within::after { content: ""; position: absolute; inset: 0; z-index: 10; border: 2px solid var(--color-accent); pointer-events: none; }
+.is-readonly .code-surface { height: auto; min-height: 0; resize: none; }
+.is-readonly :deep(.cm-scroller) { max-height: 320px; }
+.is-disabled { opacity: .6; }
+</style>

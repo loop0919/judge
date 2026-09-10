@@ -31,7 +31,7 @@ func main() {
 	for ctx.Err() == nil {
 		item, job, err := store.Claim(ctx)
 		if err == nil {
-			jobCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			jobCtx, cancel := context.WithTimeout(ctx, submissions.JudgeTimeout)
 			result := submissions.Judge(jobCtx, item.Source, job)
 			cancel()
 			saveCtx, saveCancel := context.WithTimeout(context.Background(), 10*time.Second)

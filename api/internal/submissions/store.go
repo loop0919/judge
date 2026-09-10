@@ -23,11 +23,17 @@ type Job struct {
 	Cases         []Case `json:"cases"`
 }
 
+type CaseResult struct {
+	Name    string `json:"name"`
+	Verdict string `json:"verdict"`
+}
+
 type Result struct {
-	Verdict    string `json:"verdict"`
-	Passed     int    `json:"passed"`
-	Total      int    `json:"total"`
-	CompileLog string `json:"compileLog,omitempty"`
+	Cases      []CaseResult `json:"cases,omitempty"`
+	Verdict    string       `json:"verdict"`
+	Passed     int          `json:"passed"`
+	Total      int          `json:"total"`
+	CompileLog string       `json:"compileLog,omitempty"`
 }
 
 type Submission struct {
@@ -91,8 +97,8 @@ func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
 }
 
 func (s *Store) Claim(ctx context.Context) (Submission, Job, error) {
-	// ponytail: one attempt; interrupted jobs become JE after ten minutes. Add retry attempts for production.
-	_, err := s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE status='RUNNING' AND started_at < clock_timestamp()-interval '10 minutes'`)
+	// ponytail: one attempt; interrupted jobs become JE after the judge deadline. Add retry attempts for production.
+	_, err := s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE status='RUNNING' AND started_at < clock_timestamp()-$1::int * interval '1 second'`, int((JudgeTimeout+time.Minute)/time.Second))
 	if err != nil {
 		return Submission{}, Job{}, err
 	}

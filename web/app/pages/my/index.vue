@@ -11,7 +11,7 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
       <NuxtLink class="editor-button" to="/my/settings">プロフィールを編集</NuxtLink>
     </header>
     <SavedProblems />
-    <p><NuxtLink to="/my/submissions">自分の提出履歴</NuxtLink></p>
+    <p><NuxtLink to="/my/submissions">提出履歴</NuxtLink></p>
     <SavedPosts />
     <div class="account-actions"><button class="editor-button" @click="logout">ログアウト</button></div>
   </section>

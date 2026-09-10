@@ -6,6 +6,6 @@ export type Submission = {
   runtime: string
   source?: string
   status: 'QUEUED' | 'RUNNING' | 'DONE'
-  result: { verdict: string, passed: number, total: number, compileLog?: string } | null
+  result: { verdict: string, passed: number, total: number, compileLog?: string, cases?: { name: string, verdict: string }[] } | null
   createdAt: string
 }

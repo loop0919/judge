@@ -49,9 +49,12 @@ func TestCPPDocker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	job := Job{Image: strings.TrimSpace(string(data)), TimeLimitMS: 300, MemoryLimitMB: 64, Cases: []Case{{Input: "3 5\n", Output: "8\n"}, {Input: "1000000000 1000000000\n", Output: "2000000000\n"}}}
+	job := Job{Image: strings.TrimSpace(string(data)), TimeLimitMS: 300, MemoryLimitMB: 64, Cases: []Case{{Name: "sample", Input: "3 5\n", Output: "8\n"}, {Name: "large", Input: "1000000000 1000000000\n", Output: "2000000000\n"}}}
 	for _, tc := range []struct{ name, source, verdict string }{
 		{"AC", "#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b;}", "AC"},
+		{"partial", "#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<(a==3?a+b:0);}", "WA"},
+		{"wrong then accepted", "#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<(a==3?0:a+b);}", "WA"},
+		{"mixed failures", "#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;if(a==3){std::cout<<0;return 0;}return 1;}", "WA"},
 		{"WA", "#include <iostream>\nint main(){std::cout<<0;}", "WA"},
 		{"CE", "int main( {", "CE"},
 		{"RE", "int main(){return 1;}", "RE"},
@@ -69,6 +72,36 @@ func TestCPPDocker(t *testing.T) {
 			result := Judge(ctx, tc.source, caseJob)
 			if result.Verdict != tc.verdict {
 				t.Fatalf("got %+v, want %s", result, tc.verdict)
+			}
+			if len(result.Cases) != 2 || result.Cases[0].Name != "sample" || result.Cases[1].Name != "large" {
+				t.Fatalf("missing case names: %+v", result)
+			}
+			want := []string{tc.verdict, tc.verdict}
+			if tc.verdict == "AC" {
+				want = []string{"AC", "AC"}
+			}
+			if tc.verdict == "CE" {
+				want = []string{"SKIPPED", "SKIPPED"}
+			}
+			if tc.name == "partial" {
+				want = []string{"AC", "WA"}
+				if result.Passed != 1 {
+					t.Fatalf("wrong passed count: %+v", result)
+				}
+			}
+			if tc.name == "wrong then accepted" {
+				want = []string{"WA", "AC"}
+				if result.Passed != 1 {
+					t.Fatalf("wrong passed count: %+v", result)
+				}
+			}
+			if tc.name == "mixed failures" {
+				want = []string{"WA", "RE"}
+			}
+			for i, verdict := range want {
+				if result.Cases[i].Verdict != verdict {
+					t.Fatalf("case %d: got %+v, want %s", i, result.Cases[i], verdict)
+				}
 			}
 			if result.Verdict == "AC" && result.Passed != 2 {
 				t.Fatal("did not execute all cases")

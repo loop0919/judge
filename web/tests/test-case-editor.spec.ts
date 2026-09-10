@@ -12,7 +12,7 @@ test('line numbers track scrolling without rendering every line and names are un
   await input.evaluate(element => { element.scrollTop = 0; element.dispatchEvent(new Event('scroll')) })
   await expect(gutter.first()).toHaveText('1')
   await input.evaluate(element => { element.scrollTop = 2200; element.dispatchEvent(new Event('scroll')) })
-  await expect(gutter.first()).toHaveText('100')
+  await expect(gutter.first()).toHaveText('101')
   await expect(input).toHaveValue(content)
   await page.getByLabel('テストケース名 1', { exact: true }).fill('sample')
   await page.getByRole('button', { name: 'テストケースを追加' }).click()

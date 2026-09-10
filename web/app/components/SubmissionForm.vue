@@ -2,7 +2,9 @@
 import type { Submission } from '../../shared/types/submission'
 
 const props = defineProps<{ problemId: string }>()
+const { user } = useAccount()
 const source = ref('')
+const runtime = ref('cpp17-local')
 const sending = ref(false)
 const message = ref('')
 async function submit() {
@@ -14,7 +16,7 @@ async function submit() {
   sending.value = true
   message.value = ''
   try {
-    const result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: 'cpp17-local', source: source.value } })
+    const result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: runtime.value, source: source.value } })
     await navigateTo(`/my/submissions/${result.id}`)
   } catch (error) {
     const failure = error as { statusCode?: number, data?: { data?: { code?: string } } }
@@ -29,17 +31,23 @@ async function submit() {
 </script>
 
 <template>
-  <section class="submission-form" aria-labelledby="submission-title">
-    <h2 id="submission-title">C++で提出</h2>
-    <p class="muted">C++17（ローカル開発用）／ソースコードは64 KiBまで</p>
+  <section v-if="!user" class="submission-login" aria-labelledby="submission-login-title">
+    <h2 id="submission-login-title">ログインして解答を提出</h2>
+    <p>解答の提出や採点結果の確認には、ログインが必要です。</p>
+    <NuxtLink class="editor-button primary" to="/login">ログインする</NuxtLink>
+  </section>
+  <section v-else class="submission-form" aria-labelledby="submission-title">
+    <h2 id="submission-title">提出</h2>
+    <p class="muted">ソースコードは64 KiBまで</p>
     <form @submit.prevent="submit">
-      <label for="submission-source">ソースコード</label>
-      <textarea id="submission-source" v-model="source" rows="16" spellcheck="false" autocapitalize="off" autocomplete="off" :disabled="sending" required />
+      <label for="submission-language">言語</label>
+      <select id="submission-language" v-model="runtime" :disabled="sending">
+        <option value="cpp17-local">C++17</option>
+      </select>
+      <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>
       <div class="submission-actions">
-        <button type="submit" :disabled="sending || !source.trim()">{{ sending ? '提出中…' : '提出する' }}</button>
-        <NuxtLink to="/my/submissions">自分の提出履歴</NuxtLink>
-        <NuxtLink to="/login">ログイン</NuxtLink>
+        <button class="editor-button primary" type="submit" :disabled="sending || !source.trim()" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
   </section>
@@ -47,7 +55,15 @@ async function submit() {
 
 <style scoped>
 .submission-form { margin-top: 40px; }
+.submission-login { margin-top: 40px; padding: 24px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-surface); }
+.submission-login h2 { margin-bottom: 8px; }
+.submission-login p { color: var(--color-muted); font-size: .875rem; }
+.submission-login a { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 24px; font-weight: 600; text-decoration: none; }
 label { display: block; margin-block: 20px 8px; }
-textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 12px; font-family: monospace; font-size: 14px; }
+select { width: 100%; max-width: 320px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: inherit; cursor: pointer; }
+select:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+select:disabled, .submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.submission-actions button { min-height: 44px; padding: 10px 28px; font-weight: 600; }
+.submission-actions button:disabled { transform: none; text-decoration: none; }
 .submission-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
 </style>
