@@ -108,8 +108,15 @@ resource "aws_iam_role_policy" "deploy" {
       {
         Sid      = "ApplicationDatabase"
         Effect   = "Allow"
-        Action   = ["rds:CreateDBInstance", "rds:ModifyDBInstance", "rds:DeleteDBInstance", "rds:DescribeDBInstances", "rds:CreateDBSubnetGroup", "rds:ModifyDBSubnetGroup", "rds:DeleteDBSubnetGroup", "rds:DescribeDBSubnetGroups", "rds:AddTagsToResource", "rds:RemoveTagsFromResource", "rds:ListTagsForResource", "rds:CreateDBSnapshot"]
+        Action   = ["rds:CreateDBInstance", "rds:ModifyDBInstance", "rds:DeleteDBInstance", "rds:CreateDBSubnetGroup", "rds:ModifyDBSubnetGroup", "rds:DeleteDBSubnetGroup", "rds:DescribeDBSubnetGroups", "rds:AddTagsToResource", "rds:RemoveTagsFromResource", "rds:ListTagsForResource", "rds:CreateDBSnapshot"]
         Resource = ["${local.arn}:rds:${var.aws_region}:${local.account}:db:${local.name}-postgres", "${local.arn}:rds:${var.aws_region}:${local.account}:subgrp:${local.name}", "${local.arn}:rds:${var.aws_region}:${local.account}:snapshot:${local.name}-postgres-*"]
+      },
+      {
+        # Terraform filters by dbi-resource-id, which requires listing DB instances.
+        Sid      = "DescribeDatabaseInstances"
+        Effect   = "Allow"
+        Action   = ["rds:DescribeDBInstances"]
+        Resource = "${local.arn}:rds:${var.aws_region}:${local.account}:db:*"
       },
       {
         Sid      = "DatabaseLogs"

@@ -18,6 +18,25 @@ run "deployment_boundary" {
   command = plan
   assert {
     condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      statement.Effect == "Allow" &&
+      statement.Resource == "arn:aws:rds:ap-northeast-1:123456789012:db:*" &&
+      toset(statement.Action) == toset(["rds:DescribeDBInstances"]) &&
+      !can(statement.Condition)
+    ) if statement.Sid == "DescribeDatabaseInstances"])
+    error_message = "Terraform's dbi-resource-id lookup must allow listing DB instances within the deployment account and region."
+  }
+  assert {
+    condition = alltrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      toset(statement.Resource) == toset([
+        "arn:aws:rds:ap-northeast-1:123456789012:db:judge-dev-postgres",
+        "arn:aws:rds:ap-northeast-1:123456789012:subgrp:judge-dev",
+        "arn:aws:rds:ap-northeast-1:123456789012:snapshot:judge-dev-postgres-*"
+      ])
+    ) if contains(statement.Action, "rds:ModifyDBInstance") || contains(statement.Action, "rds:DeleteDBInstance")])
+    error_message = "Database write permissions must remain limited to application resources."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
       statement.Resource == "arn:aws:ec2:ap-northeast-1:123456789012:vpc/*" &&
       toset(statement.Action) == toset(["ec2:CreateSubnet", "ec2:CreateSecurityGroup", "ec2:CreateEgressOnlyInternetGateway", "ec2:CreateRouteTable"]) &&
       tomap(statement.Condition.StringEquals) == tomap({ "ec2:ResourceTag/Project" = "judge", "ec2:ResourceTag/Environment" = "Dev" })
