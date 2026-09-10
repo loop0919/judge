@@ -15,6 +15,7 @@ import (
 	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
+	"judge/api/internal/submissions"
 )
 
 type TokenVerifier interface {
@@ -54,16 +55,21 @@ func (v *cognitoVerifier) Verify(ctx context.Context, raw string) (string, error
 }
 
 type PrivateProblems struct {
-	Posts     *posts.Store
-	Operators map[string]bool
-	Store     problems.Repository
-	Profiles  profiles.Repository
-	Verifier  TokenVerifier
+	Submissions *submissions.Store
+	JudgeImage  string
+	Posts       *posts.Store
+	Operators   map[string]bool
+	Store       problems.Repository
+	Profiles    profiles.Repository
+	Verifier    TokenVerifier
 }
 
 var problemID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /my/submissions", p.handle)
+	mux.HandleFunc("GET /my/submissions", p.handle)
+	mux.HandleFunc("GET /my/submissions/{id}", p.handle)
 	mux.HandleFunc("PUT /my/problems/{id}/publication", p.handle)
 	mux.HandleFunc("GET /my/posts", p.handle)
 	mux.HandleFunc("GET /my/posts/{id}", p.handle)
@@ -115,6 +121,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if strings.HasPrefix(r.URL.Path, "/my/submissions") {
+		p.submission(w, r.WithContext(ctx), owner)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, "/my/posts") {
 		p.privatePost(w, r.WithContext(ctx), owner)
 		return
@@ -150,7 +160,7 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			authError(w, 415, "json_required")
 			return
 		}
-		if !readJSONBody(w, r, &input, 700<<10) {
+		if !readJSONBody(w, r, &input, 3<<20) {
 			return
 		}
 		if input.Version < 0 || input.Version > 9007199254740990 || !validDraft(input.Draft) {
@@ -178,6 +188,19 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func validDraft(d problems.Draft) bool {
+	if len(d.TestCases) > 100 {
+		return false
+	}
+	total := 0
+	for _, c := range d.TestCases {
+		if len(c.Input) > 64<<10 || len(c.Output) > 64<<10 || strings.ContainsRune(c.Input+c.Output, 0) {
+			return false
+		}
+		total += len(c.Input) + len(c.Output)
+	}
+	if total > 256<<10 {
+		return false
+	}
 	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
 	memory, e2 := strconv.Atoi(d.MemoryLimitMB)
 	return utf8.RuneCountInString(d.Title) <= 120 && utf8.RuneCountInString(d.Markdown) <= 100000 &&

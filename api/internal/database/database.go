@@ -35,6 +35,9 @@ var profilesSchema string
 //go:embed 003_publications.sql
 var publicationsSchema string
 
+//go:embed 004_submissions.sql
+var submissionsSchema string
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -47,7 +50,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err = tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version bigint PRIMARY KEY)`); err != nil {
 		return err
 	}
-	for index, schema := range []string{problemsSchema, profilesSchema, publicationsSchema} {
+	for index, schema := range []string{problemsSchema, profilesSchema, publicationsSchema, submissionsSchema} {
 		version := index + 1
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version=$1)`, version).Scan(&applied); err != nil {

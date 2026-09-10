@@ -112,10 +112,13 @@ try {
   mkdirSync('api/.build', { recursive: true })
   console.log('Building API…')
   await run('go', ['build', '-o', '.build/local-api', './cmd/api'], `${root}api`)
+  const localJudge = Boolean(process.env.JUDGE_CPP_IMAGE)
+  if (localJudge) await run('go', ['build', '-o', '.build/judge-worker', './cmd/judge-worker'], `${root}api`)
   const supervise = promise => promise.then(() => stop(1), error => {
     if (!stopping) console.error(error.message)
     stop(1)
   })
+  if (localJudge) supervise(run(`${root}api/.build/judge-worker`, [], `${root}api`))
   supervise(run(`${root}api/.build/local-api`, [], `${root}api`, {
     ...process.env, PORT: String(apiPort),
   }))

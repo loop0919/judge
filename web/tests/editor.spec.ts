@@ -90,7 +90,7 @@ for (const width of [320, 375, 414, 768, 1280]) {
     await expect(page.locator('#problem-source')).toBeVisible()
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    for (const name of ['テストケース（準備中）', '解説（準備中）']) {
+    for (const name of ['解説（準備中）']) {
       const action = page.getByRole('button', { name, exact: true })
       await expect(action).toBeVisible()
       await expect(action).toBeDisabled()

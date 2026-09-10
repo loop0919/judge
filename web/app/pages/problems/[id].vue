@@ -18,7 +18,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
     </header>
     <article class="problem-body" aria-label="問題詳細">
       <ProblemMarkdown :source="problem.markdown" />
-      <aside class="notice" aria-label="提出について"><strong>提出・採点は準備中です</strong></aside>
+      <SubmissionForm :problem-id="problem.id" />
     </article>
   </div>
 </template>

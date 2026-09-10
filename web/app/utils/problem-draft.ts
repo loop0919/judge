@@ -1,10 +1,27 @@
 import { z } from 'zod'
 
+export type TestCase = { input: string, output: string }
+export function testCaseError(cases: TestCase[]) {
+  if (cases.length > 100) return 'テストケースは100件まで登録できます。'
+  const encoder = new TextEncoder()
+  let total = 0
+  for (const [index, item] of cases.entries()) {
+    for (const value of [item.input, item.output]) {
+      const size = encoder.encode(value).length
+      if (value.includes('\0')) return `ケース${index + 1}に使用できない文字が含まれています。`
+      if (size > 65536) return `ケース${index + 1}の入力と期待出力は、それぞれ64 KiB以内にしてください。`
+      total += size
+    }
+  }
+  return total > 262144 ? 'テストケース全体を256 KiB以内にしてください。' : ''
+}
+
 export const problemDraftSchema = z.object({
   title: z.string().max(120),
   markdown: z.string().max(100_000),
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
+  testCases: z.array(z.object({ input: z.string(), output: z.string() })).default([]),
 })
 export type ProblemDraft = z.infer<typeof problemDraftSchema>
 

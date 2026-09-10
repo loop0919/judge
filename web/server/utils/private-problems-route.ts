@@ -14,7 +14,7 @@ export default defineEventHandler(async event => {
   if (method === 'DELETE' && typeof query.version === 'string') params.set('version', query.version)
   if (!id && typeof query.cursor === 'string') params.set('cursor', query.cursor)
   const path = `/my/problems${id ? `/${id}` : ''}?${params}`
-  const body = method === 'PUT' ? await limitedJSON(event, 700 << 10) : undefined
+  const body = method === 'PUT' ? await limitedJSON(event, 3 << 20) : undefined
   const result = await privateAPI(event, path, { method, body })
   if (method === 'DELETE') return sendNoContent(event)
   return result

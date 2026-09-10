@@ -19,10 +19,16 @@ var (
 )
 
 type Draft struct {
-	Title         string `json:"title"`
-	Markdown      string `json:"markdown"`
-	TimeLimitMS   string `json:"timeLimitMs"`
-	MemoryLimitMB string `json:"memoryLimitMb"`
+	Title         string     `json:"title"`
+	Markdown      string     `json:"markdown"`
+	TimeLimitMS   string     `json:"timeLimitMs"`
+	MemoryLimitMB string     `json:"memoryLimitMb"`
+	TestCases     []TestCase `json:"testCases,omitempty"`
+}
+
+type TestCase struct {
+	Input  string `json:"input"`
+	Output string `json:"output"`
 }
 
 type Problem struct {

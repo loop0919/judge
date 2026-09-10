@@ -19,6 +19,7 @@ import (
 	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
+	"judge/api/internal/submissions"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
@@ -103,6 +104,8 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 		private.Store = store
 		private.Profiles = profiles.New(store.Pool())
 		private.Posts = posts.New(store.Pool())
+		private.Submissions = &submissions.Store{Pool: store.Pool()}
+		private.JudgeImage = getenv("JUDGE_CPP_IMAGE")
 	}
 	return &configuredHandler{Handler: newHandler(auth, private), store: store}, nil
 }

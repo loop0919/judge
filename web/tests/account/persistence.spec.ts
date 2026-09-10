@@ -118,7 +118,7 @@ test('rejects oversized chunked writes without saving a problem', async ({ page 
       method: 'PUT', headers: { cookie: cookies, origin: 'http://127.0.0.1:13002', 'content-type': 'application/json' },
     }, response => { response.resume(); response.on('end', () => resolve(response.statusCode)) })
     request.on('error', reject)
-    request.write(JSON.stringify({ version: 0, draft: { markdown: 'x'.repeat(800000) } }))
+    request.write(JSON.stringify({ version: 0, draft: { markdown: 'x'.repeat(4 * 1024 * 1024) } }))
     request.end()
   })
   expect(status).toBe(413)

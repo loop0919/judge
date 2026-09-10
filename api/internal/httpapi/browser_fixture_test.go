@@ -19,6 +19,7 @@ import (
 	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
+	"judge/api/internal/submissions"
 )
 
 // This identity provider exists only in the Go test binary, never in the API build.
@@ -101,7 +102,7 @@ func TestBrowserFixture(t *testing.T) {
 		}
 	}
 	f := newSigningFixture(t)
-	handler := newHandler(AuthConfig{Client: &browserCognito{t: t, signer: f, users: make(map[string]*browserUser)}, ClientID: "client"}, PrivateProblems{Store: store, Profiles: profileStore, Posts: posts.New(store.Pool()), Operators: map[string]bool{"alice@example.test": true}, Verifier: newCognitoVerifier(f.server.URL, "client")})
+	handler := newHandler(AuthConfig{Client: &browserCognito{t: t, signer: f, users: make(map[string]*browserUser)}, ClientID: "client"}, PrivateProblems{Store: store, Profiles: profileStore, Posts: posts.New(store.Pool()), Submissions: &submissions.Store{Pool: store.Pool()}, JudgeImage: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Operators: map[string]bool{"alice@example.test": true}, Verifier: newCognitoVerifier(f.server.URL, "client")})
 	server := &http.Server{Addr: "127.0.0.1:18082", Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	stopCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()

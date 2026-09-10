@@ -108,6 +108,7 @@ set +a
 - [フロントエンドの起動とSSRの確認](web/README.md)
 - [AWSインフラの作成とデプロイ](infra/README.md)
 - [設計文書](docs/README.md)
+- [ローカルでC++を提出する](docs/judge/local-cpp.md)
 
 AWSアカウント全体の請求アラートは、別フォルダ`~/aws-setting`で管理する。
 このリポジトリのCI/CDではデプロイしない。
