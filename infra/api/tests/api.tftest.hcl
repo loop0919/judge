@@ -120,11 +120,23 @@ run "database_contract" {
       aws_lambda_function.migration.vpc_config[0].ipv6_allowed_for_dual_stack &&
       aws_vpc_security_group_egress_rule.https.cidr_ipv6 == "::/0" &&
       alltrue([for route in aws_route_table.private.route : route.ipv6_cidr_block == "::/0" && route.egress_only_gateway_id == aws_egress_only_internet_gateway.application.id]) &&
-      aws_lambda_function.api.reserved_concurrent_executions == 10 &&
-      aws_lambda_function.migration.reserved_concurrent_executions == 1 &&
+      aws_lambda_function.api.reserved_concurrent_executions == -1 &&
+      aws_lambda_function.migration.reserved_concurrent_executions == -1 &&
       aws_lambda_function.migration.environment[0].variables == tomap(local.database_environment)
     )
     error_message = "Keep the DB private, encrypted and backed up; pass only a managed secret reference and run migrations inside the VPC."
+  }
+}
+
+run "production_concurrency" {
+  command = plan
+  variables { environment = "prod" }
+  assert {
+    condition = (
+      aws_lambda_function.api.reserved_concurrent_executions == 10 &&
+      aws_lambda_function.migration.reserved_concurrent_executions == 1
+    )
+    error_message = "Outside dev, preserve API and migration concurrency limits to protect the database."
   }
 }
 

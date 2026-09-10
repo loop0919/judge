@@ -146,6 +146,14 @@ resource "aws_iam_role_policy" "deploy" {
         Condition = { StringEquals = { "ec2:ResourceTag/Project" = var.project_name, "ec2:ResourceTag/Environment" = title(var.environment) } }
       },
       {
+        # New rules have request tags; the parent group is checked by ManageTaggedNetwork.
+        Sid       = "CreateTaggedSecurityGroupRules"
+        Effect    = "Allow"
+        Action    = ["ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress"]
+        Resource  = "${local.arn}:ec2:${var.aws_region}:${local.account}:security-group-rule/*"
+        Condition = { StringEquals = { "aws:RequestTag/Project" = var.project_name, "aws:RequestTag/Environment" = title(var.environment) } }
+      },
+      {
         Sid       = "TagNewNetwork"
         Effect    = "Allow"
         Action    = ["ec2:CreateTags"]

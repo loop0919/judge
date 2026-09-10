@@ -19,6 +19,23 @@ run "deployment_boundary" {
   assert {
     condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
       statement.Effect == "Allow" &&
+      statement.Resource == "arn:aws:ec2:ap-northeast-1:123456789012:security-group-rule/*" &&
+      toset(statement.Action) == toset(["ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress"]) &&
+      tomap(statement.Condition.StringEquals) == tomap({ "aws:RequestTag/Project" = "judge", "aws:RequestTag/Environment" = "Dev" })
+    ) if statement.Sid == "CreateTaggedSecurityGroupRules"])
+    error_message = "New security group rules must be authorized using request tags before resource tags exist."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      contains(statement.Action, "ec2:AuthorizeSecurityGroupIngress") &&
+      contains(statement.Action, "ec2:AuthorizeSecurityGroupEgress") &&
+      tomap(statement.Condition.StringEquals) == tomap({ "ec2:ResourceTag/Project" = "judge", "ec2:ResourceTag/Environment" = "Dev" })
+    ) if statement.Sid == "ManageTaggedNetwork"])
+    error_message = "Rule creation must still require the parent security group to have application tags."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      statement.Effect == "Allow" &&
       statement.Resource == "arn:aws:rds:ap-northeast-1:123456789012:db:*" &&
       toset(statement.Action) == toset(["rds:DescribeDBInstances"]) &&
       !can(statement.Condition)
