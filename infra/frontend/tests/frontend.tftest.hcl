@@ -5,7 +5,10 @@ mock_provider "aws" {
   mock_resource "aws_lambda_function" { defaults = { invoke_arn = "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:123456789012:function:example/invocations" } }
   mock_resource "aws_apigatewayv2_api" { defaults = { execution_arn = "arn:aws:execute-api:ap-northeast-1:123456789012:example", api_endpoint = "https://example.execute-api.ap-northeast-1.amazonaws.com" } }
 }
-variables { api_endpoint = "https://api.example.com" }
+variables {
+  api_endpoint    = "https://api.example.com"
+  public_site_url = ""
+}
 run "frontend_contract" {
   command = apply
   assert {
@@ -30,6 +33,14 @@ run "frontend_contract" {
       aws_s3_bucket_versioning.artifacts.versioning_configuration[0].status == "Enabled"
     )
     error_message = "Keep public routing, scoped invocation, log retention, and private versioned artifacts."
+  }
+}
+run "configured_public_site_url" {
+  command = plan
+  variables { public_site_url = "https://judge.example.com" }
+  assert {
+    condition     = aws_lambda_function.web.environment[0].variables["NUXT_PUBLIC_SITE_URL"] == "https://judge.example.com"
+    error_message = "Use the configured public origin for frontend URLs, including OAuth callbacks."
   }
 }
 run "reject_non_https_api" {
