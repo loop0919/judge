@@ -15,40 +15,10 @@ definePageMeta({ editorLayout: true })
 const managing = ref(false)
 const sidebarExpanded = ref(false)
 const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非公開')
-const mode = ref<'edit' | 'split' | 'preview'>('split')
-const workspace = ref<HTMLElement>()
-const splitPercent = ref(50)
-const resizing = ref(false)
-let dragStartX = 0
-let dragStartPercent = 50
-function setSplit(value: number) {
-  splitPercent.value = Math.min(70, Math.max(30, value))
-}
-function startResize(event: PointerEvent) {
-  if (event.button !== 0 || !event.isPrimary) return
-  dragStartX = event.clientX
-  dragStartPercent = splitPercent.value
-  resizing.value = true
-  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  event.preventDefault()
-}
-function moveResize(event: PointerEvent) {
-  if (!resizing.value || !workspace.value) return
-  const width = workspace.value.getBoundingClientRect().width - 8
-  if (width > 0) setSplit(dragStartPercent + (event.clientX - dragStartX) / width * 100)
-}
-function stopResize(event: PointerEvent) {
-  resizing.value = false
-  const handle = event.currentTarget as HTMLElement
-  if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
-}
-function resizeWithKeyboard(event: KeyboardEvent) {
-  const values: Record<string, number> = { ArrowLeft: splitPercent.value - 2, ArrowRight: splitPercent.value + 2, Home: 30, End: 70, Enter: 50 }
-  const value = values[event.key]
-  if (value === undefined) return
-  event.preventDefault()
-  setSplit(value)
-}
+const {
+  mode, workspace, splitPercent, resizing, setSplit, startResize, moveResize, stopResize, resizeWithKeyboard,
+  editor, sourceLines, sourceScrollTop, sourceWidth, syncSource, insertSnippet,
+} = useMarkdownEditor(markdown)
 
 const error = ref('')
 const status = ref('記事を読み込んでいます…')
@@ -61,7 +31,6 @@ function failure(e: unknown) {
   return code === 409 ? '別の画面で更新されています。入力内容をコピーしてから再読み込みしてください。' : code === 401 ? 'ログインし直してから保存してください。' : '処理に失敗しました。入力内容を残したまま、もう一度お試しください。'
 }
 onMounted(async () => {
-  if (window.matchMedia('(max-width: 59.999rem)').matches) mode.value = 'edit'
   try {
     const account = await refreshAccount()
     if (!account) { await navigateTo('/login?next=/blog/new'); return }
@@ -114,30 +83,6 @@ function beforeUnload(event: BeforeUnloadEvent) { if (ready.value && snapshot() 
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 
-const editor = ref<HTMLTextAreaElement>()
-const sourceLines = computed(() => markdown.value.split('\n'))
-const sourceScrollTop = ref(0)
-const sourceWidth = ref(0)
-let sourceObserver: ResizeObserver | undefined
-function syncSource() {
-  if (!editor.value) return
-  sourceScrollTop.value = editor.value.scrollTop
-  sourceWidth.value = editor.value.clientWidth
-}
-async function insertSnippet(snippet: string) {
-  if (mode.value === 'preview') mode.value = 'edit'
-  await nextTick()
-  const field = editor.value
-  if (!field) return
-  const start = field.selectionStart
-  const end = field.selectionEnd
-  const value = markdown.value.slice(0, start) + snippet + markdown.value.slice(end)
-  if (value.length > 100_000) return
-  markdown.value = value
-  await nextTick()
-  field.focus()
-  field.setSelectionRange(start + snippet.length, start + snippet.length)
-}
 
 const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
 function saveWithShortcut(event: KeyboardEvent) {
@@ -146,13 +91,10 @@ function saveWithShortcut(event: KeyboardEvent) {
   if (!event.repeat) void save()
 }
 onMounted(() => {
-  sourceObserver = new ResizeObserver(syncSource)
-  if (editor.value) sourceObserver.observe(editor.value)
   syncSource()
   window.addEventListener('keydown', saveWithShortcut)
 })
 onBeforeUnmount(() => {
-  sourceObserver?.disconnect()
   window.removeEventListener('keydown', saveWithShortcut)
 })
 </script>
@@ -241,22 +183,4 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .author-fields.post-fields { grid-template-columns: minmax(0, 1fr); }
-.publication-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.save-button { position: relative; }
-.save-label-hidden { visibility: hidden; }
-.save-spinner {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: save-spin .7s linear infinite;
-}
-@keyframes save-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .save-spinner { animation: none; }
-}
 </style>

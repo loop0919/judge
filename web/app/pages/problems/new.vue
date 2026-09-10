@@ -26,40 +26,11 @@ const memoryLimitPresets = [64, 128, 256, 512, 1024]
 // Keep in-range memory limits from older drafts selectable.
 const memoryLimitOptions = computed(() => [...new Set([...memoryLimitPresets, Number(draft.memoryLimitMb)])].sort((a, b) => a - b))
 const ready = ref(false)
-const mode = ref<'edit' | 'split' | 'preview'>('split')
-const workspace = ref<HTMLElement>()
-const splitPercent = ref(50)
-const resizing = ref(false)
-let dragStartX = 0
-let dragStartPercent = 50
-function setSplit(value: number) {
-  splitPercent.value = Math.min(70, Math.max(30, value))
-}
-function startResize(event: PointerEvent) {
-  if (event.button !== 0 || !event.isPrimary) return
-  dragStartX = event.clientX
-  dragStartPercent = splitPercent.value
-  resizing.value = true
-  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  event.preventDefault()
-}
-function moveResize(event: PointerEvent) {
-  if (!resizing.value || !workspace.value) return
-  const width = workspace.value.getBoundingClientRect().width - 8
-  if (width > 0) setSplit(dragStartPercent + (event.clientX - dragStartX) / width * 100)
-}
-function stopResize(event: PointerEvent) {
-  resizing.value = false
-  const handle = event.currentTarget as HTMLElement
-  if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
-}
-function resizeWithKeyboard(event: KeyboardEvent) {
-  const values: Record<string, number> = { ArrowLeft: splitPercent.value - 2, ArrowRight: splitPercent.value + 2, Home: 30, End: 70, Enter: 50 }
-  const value = values[event.key]
-  if (value === undefined) return
-  event.preventDefault()
-  setSplit(value)
-}
+const {
+  mode, workspace, splitPercent, resizing, setSplit, startResize, moveResize, stopResize, resizeWithKeyboard,
+  editor, sourceLines, sourceScrollTop, sourceWidth, syncSource, insertSnippet,
+} = useMarkdownEditor(toRef(draft, 'markdown'))
+
 const status = ref('問題を読み込んでいます…')
 const storageError = ref('')
 const leaveDialog = ref<HTMLDialogElement>()
@@ -74,17 +45,8 @@ let resolveLeave: ((leave: boolean) => void) | undefined
 const showErrors = ref(false)
 const touched = reactive({ title: false, markdown: false })
 const errors = computed(() => draftErrors(draft))
-const editor = ref<HTMLTextAreaElement>()
 const renderedSource = ref(draft.markdown)
-const sourceLines = computed(() => draft.markdown.split('\n'))
-const sourceScrollTop = ref(0)
-const sourceWidth = ref(0)
-let sourceObserver: ResizeObserver | undefined
-function syncSource() {
-  if (!editor.value) return
-  sourceScrollTop.value = editor.value.scrollTop
-  sourceWidth.value = editor.value.clientWidth
-}
+
 let saved = ''
 let allowAutosave = true
 let saveTimer: ReturnType<typeof setTimeout> | undefined
@@ -175,7 +137,6 @@ function flushBeforeLeave(event: BeforeUnloadEvent) {
 
 onMounted(async () => {
   window.addEventListener('focus', refreshOnFocus)
-  if (window.matchMedia('(max-width: 59.999rem)').matches) mode.value = 'edit'
   try { await refreshAccount() } catch { user.value = null }
   if (disposed) return
   if (!user.value) {
@@ -215,8 +176,6 @@ onMounted(async () => {
   nextTick(() => { ready.value = true })
   window.addEventListener('beforeunload', flushBeforeLeave)
   window.addEventListener('keydown', saveWithShortcut)
-  sourceObserver = new ResizeObserver(syncSource)
-  if (editor.value) sourceObserver.observe(editor.value)
   syncSource()
 })
 
@@ -256,7 +215,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshOnFocus)
   resolveLeave?.(false)
   resolveLeave = undefined
-  sourceObserver?.disconnect()
   clearTimeout(saveTimer)
   clearTimeout(previewTimer)
   window.removeEventListener('beforeunload', flushBeforeLeave)
@@ -292,21 +250,6 @@ async function removeProblem() {
   } catch (error) {
     deleteError.value = accountError(error)
   }
-}
-
-async function insertSnippet(snippet: string) {
-  if (mode.value === 'preview') mode.value = 'edit'
-  await nextTick()
-  const field = editor.value
-  if (!field) return
-  const start = field.selectionStart
-  const end = field.selectionEnd
-  const value = draft.markdown.slice(0, start) + snippet + draft.markdown.slice(end)
-  if (value.length > 100_000) return
-  draft.markdown = value
-  await nextTick()
-  field.focus()
-  field.setSelectionRange(start + snippet.length, start + snippet.length)
 }
 
 const inputSnippet = '\n```input\n$N$\n$A_1 \\quad A_2 \\quad \\cdots \\quad A_N$\n```\n'
@@ -429,24 +372,3 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     <div class="draft-status"><span role="status">{{ status }}</span><span>{{ saveLocation }}</span></div>
   </div>
 </template>
-
-<style scoped>
-.publication-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.save-button { position: relative; }
-.save-label-hidden { visibility: hidden; }
-.save-spinner {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: save-spin .7s linear infinite;
-}
-@keyframes save-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .save-spinner { animation: none; }
-}
-</style>

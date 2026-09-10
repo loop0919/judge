@@ -212,3 +212,22 @@
 
 .limit-field-label { font-size: .6875rem; font-weight: 600; }
 .limit-field-label > span { font-weight: 400; color: var(--color-muted); }
+
+.publication-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.save-button { position: relative; }
+.save-label-hidden { visibility: hidden; }
+.save-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: save-spin .7s linear infinite;
+}
+@keyframes save-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner { animation: none; }
+}
