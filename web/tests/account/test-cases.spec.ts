@@ -25,9 +25,9 @@ test('test cases can be edited, restored, published and used for submission with
   await page.reload()
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
   await expect(page.getByLabel('テストケース名 1', { exact: true })).toHaveValue('通常ケース')
-  await expect(page.getByLabel('入力', { exact: true })).toHaveValue('3 5\n')
+  await expect(page.getByLabel('入力', { exact: true }).locator('.cm-line')).toHaveText(['3 5', ''])
   await page.getByRole('button', { name: '最大値', exact: true }).click()
-  await expect(page.getByLabel('出力', { exact: true })).toHaveValue('2000000000\n')
+  await expect(page.getByLabel('出力', { exact: true }).locator('.cm-line')).toHaveText(['2000000000', ''])
   await expect(page.getByLabel('テストケース名 2', { exact: true })).toHaveValue('最大値')
   const inputBox = (await page.getByLabel('入力', { exact: true }).boundingBox())!
   const outputBox = (await page.getByLabel('出力', { exact: true }).boundingBox())!
