@@ -16,6 +16,7 @@ import (
 var (
 	ErrNotFound = errors.New("problem not found")
 	ErrConflict = errors.New("problem changed")
+	ErrTestFile = errors.New("invalid test file")
 )
 
 type Draft struct {
@@ -27,9 +28,19 @@ type Draft struct {
 }
 
 type TestCase struct {
-	Name   string `json:"name"`
-	Input  string `json:"input"`
-	Output string `json:"output"`
+	Name       string    `json:"name"`
+	Input      string    `json:"input"`
+	Output     string    `json:"output"`
+	InputFile  *TestFile `json:"inputFile,omitempty"`
+	OutputFile *TestFile `json:"outputFile,omitempty"`
+}
+
+type TestFile struct {
+	ID      string `json:"id"`
+	Size    int64  `json:"size"`
+	SHA256  string `json:"sha256"`
+	Key     string `json:"key,omitempty"`
+	Version string `json:"versionId,omitempty"`
 }
 
 type Problem struct {
@@ -113,6 +124,9 @@ func (s *Store) List(ctx context.Context, owner string, cursor *Cursor) ([]Summa
 }
 
 func (s *Store) Save(ctx context.Context, owner, id string, version int64, draft Draft) (Problem, error) {
+	if err := s.validateTestFiles(ctx, owner, id, draft.TestCases); err != nil {
+		return Problem{}, err
+	}
 	data, err := json.Marshal(draft)
 	if err != nil {
 		return Problem{}, err
@@ -130,6 +144,52 @@ func (s *Store) Save(ctx context.Context, owner, id string, version int64, draft
 		return Problem{}, getErr
 	}
 	return Problem{}, ErrConflict
+}
+
+func (s *Store) validateTestFiles(ctx context.Context, owner, problemID string, cases []TestCase) error {
+	want := make(map[string]TestFile)
+	for _, c := range cases {
+		for _, file := range []*TestFile{c.InputFile, c.OutputFile} {
+			if file == nil {
+				continue
+			}
+			if previous, ok := want[file.ID]; ok && previous != *file {
+				return ErrTestFile
+			}
+			want[file.ID] = *file
+		}
+	}
+	if len(want) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(want))
+	for id := range want {
+		ids = append(ids, id)
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id::text,size,sha256 FROM test_files WHERE owner_id=$1 AND problem_id=$2 AND ready AND id::text=ANY($3::text[])`, owner, problemID, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, sha string
+		var size int64
+		if err = rows.Scan(&id, &size, &sha); err != nil {
+			return err
+		}
+		file := want[id]
+		if file.Size != size || file.SHA256 != sha || file.Key != "" || file.Version != "" {
+			return ErrTestFile
+		}
+		delete(want, id)
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if len(want) != 0 {
+		return ErrTestFile
+	}
+	return nil
 }
 
 func (s *Store) Delete(ctx context.Context, owner, id string, version int64) error {

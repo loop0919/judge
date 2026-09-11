@@ -1,27 +1,30 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/jackc/pgx/v5"
-	"io"
 	"judge/api/internal/database"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"os"
-	"strings"
-	"time"
 
+	"judge/api/internal/problems"
 	"judge/api/internal/submissions"
-	"testing"
 )
 
 func TestResultValidation(t *testing.T) {
@@ -79,15 +82,24 @@ func TestOutboxAndResultIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(submissions.Job{Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "output-secret"}}})
+	fileID := "33333333-3333-4333-8333-333333333333"
+	fileDigest := strings.Repeat("b", 64)
+	_, err = db.Exec(ctx, `INSERT INTO test_files(id,owner_id,problem_id,object_key,version_id,sha256,size,ready) VALUES ($1,'alice',$2,'test-files/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/11111111-1111-4111-8111-111111111111/33333333-3333-4333-8333-333333333333','test-version',$3,12,true)`, fileID, id, fileDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(submissions.Job{Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}})
 	_, err = db.Exec(ctx, `INSERT INTO submissions(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,judge_attempt)
  VALUES ($1,'alice',$1,1,'test','cpp17-isolate','source-secret',$2,$3)`, id, raw, attempt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var sent []string
+	var jobs [][]byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "PUT" {
+			data, _ := io.ReadAll(r.Body)
+			jobs = append(jobs, data)
 			w.Header().Set("x-amz-version-id", "version-one")
 			w.WriteHeader(200)
 			return
@@ -117,6 +129,9 @@ func TestOutboxAndResultIdempotency(t *testing.T) {
 	}
 	if len(sent) != 2 || sent[0] != sent[1] || strings.Contains(sent[0], "secret") {
 		t.Fatalf("unsafe/unstable queue payloads: %v", sent)
+	}
+	if len(jobs) != 2 || !bytes.Contains(jobs[0], []byte(`"versionId":"test-version"`)) || !bytes.Contains(jobs[0], []byte(`"key":"test-files/`)) {
+		t.Fatalf("test file locator missing from immutable job: %s", jobs[0])
 	}
 	if _, _, err = (&submissions.Store{Pool: db}).Claim(ctx); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("local worker claimed a cloud job", err)

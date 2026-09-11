@@ -40,13 +40,13 @@ resource "aws_lambda_function" "api" {
   handler                        = "bootstrap"
   runtime                        = "provided.al2023"
   memory_size                    = var.lambda_memory_size
-  timeout                        = 10
+  timeout                        = 30
   role                           = aws_iam_role.api.arn
   s3_bucket                      = aws_s3_object.api_package.bucket
   s3_key                         = aws_s3_object.api_package.key
   s3_object_version              = aws_s3_object.api_package.version_id
   source_code_hash               = filebase64sha256(local.lambda_package_path)
-  depends_on                     = [aws_iam_role_policy.logs, aws_iam_role_policy.database, aws_iam_role_policy.vpc, aws_route_table_association.private]
+  depends_on                     = [aws_iam_role_policy.logs, aws_iam_role_policy.database, aws_iam_role_policy.test_data, aws_iam_role_policy.vpc, aws_route_table_association.private]
   reserved_concurrent_executions = var.environment == "dev" ? -1 : 10
 
   vpc_config {
@@ -57,14 +57,29 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = merge(local.database_environment, {
-      COGNITO_CLIENT_ID     = aws_cognito_user_pool_client.api.id
-      COGNITO_CLIENT_SECRET = aws_cognito_user_pool_client.api.client_secret
-      COGNITO_USER_POOL_ID  = aws_cognito_user_pool.users.id
-      OPERATOR_SUBJECTS     = var.operator_subjects
-      JUDGE_CPP_IMAGE       = var.judge_runtime_digest
-      JUDGE_RUNTIME         = "cpp17-isolate"
+      COGNITO_CLIENT_ID          = aws_cognito_user_pool_client.api.id
+      COGNITO_CLIENT_SECRET      = aws_cognito_user_pool_client.api.client_secret
+      COGNITO_USER_POOL_ID       = aws_cognito_user_pool.users.id
+      OPERATOR_SUBJECTS          = var.operator_subjects
+      JUDGE_CPP_IMAGE            = var.judge_runtime_digest
+      JUDGE_RUNTIME              = "cpp17-isolate"
+      TEST_DATA_BUCKET           = aws_s3_bucket.test_data.id
+      AWS_USE_DUALSTACK_ENDPOINT = "true"
     })
   }
+}
+
+resource "aws_iam_role_policy" "test_data" {
+  name = "test-data"
+  role = aws_iam_role.api.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject", "s3:PutObjectTagging", "s3:PutObjectVersionTagging"]
+      Resource = "${aws_s3_bucket.test_data.arn}/test-files/*"
+    }]
+  })
 }
 
 resource "aws_apigatewayv2_api" "api" {
@@ -78,7 +93,7 @@ resource "aws_apigatewayv2_integration" "api" {
   integration_method     = "POST"
   integration_uri        = aws_lambda_function.api.invoke_arn
   payload_format_version = "2.0"
-  timeout_milliseconds   = 10000
+  timeout_milliseconds   = 20000
 }
 
 resource "aws_apigatewayv2_route" "default" {

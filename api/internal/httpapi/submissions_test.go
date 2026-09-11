@@ -20,6 +20,11 @@ import (
 
 func TestDraftTestCaseLimits(t *testing.T) {
 	draft := problems.Draft{TimeLimitMS: "2000", MemoryLimitMB: "512"}
+	file := &problems.TestFile{ID: "11111111-1111-4111-8111-111111111111", Size: 16 << 20, SHA256: strings.Repeat("a", 64)}
+	atSetLimit := make([]problems.TestCase, 16)
+	for i := range atSetLimit {
+		atSetLimit[i] = problems.TestCase{InputFile: file, OutputFile: file}
+	}
 	for _, tc := range []struct {
 		name  string
 		cases []problems.TestCase
@@ -30,6 +35,11 @@ func TestDraftTestCaseLimits(t *testing.T) {
 		{"at case limit", make([]problems.TestCase, 100), true},
 		{"over case limit", make([]problems.TestCase, 101), false},
 		{"byte limit", []problems.TestCase{{Input: strings.Repeat("あ", 22000)}}, false},
+		{"16 MiB file", []problems.TestCase{{InputFile: &problems.TestFile{ID: "11111111-1111-4111-8111-111111111111", Size: 16 << 20, SHA256: strings.Repeat("a", 64)}}}, true},
+		{"over 16 MiB file", []problems.TestCase{{InputFile: &problems.TestFile{ID: "11111111-1111-4111-8111-111111111111", Size: 16<<20 + 1, SHA256: strings.Repeat("a", 64)}}}, false},
+		{"file and inline data", []problems.TestCase{{Input: "x", InputFile: &problems.TestFile{ID: "11111111-1111-4111-8111-111111111111", Size: 1, SHA256: strings.Repeat("a", 64)}}}, false},
+		{"at test set limit", atSetLimit, true},
+		{"over test set limit", append(atSetLimit, problems.TestCase{Input: "x"}), false},
 		{"NUL", []problems.TestCase{{Output: "\x00"}}, false},
 		{"named case", []problems.TestCase{{Name: "最大値のケース"}}, true},
 		{"long name", []problems.TestCase{{Name: strings.Repeat("あ", 65)}}, false},

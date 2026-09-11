@@ -17,7 +17,7 @@ export function cookieOptions(event: H3Event) {
   return { httpOnly: true, sameSite: 'lax' as const, secure: new URL(useRuntimeConfig(event).public.siteUrl).protocol === 'https:', path: '/' }
 }
 
-export async function privateAPI<T>(event: H3Event, path: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown, token?: string } = {}): Promise<T> {
+export async function privateAPI<T>(event: H3Event, path: string, options: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE', body?: unknown, token?: string, timeout?: number } = {}): Promise<T> {
   const token = options.token ?? getCookie(event, sessionCookie)
   try {
     return await $fetch<T>(path, {
@@ -25,7 +25,7 @@ export async function privateAPI<T>(event: H3Event, path: string, options: { met
       method: options.method ?? 'GET',
       body: options.body as Record<string, unknown> | undefined,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
-      timeout: 12000, retry: 0,
+      timeout: options.timeout ?? 12000, retry: 0,
     }) as T
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status

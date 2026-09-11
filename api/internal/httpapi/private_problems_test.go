@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +23,25 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/jackc/pgx/v5"
 	"judge/api/internal/problems"
+	"judge/api/internal/testfiles"
 )
+
+type fakeTestFiles struct {
+	owner, problem, file string
+}
+
+func (f *fakeTestFiles) Begin(_ context.Context, owner, problem, file string, size int64, digest string) (testfiles.Upload, error) {
+	f.owner, f.problem, f.file = owner, problem, file
+	return testfiles.Upload{ID: file, URL: "https://upload.example/file", Headers: map[string]string{"x-amz-checksum-sha256": digest}}, nil
+}
+func (f *fakeTestFiles) Complete(_ context.Context, owner, problem, file string) (problems.TestFile, error) {
+	f.owner, f.problem, f.file = owner, problem, file
+	return problems.TestFile{ID: file, Size: 3, SHA256: strings.Repeat("a", 64)}, nil
+}
+func (f *fakeTestFiles) Download(_ context.Context, owner, problem, file string) (testfiles.Download, error) {
+	f.owner, f.problem, f.file = owner, problem, file
+	return testfiles.Download{URL: "https://download.example/file", Size: 3, SHA256: strings.Repeat("a", 64)}, nil
+}
 
 type signingFixture struct {
 	key    *rsa.PrivateKey
@@ -86,6 +105,37 @@ func TestCognitoAccessTokenVerification(t *testing.T) {
 	other := newSigningFixture(t)
 	if _, err := v.Verify(context.Background(), other.token(t, "alice", map[string]any{"iss": f.server.URL})); err == nil {
 		t.Fatal("accepted forged signature")
+	}
+}
+
+func TestPrivateTestFileRoutes(t *testing.T) {
+	f := newSigningFixture(t)
+	files := &fakeTestFiles{}
+	handler := newHandler(AuthConfig{}, PrivateProblems{Files: files, Verifier: newCognitoVerifier(f.server.URL, "client")})
+	const problem = "11111111-1111-4111-8111-111111111111"
+	request := func(method, path, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set("Authorization", "Bearer "+f.token(t, "alice", nil))
+		if body != "" {
+			r.Header.Set("Content-Type", "application/json")
+		}
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	created := request("POST", "/my/problems/"+problem+"/test-files", `{"size":3,"sha256":"`+strings.Repeat("a", 64)+`"}`)
+	if created.Code != 200 || files.owner != "alice" || files.problem != problem || files.file == "" {
+		t.Fatalf("begin: %d %s %+v", created.Code, created.Body.String(), files)
+	}
+	file := files.file
+	if completed := request("POST", "/my/problems/"+problem+"/test-files/"+file+"/complete", ""); completed.Code != 200 {
+		t.Fatalf("complete: %d %s", completed.Code, completed.Body.String())
+	}
+	if downloaded := request("GET", "/my/problems/"+problem+"/test-files/"+file, ""); downloaded.Code != 200 || !strings.Contains(downloaded.Body.String(), "download.example") {
+		t.Fatalf("download: %d %s", downloaded.Code, downloaded.Body.String())
+	}
+	if oversized := request("POST", "/my/problems/"+problem+"/test-files", `{"size":16777217,"sha256":"`+strings.Repeat("a", 64)+`"}`); oversized.Code != 400 {
+		t.Fatalf("oversized: %d", oversized.Code)
 	}
 }
 
@@ -193,6 +243,19 @@ func TestPrivateProblemsPostgres(t *testing.T) {
 	if success != 1 || conflicts != 1 {
 		t.Fatalf("concurrent writes: %d successful %d conflicts", success, conflicts)
 	}
+	fileID, fileProblem := "33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444"
+	if _, err := store.Pool().Exec(ctx, `INSERT INTO test_files(id,owner_id,problem_id,object_key,version_id,sha256,size,ready) VALUES ($1,'alice',$2,'test-files/key','version',$3,16777216,true)`, fileID, fileProblem, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	fileDraft := draft
+	fileDraft.TestCases = []problems.TestCase{{InputFile: &problems.TestFile{ID: fileID, Size: 16 << 20, SHA256: strings.Repeat("a", 64)}}}
+	if _, err := store.Save(ctx, "alice", fileProblem, 0, fileDraft); err != nil {
+		t.Fatal("validated 16 MiB file rejected", err)
+	}
+	fileDraft.TestCases[0].InputFile.Size++
+	if _, err := store.Save(ctx, "alice", "55555555-5555-4555-8555-555555555555", 0, fileDraft); !errors.Is(err, problems.ErrTestFile) {
+		t.Fatal("forged file metadata accepted", err)
+	}
 	for n := range 51 {
 		otherID := fmt.Sprintf("22222222-2222-4222-8222-%012d", n)
 		if _, err := store.Save(ctx, "alice", otherID, 0, draft); err != nil {
@@ -214,7 +277,7 @@ func TestPrivateProblemsPostgres(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
-	if len(page.Items) != 2 || page.NextCursor != "" {
+	if len(page.Items) != 3 || page.NextCursor != "" {
 		t.Fatalf("bad final page: %+v", page)
 	}
 	request("GET", "/my/problems?cursor=bad", alice, nil, 400)

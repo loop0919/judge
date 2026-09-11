@@ -17,6 +17,7 @@ import (
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 )
 
 type TokenVerifier interface {
@@ -64,9 +65,17 @@ type PrivateProblems struct {
 	Store        problems.Repository
 	Profiles     profiles.Repository
 	Verifier     TokenVerifier
+	Files        interface {
+		Begin(context.Context, string, string, string, int64, string) (testfiles.Upload, error)
+		Complete(context.Context, string, string, string) (problems.TestFile, error)
+		Download(context.Context, string, string, string) (testfiles.Download, error)
+	}
 }
 
-var problemID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
+var (
+	problemID      = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
+	testFileDigest = regexp.MustCompile(`^[a-f0-9]{64}$`)
+)
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /my/submissions", p.handle)
@@ -85,6 +94,9 @@ func (p PrivateProblems) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /my/problems/{id}", p.handle)
 	mux.HandleFunc("PUT /my/problems/{id}", p.handle)
 	mux.HandleFunc("DELETE /my/problems/{id}", p.handle)
+	mux.HandleFunc("POST /my/problems/{id}/test-files", p.handle)
+	mux.HandleFunc("GET /my/problems/{id}/test-files/{file}", p.handle)
+	mux.HandleFunc("POST /my/problems/{id}/test-files/{file}/complete", p.handle)
 }
 
 func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +110,11 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 		authError(w, 401, "authentication_required")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	timeout := 10 * time.Second
+	if strings.Contains(r.URL.Path, "/test-files") {
+		timeout = 25 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 	owner, err := p.Verifier.Verify(ctx, parts[1])
 	if err != nil || owner == "" {
@@ -129,6 +145,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/posts") {
 		p.privatePost(w, r.WithContext(ctx), owner)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/test-files") {
+		p.testFile(w, r.WithContext(ctx), owner)
 		return
 	}
 	if strings.HasSuffix(r.URL.Path, "/publication") {
@@ -189,12 +209,60 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 	writeAuthJSON(w, 200, result)
 }
 
+func (p PrivateProblems) testFile(w http.ResponseWriter, r *http.Request, owner string) {
+	id, fileID := r.PathValue("id"), r.PathValue("file")
+	if !problemID.MatchString(id) || (fileID != "" && !problemID.MatchString(fileID)) {
+		authError(w, 404, "test_file_not_found")
+		return
+	}
+	if p.Files == nil {
+		authError(w, 503, "test_file_storage_unavailable")
+		return
+	}
+	var result any
+	var err error
+	switch {
+	case r.Method == http.MethodPost && fileID == "":
+		var input struct {
+			Size   int64  `json:"size"`
+			SHA256 string `json:"sha256"`
+		}
+		if !readJSONBody(w, r, &input, 2<<10) {
+			return
+		}
+		if input.Size <= 0 || input.Size > testfiles.MaxSize || !testfiles.IsValidDigest(input.SHA256) {
+			authError(w, 400, "invalid_test_file")
+			return
+		}
+		result, err = p.Files.Begin(r.Context(), owner, id, newSubmissionID(), input.Size, input.SHA256)
+	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/complete"):
+		result, err = p.Files.Complete(r.Context(), owner, id, fileID)
+	case r.Method == http.MethodGet:
+		result, err = p.Files.Download(r.Context(), owner, id, fileID)
+	default:
+		authError(w, 405, "method_not_allowed")
+		return
+	}
+	if err != nil {
+		switch {
+		case errors.Is(err, testfiles.ErrNotFound):
+			authError(w, 404, "test_file_not_found")
+		case errors.Is(err, testfiles.ErrInvalid):
+			authError(w, 400, "invalid_test_file")
+		default:
+			authError(w, 503, "test_file_storage_unavailable")
+		}
+		return
+	}
+	writeAuthJSON(w, 200, result)
+}
+
 func validDraft(d problems.Draft) bool {
 	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
 	if e1 != nil || timeMS < 100 || timeMS > 5000 || timeMS%100 != 0 || len(d.TestCases) > 100 {
 		return false
 	}
-	total := 0
+	var total, inline int64
 	names := make(map[string]bool)
 	for _, c := range d.TestCases {
 		name := strings.TrimSpace(c.Name)
@@ -204,12 +272,26 @@ func validDraft(d problems.Draft) bool {
 		if name != "" {
 			names[name] = true
 		}
-		if len(c.Input) > 64<<10 || len(c.Output) > 64<<10 || strings.ContainsRune(c.Input+c.Output, 0) {
-			return false
+		for _, value := range []struct {
+			text string
+			file *problems.TestFile
+		}{{c.Input, c.InputFile}, {c.Output, c.OutputFile}} {
+			if value.file == nil {
+				if len(value.text) > 64<<10 || !utf8.ValidString(value.text) || strings.ContainsRune(value.text, 0) {
+					return false
+				}
+				total += int64(len(value.text))
+				inline += int64(len(value.text))
+				continue
+			}
+			if value.text != "" || !problemID.MatchString(value.file.ID) || value.file.Size <= 0 || value.file.Size > 16<<20 ||
+				!testFileDigest.MatchString(value.file.SHA256) || value.file.Key != "" || value.file.Version != "" {
+				return false
+			}
+			total += value.file.Size
 		}
-		total += len(c.Input) + len(c.Output)
 	}
-	if total > 256<<10 {
+	if total > 512<<20 || inline > 256<<10 {
 		return false
 	}
 	memory, e2 := strconv.Atoi(d.MemoryLimitMB)
@@ -246,6 +328,8 @@ func problemError(w http.ResponseWriter, err error) {
 		authError(w, 404, "problem_not_found")
 	case errors.Is(err, problems.ErrConflict):
 		authError(w, 409, "version_conflict")
+	case errors.Is(err, problems.ErrTestFile):
+		authError(w, 400, "invalid_test_file")
 	default:
 		authError(w, 503, "database_unavailable")
 	}

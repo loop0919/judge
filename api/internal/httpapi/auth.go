@@ -20,10 +20,13 @@ import (
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 )
 
@@ -107,6 +110,14 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 		private.Submissions = &submissions.Store{Pool: store.Pool()}
 		private.JudgeImage = getenv("JUDGE_CPP_IMAGE")
 		private.JudgeRuntime = getenv("JUDGE_RUNTIME")
+		if bucket := getenv("TEST_DATA_BUCKET"); bucket != "" {
+			sdk, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(region))
+			if err != nil {
+				store.Close()
+				return nil, errors.New("test file storage unavailable")
+			}
+			private.Files = testfiles.New(store.Pool(), s3.NewFromConfig(sdk), bucket)
+		}
 	}
 	return &configuredHandler{Handler: newHandler(auth, private), store: store}, nil
 }

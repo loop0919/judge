@@ -156,7 +156,7 @@ func Judge(ctx context.Context, source string, job Job) Result {
 			return r
 		}
 		limit := time.Duration(job.TimeLimitMS) * time.Millisecond
-		actual := container(ctx, job.Image, dir, c.Input, job.MemoryLimitMB, limit+10*time.Second, 1<<20,
+		actual := container(ctx, job.Image, dir, c.Input, job.MemoryLimitMB, limit+10*time.Second, 16<<20,
 			"timeout", "--signal=TERM", "--kill-after=0.1s", fmt.Sprintf("%.3fs", limit.Seconds()), "/submission/main")
 		verdict := "AC"
 		switch {

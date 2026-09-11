@@ -42,7 +42,7 @@ resource "aws_iam_user_policy" "worker" {
     Statement = [
       { Effect = "Allow", Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"], Resource = aws_sqs_queue.queue["requests"].arn },
       { Effect = "Allow", Action = ["sqs:SendMessage"], Resource = aws_sqs_queue.queue["results"].arn },
-      { Effect = "Allow", Action = ["s3:GetObjectVersion"], Resource = "${aws_s3_bucket.jobs.arn}/jobs/*" }
+      { Effect = "Allow", Action = ["s3:GetObjectVersion"], Resource = concat(["${aws_s3_bucket.jobs.arn}/jobs/*"], var.test_data_bucket == null ? [] : ["${var.test_data_bucket.arn}/test-files/*"]) }
     ]
   })
 }

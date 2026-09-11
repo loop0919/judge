@@ -1,0 +1,129 @@
+package testfiles
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/jackc/pgx/v5"
+	"judge/api/internal/problems"
+)
+
+type fakeObjects struct {
+	data    []byte
+	version string
+	tagging *s3.PutObjectTaggingInput
+}
+
+func (f *fakeObjects) GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
+	return &s3.GetObjectOutput{Body: io.NopCloser(bytes.NewReader(f.data)), VersionId: aws.String(f.version)}, nil
+}
+
+func (f *fakeObjects) PutObjectTagging(_ context.Context, input *s3.PutObjectTaggingInput, _ ...func(*s3.Options)) (*s3.PutObjectTaggingOutput, error) {
+	f.tagging = input
+	return &s3.PutObjectTaggingOutput{}, nil
+}
+
+type fakePresigner struct {
+	put *s3.PutObjectInput
+	get *s3.GetObjectInput
+}
+
+func (f *fakePresigner) PresignPutObject(_ context.Context, input *s3.PutObjectInput, _ ...func(*s3.PresignOptions)) (*v4Request, error) {
+	f.put = input
+	return &v4Request{URL: "https://upload.example/test"}, nil
+}
+
+func (f *fakePresigner) PresignGetObject(_ context.Context, input *s3.GetObjectInput, _ ...func(*s3.PresignOptions)) (*v4Request, error) {
+	f.get = input
+	return &v4Request{URL: "https://download.example/test"}, nil
+}
+
+func TestDigestValidation(t *testing.T) {
+	for value, valid := range map[string]bool{
+		strings.Repeat("a", 64): true,
+		strings.Repeat("A", 64): false,
+		strings.Repeat("g", 64): false,
+		strings.Repeat("a", 63): false,
+	} {
+		if IsValidDigest(value) != valid {
+			t.Fatalf("digest %q valid=%v", value, valid)
+		}
+	}
+}
+
+func TestExactLimitUploadCompletionAndDownload(t *testing.T) {
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL is required for PostgreSQL integration")
+	}
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := fmt.Sprintf("test_files_%d", time.Now().UnixNano())
+	if _, err = conn.Exec(ctx, `CREATE SCHEMA `+schema); err != nil {
+		t.Fatal(err)
+	}
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := u.Query()
+	query.Set("search_path", schema)
+	u.RawQuery = query.Encode()
+	db, err := problems.Open(ctx, u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		db.Close()
+		_, _ = conn.Exec(ctx, `DROP SCHEMA `+schema+` CASCADE`)
+		_ = conn.Close(ctx)
+	}()
+	if err = db.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	data := bytes.Repeat([]byte("x"), MaxSize)
+	sum := sha256.Sum256(data)
+	digest := hex.EncodeToString(sum[:])
+	objects := &fakeObjects{data: data, version: "immutable-version"}
+	presign := &fakePresigner{}
+	store := &Store{pool: db.Pool(), objects: objects, presign: presign, bucket: "test-bucket"}
+	problemID, fileID := "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+
+	upload, err := store.Begin(ctx, "owner", problemID, fileID, MaxSize, digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upload.ID != fileID || upload.URL == "" || aws.ToInt64(presign.put.ContentLength) != MaxSize || upload.Headers["x-amz-checksum-sha256"] != base64.StdEncoding.EncodeToString(sum[:]) {
+		t.Fatalf("invalid upload contract: %+v %+v", upload, presign.put)
+	}
+	ref, err := store.Complete(ctx, "owner", problemID, fileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref.ID != fileID || ref.Size != MaxSize || ref.SHA256 != digest || aws.ToString(objects.tagging.VersionId) != objects.version {
+		t.Fatalf("invalid completed reference: %+v", ref)
+	}
+	download, err := store.Download(ctx, "owner", problemID, fileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if download.URL == "" || download.Size != MaxSize || download.SHA256 != digest || aws.ToString(presign.get.VersionId) != objects.version {
+		t.Fatalf("invalid download contract: %+v %+v", download, presign.get)
+	}
+}

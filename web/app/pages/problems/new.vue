@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { accountProblemSchema, accountError } from '~/utils/account-problems'
-import { draftErrors, initialProblemMarkdown, testCaseError, type TestCase } from '~/utils/problem-draft'
+import { draftErrors, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase } from '~/utils/problem-draft'
+import { uploadTestFile } from '~/utils/test-files'
 
 import { readProblemCache, writeProblemCache, removeProblemCache } from '~/utils/problem-cache'
 
@@ -52,19 +53,39 @@ let saved = ''
 let allowAutosave = true
 let saveTimer: ReturnType<typeof setTimeout> | undefined
 let previewTimer: ReturnType<typeof setTimeout> | undefined
-const fingerprint = () => JSON.stringify(draft)
+const fingerprint = () => JSON.stringify(persistedDraft(draft))
+
+async function prepareTestFiles(id: string) {
+  const encoder = new TextEncoder()
+  const values = draft.testCases.flatMap(item => (['input', 'output'] as const).map(key => ({ item, key, text: item[key], size: encoder.encode(item[key]).length })))
+    .filter(value => !(value.item[`${value.key}File`] && !value.item[`_${value.key}Dirty`]))
+  let inline = values.reduce((sum, value) => sum + value.size, 0)
+  const upload = new Set(values.filter(value => value.size > inlineTestDataLimit))
+  for (const value of [...values].sort((a, b) => b.size - a.size)) {
+    if (inline <= inlineTestSetLimit) break
+    if (value.size && !upload.has(value)) upload.add(value)
+    inline -= value.size
+  }
+  for (const value of upload) {
+    const file = await uploadTestFile(id, value.text)
+    if (!draft.testCases.includes(value.item) || value.item[value.key] !== value.text) return false
+    value.item[`${value.key}File`] = file
+    value.item[`_${value.key}Dirty`] = false
+  }
+  return true
+}
 
 async function saveDraft(manual = false, updateLocation = true): Promise<boolean> {
   if (deleted || publishing.value || confirmingDelete.value || !ready.value || (!manual && !allowAutosave)) return false
   const testError = testCaseError(draft.testCases)
   if (testError) { status.value = '未保存の変更があります'; storageError.value = testError; return false }
+  if (!manual && fingerprint() === saved) return true
   clearTimeout(saveTimer)
   if (inFlight) {
     if (!await inFlight) return false
     if (fingerprint() === saved) return true
     return saveDraft(manual, updateLocation)
   }
-  const snapshot = fingerprint()
   const version = cloudVersion.value
   cloudId.value ||= crypto.randomUUID()
   const id = cloudId.value
@@ -74,6 +95,8 @@ async function saveDraft(manual = false, updateLocation = true): Promise<boolean
     try {
       const account = await refreshAccount()
       if (!account || account.id !== cloudOwner) throw { statusCode: 401 }
+      if (!await prepareTestFiles(id)) return false
+      const snapshot = fingerprint()
       let result
       try {
         result = accountProblemSchema.parse(await $fetch(`/api/my/problems/${id}`, { method: 'PUT', body: { version, draft: JSON.parse(snapshot) } }))
@@ -364,7 +387,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </section>
     </div>
     </div>
-    <TestCaseEditor v-if="section === 'tests'" v-model="draft.testCases" :disabled="!ready || publishing" />
+    <TestCaseEditor v-if="section === 'tests'" v-model="draft.testCases" :disabled="!ready || publishing" :problem-id="cloudId" />
     <section v-if="managing" class="problem-management" aria-labelledby="management-title">
       <div class="management-content">
         <header><h1 id="management-title">問題管理</h1><p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p><p class="muted">{{ saveLocation }}</p></header>

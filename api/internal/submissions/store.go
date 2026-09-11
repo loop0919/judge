@@ -134,3 +134,48 @@ func (s *Store) Finish(ctx context.Context, id string, result Result) error {
 	_, err = s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',result=$2,finished_at=clock_timestamp() WHERE id=$1 AND status='RUNNING'`, id, data)
 	return err
 }
+
+// ResolveTestFiles replaces owner-visible file IDs with the immutable S3 locations used by the worker.
+func (s *Store) ResolveTestFiles(ctx context.Context, job *Job) error {
+	files := make(map[string][]*problems.TestFile)
+	for i := range job.Cases {
+		for _, file := range []*problems.TestFile{job.Cases[i].InputFile, job.Cases[i].OutputFile} {
+			if file != nil {
+				files[file.ID] = append(files[file.ID], file)
+			}
+		}
+	}
+	if len(files) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(files))
+	for id := range files {
+		ids = append(ids, id)
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT id::text,object_key,version_id,sha256,size FROM test_files WHERE ready AND id::text=ANY($1::text[])`, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, key, version, digest string
+		var size int64
+		if err = rows.Scan(&id, &key, &version, &digest, &size); err != nil {
+			return err
+		}
+		for _, file := range files[id] {
+			if file.Size != size || file.SHA256 != digest {
+				return problems.ErrTestFile
+			}
+			file.Key, file.Version = key, version
+		}
+		delete(files, id)
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if len(files) != 0 {
+		return problems.ErrTestFile
+	}
+	return nil
+}

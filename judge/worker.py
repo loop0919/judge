@@ -12,6 +12,18 @@ from botocore.config import Config
 from host import judge, prepare_cgroup, verify_assets, pointer, slot
 
 
+def read_test_file(s3, bucket, item):
+    response = s3.get_object(Bucket=bucket, Key=item['key'], VersionId=item['versionId'])
+    with response['Body'] as stream:
+        data = stream.read(item['size'] + 1)
+    if len(data) != item['size'] or hashlib.sha256(data).hexdigest() != item['sha256'] or b'\0' in data:
+        raise ValueError('test file integrity')
+    try:
+        return data.decode('utf-8')
+    except UnicodeDecodeError as error:
+        raise ValueError('test file encoding') from error
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     runtime = verify_assets()
@@ -24,6 +36,7 @@ def main():
     requests = os.environ['JUDGE_REQUEST_QUEUE_URL']
     results = os.environ['JUDGE_RESULT_QUEUE_URL']
     bucket = os.environ['JUDGE_JOB_BUCKET']
+    test_bucket = os.environ.get('JUDGE_TEST_DATA_BUCKET', '')
     while True:
         try:
             if verify_assets() != runtime:
@@ -42,7 +55,7 @@ def main():
                 if any(job[name] != item[name] for name in ('submissionId', 'attemptId')):
                     raise ValueError('job identity')
                 try:
-                    result = judge(job, runtime)
+                    result = judge(job, runtime, lambda item: read_test_file(s3, test_bucket, item))
                 except Exception:
                     # Avoid logging source, test data, credentials, or sandbox diagnostics.
                     logging.error('judge failed')

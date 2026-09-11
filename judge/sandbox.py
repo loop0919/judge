@@ -12,7 +12,7 @@ import subprocess
 ISOLATE = '/usr/local/bin/isolate'
 META = Path('/run/judge/meta')
 ARTIFACT = Path('/run/judge/main')
-OUTPUT_LIMIT = 1024 * 1024
+OUTPUT_LIMIT = 16 * 1024 * 1024
 
 
 def invoke(args, timeout=10):
@@ -78,14 +78,14 @@ def execute(request, compile_phase=False):
             shutil.copyfile(ARTIFACT, box / 'main')
             (box / 'main').chmod(0o555)
             data = base64.b64decode(request.get('input', ''), validate=True)
-            if len(data) > 65536:
+            if len(data) > 16 * 1024 * 1024:
                 raise ValueError('input limit')
             (box / 'input').write_bytes(data)
             command = ['/box/main']
         # Metadata and saved artifact are outside /box and never mapped into it.
         args = [f'--meta={META}', f'--time={cpu}', f'--wall-time={wall}',
                 f'--cg-mem={memory * 1024}', '--processes=64', '--open-files=64',
-                '--fsize=32768' if compile_phase else '--fsize=1024',
+                '--fsize=32768' if compile_phase else '--fsize=16384',
                 '--stdout=stdout', '--stderr=stderr', '--env=PATH=/usr/bin:/bin',
                 '--dir=/etc=/opt/judge/sandbox-etc', '--run']
         if not compile_phase:
@@ -113,4 +113,3 @@ def execute(request, compile_phase=False):
         # isolate cleanup destroys the box and its cgroup, including descendants.
         if invoke(['--cleanup']).returncode:
             raise SystemExit('isolate cleanup failed; refusing another job')
-

@@ -79,3 +79,40 @@ test('case limit stays at 100 when TL changes', async ({ page }) => {
   await expect(page.locator('.case-files li')).toHaveCount(99)
   await expect(page.getByRole('status')).toHaveText('保存済み')
 })
+
+test('500,000 ten-digit integers are stored as an immutable large test file', async ({ page }) => {
+  const fileId = '33333333-3333-4333-8333-333333333333'
+  const content = `500000\n${Array(500_000).fill('1000000000').join(' ')}\n`
+  const size = Buffer.byteLength(content)
+  expect(size).toBe(5_500_007)
+  let digest = ''
+  let uploaded = 0
+  await page.route(/\/api\/my\/problems\/[^/]+\/test-files$/, async route => {
+    const body = route.request().postDataJSON()
+    digest = body.sha256
+    expect(body.size).toBe(size)
+    await route.fulfill({ json: { id: fileId, url: 'https://s3.example.test/file', headers: { 'content-type': 'text/plain; charset=utf-8', 'x-amz-checksum-sha256': digest, 'x-amz-tagging': 'status=pending' } } })
+  })
+  await page.route(new RegExp(`/api/my/problems/[^/]+/test-files/${fileId}/complete$`), route => route.fulfill({ json: { id: fileId, size, sha256: digest } }))
+  await page.route(new RegExp(`/api/my/problems/[^/]+/test-files/${fileId}$`), route => route.fulfill({ json: { url: 'https://s3.example.test/file', size, sha256: digest } }))
+  await page.route('https://s3.example.test/file', async route => {
+    const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET,PUT' }
+    if (route.request().method() === 'PUT') {
+      uploaded = route.request().postDataBuffer()?.length ?? 0
+      await route.fulfill({ status: 200, headers })
+    } else {
+      await route.fulfill({ status: 200, headers, body: Buffer.from(content) })
+    }
+  })
+  await page.goto('/problems/new')
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await page.getByRole('button', { name: 'テストケースを追加' }).click()
+  await page.locator('.test-data-editor input[type=file]').first().setInputFiles({ name: 'large.txt', mimeType: 'text/plain', buffer: Buffer.from(content) })
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('保存済み')
+  expect(uploaded).toBe(size)
+  expect(size).toBeLessThan(16 * 1024 * 1024)
+  await page.reload()
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await expect(page.locator('.test-data-editor').first().locator('.pane-heading span')).toContainText(`${size.toLocaleString('en-US')} / 16,777,216 bytes`)
+})

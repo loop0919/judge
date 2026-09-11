@@ -54,6 +54,42 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn('secret', str(calls))
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
 
+    def test_large_test_file_is_loaded_by_immutable_reference(self):
+        calls = []
+        def execute(request, compile_phase=False):
+            calls.append(request)
+            if compile_phase:
+                return {'compiled': True, 'compileLog': ''}
+            return dict(status='', oom=False, overflow=False, exitCode=0, signal=0,
+                        cpuTimeMs=1, wallTimeMs=1, memoryBytes=1024,
+                        output=base64.b64encode(b'3\n').decode())
+        file = dict(id='11111111-1111-4111-8111-111111111111', size=3, sha256='a' * 64,
+                    key='test-files/' + 'b' * 32 + '/22222222-2222-4222-8222-222222222222/11111111-1111-4111-8111-111111111111',
+                    versionId='version')
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   memoryLimitMb=512, timeLimitMs=1000,
+                   cases=[dict(name='large', input='', output='', inputFile=file, outputFile=file)])
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+            result = host.judge(job, 'sha256:test', lambda _: '3\n')
+        self.assertEqual(result['verdict'], 'AC')
+        self.assertEqual(calls[-1]['input'], base64.b64encode(b'3\n').decode())
+
+    def test_test_set_size_limit(self):
+        file = dict(id='11111111-1111-4111-8111-111111111111', size=16 * 1024 * 1024,
+                    sha256='a' * 64,
+                    key='test-files/' + 'b' * 32 + '/22222222-2222-4222-8222-222222222222/11111111-1111-4111-8111-111111111111',
+                    versionId='version')
+        cases = [dict(input='', output='', inputFile=file, outputFile=file) for _ in range(16)]
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   memoryLimitMb=512, timeLimitMs=1000, cases=cases)
+        host.validate_job(job, 'sha256:test')
+        job['cases'] = cases + [dict(input='x', output='')]
+        with self.assertRaisesRegex(ValueError, 'test set limit'):
+            host.validate_job(job, 'sha256:test')
+
     def test_cleanup_failure_stops_worker(self):
         import subprocess
         import tempfile

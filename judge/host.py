@@ -15,6 +15,8 @@ import uuid
 import sandbox
 
 ASSETS = Path('/opt/judge/assets')
+TEST_FILE_LIMIT = 16 * 1024 * 1024
+TEST_SET_LIMIT = 512 * 1024 * 1024
 
 
 def pointer(body):
@@ -51,11 +53,22 @@ def validate_job(job, runtime):
         if not isinstance(case, dict) or not isinstance(case.get('name', ''), str) or len(case.get('name', '')) > 64:
             raise ValueError('case')
         for key in ('input', 'output'):
-            value = case.get(key)
-            if not isinstance(value, str) or len(value.encode()) > 65536 or '\0' in value:
-                raise ValueError('test data')
-            size += len(value.encode())
-    if size > 256 * 1024:
+            value, file = case.get(key), case.get(key + 'File')
+            if file is None:
+                if not isinstance(value, str) or len(value.encode()) > 65536 or '\0' in value:
+                    raise ValueError('test data')
+                size += len(value.encode())
+                continue
+            if value != '' or not isinstance(file, dict) or set(file) != {'id', 'size', 'sha256', 'key', 'versionId'}:
+                raise ValueError('test file')
+            if str(uuid.UUID(file['id'])) != file['id'] or type(file['size']) is not int or not 0 < file['size'] <= TEST_FILE_LIMIT:
+                raise ValueError('test file')
+            if not re.fullmatch('[a-f0-9]{64}', file['sha256']) or not isinstance(file['versionId'], str) or not 0 < len(file['versionId']) <= 1024:
+                raise ValueError('test file')
+            if not isinstance(file['key'], str) or not re.fullmatch(r'test-files/[a-f0-9]{32}/[a-f0-9-]{36}/[a-f0-9-]{36}', file['key']):
+                raise ValueError('test file')
+            size += file['size']
+    if size > TEST_SET_LIMIT:
         raise ValueError('test set limit')
 
 
@@ -78,7 +91,7 @@ def case_result(reply, index, case):
     wall = number(reply.get('wallTimeMs'), 120000)
     memory = number(reply.get('memoryBytes'), 4 * 1024**3)
     output = base64.b64decode(reply['output'], validate=True)
-    if len(output) > 1024 * 1024:
+    if len(output) > TEST_FILE_LIMIT:
         raise ValueError('output limit')
     if reply['overflow']:
         verdict = 'OLE'
@@ -125,7 +138,7 @@ def slot():
         yield
 
 
-def judge(job, runtime):
+def judge(job, runtime, load_file=None):
     validate_job(job, runtime)
     deadline = time.monotonic() + 1800
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
@@ -136,6 +149,12 @@ def judge(job, runtime):
         for index, case in enumerate(job['cases']):
             if time.monotonic() >= deadline:
                 raise TimeoutError('job deadline')
+            case = dict(case)
+            for key in ('input', 'output'):
+                if case.get(key + 'File') is not None:
+                    if load_file is None:
+                        raise ValueError('test file loader unavailable')
+                    case[key] = load_file(case[key + 'File'])
             reply = sandbox.execute(dict(input=base64.b64encode(case['input'].encode()).decode(),
                                          timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
             reply['index'] = index

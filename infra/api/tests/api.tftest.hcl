@@ -74,7 +74,7 @@ run "api_contract" {
       aws_lambda_function.api.architectures == tolist(["arm64"]) &&
       aws_lambda_function.api.handler == "bootstrap" &&
       aws_lambda_function.api.memory_size == 256 &&
-      aws_lambda_function.api.timeout == 10 &&
+      aws_lambda_function.api.timeout == 30 &&
       aws_lambda_function.api.source_code_hash == filebase64sha256("../../api/.build/api.zip") &&
       aws_lambda_function.api.s3_object_version == aws_s3_object.api_package.version_id
     )
@@ -85,6 +85,7 @@ run "api_contract" {
       aws_apigatewayv2_route.default.target == "integrations/${aws_apigatewayv2_integration.api.id}" &&
       aws_apigatewayv2_integration.api.integration_uri == aws_lambda_function.api.invoke_arn &&
       aws_apigatewayv2_integration.api.payload_format_version == "2.0" &&
+      aws_apigatewayv2_integration.api.timeout_milliseconds == 20000 &&
       aws_apigatewayv2_stage.default.default_route_settings[0].throttling_burst_limit == 20 &&
       aws_apigatewayv2_stage.default.default_route_settings[0].throttling_rate_limit == 10 &&
       aws_lambda_permission.api_gateway.source_arn == "${aws_apigatewayv2_api.api.execution_arn}/*"
@@ -100,6 +101,18 @@ run "api_contract" {
       aws_s3_bucket_versioning.artifacts.versioning_configuration[0].status == "Enabled"
     )
     error_message = "Keep log permissions scoped and preserve retention and package versioning."
+  }
+  assert {
+    condition = (
+      aws_s3_bucket_versioning.test_data.versioning_configuration[0].status == "Enabled" &&
+      aws_s3_bucket_public_access_block.test_data.block_public_policy &&
+      one(one(aws_s3_bucket_server_side_encryption_configuration.test_data.rule).apply_server_side_encryption_by_default).sse_algorithm == "AES256" &&
+      strcontains(jsonencode(aws_s3_bucket_lifecycle_configuration.test_data.rule), "\"noncurrent_days\":1") &&
+      aws_lambda_function.api.environment[0].variables["TEST_DATA_BUCKET"] == aws_s3_bucket.test_data.id &&
+      strcontains(aws_iam_role_policy.test_data.policy, "s3:GetObjectVersion") &&
+      strcontains(aws_iam_role_policy.test_data.policy, "s3:PutObjectVersionTagging")
+    )
+    error_message = "Keep private versioned test data encrypted and grant only object-level API access."
   }
 }
 

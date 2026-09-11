@@ -1,6 +1,20 @@
 import { z } from 'zod'
 
-export type TestCase = { name?: string, input: string, output: string }
+export const testFileLimit = 16 << 20
+export const inlineTestDataLimit = 64 << 10
+export const inlineTestSetLimit = 256 << 10
+export const testSetLimit = 512 << 20
+export const testFileSchema = z.object({ id: z.string().uuid(), size: z.number().int().positive().max(testFileLimit), sha256: z.string().regex(/^[a-f0-9]{64}$/) })
+export type TestFile = z.infer<typeof testFileSchema>
+export type TestCase = {
+  name?: string
+  input: string
+  output: string
+  inputFile?: TestFile
+  outputFile?: TestFile
+  _inputDirty?: boolean
+  _outputDirty?: boolean
+}
 export function testCaseError(cases: TestCase[]) {
   if (cases.length > 100) return 'テストケースは100件まで登録できます。'
   const encoder = new TextEncoder()
@@ -11,14 +25,36 @@ export function testCaseError(cases: TestCase[]) {
     if ([...(item.name ?? '')].length > 64 || /[\u0000-\u001f\u007f-\u009f]/.test(item.name ?? '') || (item.name && !name)) return `ケース${index + 1}の名前は64文字以内で、改行や制御文字を含めずに入力してください。`
     if (name && names.has(name)) return `テストケース名「${name}」が重複しています。`
     if (name) names.add(name)
-    for (const value of [item.input, item.output]) {
-      const size = encoder.encode(value).length
+    for (const key of ['input', 'output'] as const) {
+      const file = item[`${key}File`]
+      const dirty = item[`_${key}Dirty`]
+      const value = item[key]
+      const size = file && !dirty ? file.size : encoder.encode(value).length
       if (value.includes('\0')) return `ケース${index + 1}に使用できない文字が含まれています。`
-      if (size > 65536) return `ケース${index + 1}の入力と期待出力は、それぞれ64 KiB以内にしてください。`
+      if (size > testFileLimit) return `ケース${index + 1}の入力と期待出力は、それぞれ16 MiB以内にしてください。`
       total += size
     }
   }
-  return total > 262144 ? 'テストケース全体を256 KiB以内にしてください。' : ''
+  return total > testSetLimit ? 'テストケース全体を512 MiB以内にしてください。' : ''
+}
+
+export function persistedDraft<T extends { testCases: TestCase[] }>(draft: T) {
+  return {
+    ...draft,
+    testCases: draft.testCases.map((item) => {
+      const result: Record<string, unknown> = { name: item.name }
+      for (const key of ['input', 'output'] as const) {
+        const file = item[`${key}File`]
+        if (file && !item[`_${key}Dirty`]) {
+          result[key] = ''
+          result[`${key}File`] = file
+        } else {
+          result[key] = item[key]
+        }
+      }
+      return result
+    }),
+  }
 }
 
 export const problemDraftSchema = z.object({
@@ -26,7 +62,10 @@ export const problemDraftSchema = z.object({
   markdown: z.string().max(100_000),
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
-  testCases: z.array(z.object({ name: z.string().optional(), input: z.string(), output: z.string() })).default([]),
+  testCases: z.array(z.object({
+    name: z.string().optional(), input: z.string().default(''), output: z.string().default(''),
+    inputFile: testFileSchema.optional(), outputFile: testFileSchema.optional(),
+  })).default([]),
 })
 export type ProblemDraft = z.infer<typeof problemDraftSchema>
 

@@ -14,6 +14,13 @@ output "artifact_bucket_name" {
   value = aws_s3_bucket.artifacts.id
 }
 
+output "test_data_bucket" {
+  value = {
+    id  = aws_s3_bucket.test_data.id
+    arn = aws_s3_bucket.test_data.arn
+  }
+}
+
 output "cognito_user_pool_id" {
   value = aws_cognito_user_pool.users.id
 }

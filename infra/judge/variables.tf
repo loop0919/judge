@@ -53,6 +53,15 @@ variable "database" {
     security_group_id = string
   })
 }
+variable "test_data_bucket" {
+  description = "infra/api test_data_bucket output. The worker can only read immutable versions."
+  type = object({
+    id  = string
+    arn = string
+  })
+  default  = null
+  nullable = true
+}
 variable "enabled" {
   description = "Start dispatcher after migrations and Lightsail smoke tests pass."
   type        = bool

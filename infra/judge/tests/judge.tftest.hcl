@@ -19,6 +19,10 @@ variables {
     subnet_ids        = ["subnet-12345678", "subnet-87654321"]
     security_group_id = "sg-12345678"
   }
+  test_data_bucket = {
+    id  = "judge-test-data"
+    arn = "arn:aws:s3:::judge-test-data"
+  }
 }
 run "isolated_worker" {
   command = apply
@@ -35,6 +39,14 @@ run "isolated_worker" {
   assert {
     condition     = !strcontains(aws_iam_user_policy.worker.policy, "secretsmanager") && !strcontains(aws_iam_user_policy.worker.policy, "s3:PutObject") && !strcontains(aws_iam_user_policy.worker.policy, "s3:ListBucket")
     error_message = "Worker must not access database credentials or mutate job objects."
+  }
+  assert {
+    condition = (
+      strcontains(aws_iam_user_policy.worker.policy, "s3:GetObjectVersion") &&
+      strcontains(aws_iam_user_policy.worker.policy, "arn:aws:s3:::judge-test-data/test-files/*") &&
+      strcontains(output.worker_environment, "JUDGE_TEST_DATA_BUCKET=judge-test-data")
+    )
+    error_message = "Worker must read immutable test-data versions and receive the test-data bucket name."
   }
   assert {
     condition     = aws_cloudwatch_event_rule.dispatch.state == "DISABLED" && !aws_lambda_event_source_mapping.results.enabled

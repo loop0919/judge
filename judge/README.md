@@ -19,7 +19,7 @@ APIやDBをこのインスタンスに同居させず、VPCピアリングも設
 | ワーカー全体 | systemdで1.5 GiB、128タスク、CPU 1個相当、swapなし |
 | 作業領域全体 | tmpfs 512 MiB、16,384 inode。サービス停止時に破棄 |
 | 提出プロセス | 64プロセス、64ファイル記述子 |
-| 出力 | 標準出力1 MiB、標準エラー64 KiB |
+| 出力 | 標準出力16 MiB、標準エラー64 KiB |
 
 コンパイル用とケースごとのisolate環境は毎回破棄する。
 コンパイル成果物だけを管理側で保持し、各ケースへコピーする。
@@ -32,7 +32,8 @@ CPU時間と経過時間はms、最大メモリはcgroupのピーク値をbyte�
 Lightsailはバースト可能なCPUなので、CPU残高や共有ホストの負荷で結果が変動し得る。
 競技大会の厳密な順位付けに使う前に、繰り返し実行とCPU残高低下時の計測を検証する。
 
-現在はソース64 KiB、100ケース以下、各入出力64 KiB、全入出力256 KiB以下が対象である。
+現在はソース64 KiB、100ケース以下、各入出力16 MiB、全入出力512 MiB以下が対象である。
+64 KiBを超える入出力は、実行直前にS3から取得する。
 大きなS3バンドルと他言語は未実装である。
 
 ## AWS環境の作成
@@ -50,7 +51,7 @@ bash judge/build-assets.sh
 cp infra/judge/terraform.tfvars.example infra/judge/terraform.tfvars
 ```
 
-`terraform.tfvars`にSSH公開鍵、自分のIPv6アドレスの`/128`、既存APIの`judge_bridge_database`出力を設定する。
+`terraform.tfvars`にSSH公開鍵、自分のIPv6アドレスの`/128`、既存APIの`judge_bridge_database`出力と`test_data_bucket`出力を設定する。
 `runtime_digest`は空、`enabled=false`で最初の作成を行う。
 S3 backendは既存bootstrapのバケットを使い、stateのキーをAPIと分ける。
 
@@ -105,7 +106,7 @@ ssh -6 "ubuntu@$JUDGE_IPV6" 'sudo /opt/judge/smoke.sh'
 ```
 
 smokeは本番と同じsystemdのメモリ上限とマウント設定で、AC、WA、CE、TLE、MLE、OLE、秘密ファイルへのアクセス拒否、ネットワーク遮断、ケース間のファイル破棄を確認する。
-続いて[APIのマイグレーション手順](../infra/README.md)で`005_judge_outbox.sql`まで適用する。
+続いて[APIのマイグレーション手順](../infra/README.md)で`006_test_files.sql`まで適用する。
 
 ```sh
 ssh -6 "ubuntu@$JUDGE_IPV6" 'sudo systemctl enable --now judge-worker'

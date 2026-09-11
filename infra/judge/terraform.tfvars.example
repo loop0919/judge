@@ -11,4 +11,9 @@ database = {
   subnet_ids        = ["REPLACE", "REPLACE"]
   security_group_id = "REPLACE"
 }
+# terraform -chdir=infra/api output -json test_data_bucket
+test_data_bucket = {
+  id  = "REPLACE"
+  arn = "REPLACE"
+}
 enabled = false
