@@ -177,8 +177,6 @@ run "google_contract" {
 
 run "existing_google_domain" {
   command = plan
-  override_resource { target = aws_cognito_identity_provider.google[0] }
-  override_resource { target = aws_cognito_user_pool_domain.users[0] }
   variables {
     google_client_id       = "test.apps.googleusercontent.com"
     google_client_secret   = "test-only-secret"

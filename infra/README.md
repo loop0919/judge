@@ -282,7 +282,7 @@ GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
 
 ローカルとCIは同じアカウント、東京リージョンのstateバケット、`judge/dev/api.tfstate`を使う。
 初回の自動デプロイ前にbootstrapとVariablesの設定を済ませる。
-今回追加したRDS・IPv6ネットワーク・Google連携の操作権限は、管理者が`deploy-access/`のplanを確認してapplyする。
+今回追加したRDS・IPv6ネットワーク・Google連携・テストデータ用S3の操作権限は、管理者が`deploy-access/`のplanを確認してapplyする。
 GitHubのデプロイロールは自身の権限を更新できないため、この更新を済ませてからpushする。
 ブランチ保護の必須チェックには`CI / Test and package API`と`CI / Test SSR frontend`を指定する。
 

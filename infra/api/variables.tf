@@ -64,7 +64,7 @@ variable "lambda_package_path" {
 }
 
 variable "existing_google_domain" {
-  description = "Existing Cognito domain prefix whose domain and Google provider should be adopted into this state."
+  description = "Optional stable Cognito domain prefix. Import pre-existing resources into state separately before planning."
   type        = string
   default     = ""
 }

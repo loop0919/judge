@@ -19,6 +19,14 @@ run "deployment_boundary" {
   assert {
     condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
       statement.Effect == "Allow" &&
+      toset(statement.Action) == toset(["s3:*"]) &&
+      statement.Resource == "arn:aws:s3:::judge-dev-test-data-*"
+    ) if statement.Sid == "ApplicationTestDataBucket"])
+    error_message = "Terraform must manage the private test-data bucket without access to its objects."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      statement.Effect == "Allow" &&
       statement.Resource == "arn:aws:ec2:ap-northeast-1:123456789012:security-group-rule/*" &&
       toset(statement.Action) == toset(["ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress"]) &&
       tomap(statement.Condition.StringEquals) == tomap({ "aws:RequestTag/Project" = "judge", "aws:RequestTag/Environment" = "Dev" })

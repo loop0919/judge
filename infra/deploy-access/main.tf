@@ -56,6 +56,12 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = flatten([for prefix in ["${local.name}-artifacts-", "${local.name}-web-artifacts-"] : ["${local.arn}:s3:::${prefix}*", "${local.arn}:s3:::${prefix}*/*"]])
       },
       {
+        Sid      = "ApplicationTestDataBucket"
+        Effect   = "Allow"
+        Action   = ["s3:*"]
+        Resource = "${local.arn}:s3:::${local.name}-test-data-*"
+      },
+      {
         Sid      = "ApplicationFunctions"
         Effect   = "Allow"
         Action   = ["lambda:*"]
