@@ -20,7 +20,7 @@ test('C++ submission opens its result and polls until completion', async ({ page
   const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'cpp17-local', source: 'int main(){}', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
   await page.route('**/api/my/submissions', async route => {
     expect(route.request().method()).toBe('POST')
-    expect(route.request().postDataJSON()).toEqual({ problemId, runtime: 'cpp17-local', source: 'int main(){}' })
+    expect(route.request().postDataJSON()).toEqual({ problemId, runtime: 'cpp17', source: 'int main(){}' })
     await route.fulfill({ status: 202, json: item })
   })
   let reads = 0
