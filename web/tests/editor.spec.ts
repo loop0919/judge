@@ -9,6 +9,8 @@ test('creation page has noindex and is linked from navigation', async ({ page, r
   await page.getByRole('link', { name: '新しい問題を作成' }).click()
   await expect(page).toHaveTitle('問題を作成 | OpenOJ')
   await expect(page.getByLabel('問題のタイトル', { exact: true })).toBeEnabled()
+  await expect(page.locator('#memory-limit')).toHaveValue('512')
+  await expect(page.locator('#memory-limit')).toHaveAttribute('aria-valuemax', '512')
 })
 
 test('editing, math preview, automatic save, and reload work together', async ({ page }) => {
@@ -56,6 +58,20 @@ test('incomplete drafts remain saveable', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Markdown を保存', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('保存済み')
+})
+
+test('legacy memory limits are clamped to the current maximum', async ({ page }) => {
+  const id = '11111111-1111-4111-8111-111111111112'
+  await page.goto('/problems/new')
+  await page.evaluate(async (id) => {
+    await fetch(`/api/my/problems/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: 0, draft: { title: '', markdown: '', timeLimitMs: '2000', memoryLimitMb: '1024', testCases: [] } }),
+    })
+  }, id)
+  await page.goto(`/problems/new?problem=${id}`)
+  await expect(page.locator('#memory-limit')).toHaveValue('512')
+  await expect(page.locator('#memory-limit')).toHaveAttribute('aria-valuemax', '512')
 })
 
 test('cache failures do not prevent DB saving', async ({ page }) => {

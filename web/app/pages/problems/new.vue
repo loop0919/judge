@@ -20,11 +20,11 @@ let inFlight: Promise<boolean> | undefined
 const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非公開')
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | OpenOJ', robots: 'noindex, nofollow' })
-const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '1024', testCases: [] as TestCase[] })
+const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
-const memoryLimitPresets = [64, 128, 256, 512, 1024]
+const memoryLimitPresets = [64, 128, 256, 512]
 // Keep in-range memory limits from older drafts selectable.
-const memoryLimitOptions = computed(() => [...new Set([...memoryLimitPresets, Number(draft.memoryLimitMb)])].sort((a, b) => a - b))
+const memoryLimitOptions = computed(() => [...new Set([...memoryLimitPresets, Number(draft.memoryLimitMb)])].filter(value => value >= 64 && value <= 512).sort((a, b) => a - b))
 const ready = ref(false)
 const {
   mode, workspace, splitPercent, resizing, setSplit, startResize, moveResize, stopResize, resizeWithKeyboard,
@@ -159,12 +159,13 @@ onMounted(async () => {
       if (entry.id !== cloudId.value) throw new Error('Mismatched problem')
       writeProblemCache(cloudOwner, entry)
       Object.assign(draft, entry.draft)
+      if (Number(draft.memoryLimitMb) > 512) draft.memoryLimitMb = '512'
       cloudVersion.value = entry.version
       publishedVersion.value = entry.publishedVersion
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '1024', testCases: [] })
+      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
       renderedSource.value = draft.markdown
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
@@ -331,7 +332,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </div>
       <div>
         <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
-        <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="1024" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
+        <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="512" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
       </div>
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">

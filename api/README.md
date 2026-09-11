@@ -258,7 +258,7 @@ PUTの本文は次の形式とする。
     "title": "A + B",
     "markdown": "## 問題文\nA + B を求めてください。",
     "timeLimitMs": "2000",
-    "memoryLimitMb": "1024"
+    "memoryLimitMb": "512"
   }
 }
 ```
@@ -266,7 +266,7 @@ PUTの本文は次の形式とする。
 保存と詳細取得は`id`、`version`、`updatedAt`、`draft`を返す。
 古い更新番号による保存と削除は409を返し、既存の変更を上書きしない。
 タイトルは120文字、本文は100,000文字、JSON本文は3 MiBまでとする。
-時間制限は100〜5,000 msの100 ms刻み、メモリ制限は64〜1,024 MiBの整数を受け付ける。
+時間制限は100〜5,000 msの100 ms刻み、メモリ制限は64〜512 MiBの整数を受け付ける。
 
 一覧は`items`（`id`、`title`、`updatedAt`）と`nextCursor`を返す。
 `nextCursor`が空でなければ、次の要求の`cursor`パラメーターへ渡す。

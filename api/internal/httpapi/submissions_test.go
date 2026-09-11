@@ -47,6 +47,15 @@ func TestDraftTestCaseLimits(t *testing.T) {
 	}
 }
 
+func TestDraftMemoryLimit(t *testing.T) {
+	for memory, valid := range map[string]bool{"63": false, "64": true, "512": true, "513": false, "1024": false, "invalid": false} {
+		draft := problems.Draft{TimeLimitMS: "2000", MemoryLimitMB: memory}
+		if actual := validDraft(draft); actual != valid {
+			t.Errorf("memory %s: got valid=%v, want %v", memory, actual, valid)
+		}
+	}
+}
+
 func TestDraftCaseLimitIndependentOfTL(t *testing.T) {
 	for _, tl := range []int{100, 1000, 2000, 2300, 5000} {
 		for _, extra := range []int{0, 1} {

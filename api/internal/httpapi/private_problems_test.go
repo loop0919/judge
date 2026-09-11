@@ -127,7 +127,7 @@ func TestPrivateProblemsPostgres(t *testing.T) {
 	handler := newHandler(AuthConfig{}, PrivateProblems{Store: store, Verifier: newCognitoVerifier(f.server.URL, "client")})
 	alice, bob := f.token(t, "alice", nil), f.token(t, "bob", nil)
 	const id = "11111111-1111-4111-8111-111111111111"
-	draft := problems.Draft{Title: "保存する問題", Markdown: "本文 $A+B$", TimeLimitMS: "2000", MemoryLimitMB: "1024"}
+	draft := problems.Draft{Title: "保存する問題", Markdown: "本文 $A+B$", TimeLimitMS: "2000", MemoryLimitMB: "512"}
 	request := func(method, path, token string, body any, want int) *httptest.ResponseRecorder {
 		t.Helper()
 		data, _ := json.Marshal(body)

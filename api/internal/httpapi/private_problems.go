@@ -215,7 +215,7 @@ func validDraft(d problems.Draft) bool {
 	memory, e2 := strconv.Atoi(d.MemoryLimitMB)
 	return utf8.RuneCountInString(d.Title) <= 120 && utf8.RuneCountInString(d.Markdown) <= 100000 &&
 		!strings.ContainsRune(d.Title+d.Markdown, '\x00') && len(d.TimeLimitMS) <= 10 && len(d.MemoryLimitMB) <= 10 &&
-		e1 == nil && e2 == nil && timeMS >= 100 && timeMS <= 5000 && timeMS%100 == 0 && memory >= 64 && memory <= 1024
+		e1 == nil && e2 == nil && timeMS >= 100 && timeMS <= 5000 && timeMS%100 == 0 && memory >= 64 && memory <= 512
 }
 
 func (p PrivateProblems) list(w http.ResponseWriter, r *http.Request, owner string) {

@@ -49,5 +49,7 @@ test('export keeps the exact body and safely quotes title metadata', () => {
   expect(file).toContain('time_limit_ms: 2000\nmemory_limit_mb: 256')
   expect(file).toContain(draft.markdown)
   expect(draftErrors({ ...draft, timeLimitMs: '', title: '  ' }).title).not.toBe('')
+  expect(draftErrors({ ...draft, memoryLimitMb: '512' }).memoryLimitMb).toBe('')
+  expect(draftErrors({ ...draft, memoryLimitMb: '513' }).memoryLimitMb).not.toBe('')
   expect(() => exportProblemMarkdown({ ...draft, memoryLimitMb: '-1' })).toThrow()
 })

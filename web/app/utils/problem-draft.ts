@@ -37,7 +37,7 @@ export function draftErrors(draft: ProblemDraft) {
     title: draft.title.trim() ? '' : '問題のタイトルを入力してください。',
     markdown: draft.markdown.trim() ? '' : '問題の本文を入力してください。',
     timeLimitMs: Number.isInteger(time) && time >= 100 && time <= 5000 && time % 100 === 0 ? '' : '100〜5,000 ms の範囲で100 ms刻みの値を選んでください。',
-    memoryLimitMb: Number.isInteger(memory) && memory >= 64 && memory <= 1024 ? '' : '64〜1,024 MiB の整数を選んでください。',
+    memoryLimitMb: Number.isInteger(memory) && memory >= 64 && memory <= 512 ? '' : '64〜512 MiB の整数を選んでください。',
   }
 }
 

@@ -125,7 +125,7 @@ try {
   assert.match(cookie, /Secure/i)
   assert.match(cookie, /SameSite=Lax/i)
   const cookies = [cookie.split(';')[0]]
-  const input = { version: 0, draft: { title: 'Lambdaで保存', markdown: '本文', timeLimitMs: '2000', memoryLimitMb: '1024' } }
+  const input = { version: 0, draft: { title: 'Lambdaで保存', markdown: '本文', timeLimitMs: '2000', memoryLimitMb: '512' } }
   const path = '/api/my/problems/11111111-1111-4111-8111-111111111111'
   const saved = await invoke(path, { method: 'PUT', cookies, body: input })
   assert.equal(saved.statusCode, 200, saved.body)
