@@ -79,7 +79,7 @@ function add() {
 </template>
 
 <style scoped>
-/* Hallmark · component scope · existing OpenOJ tokens · reference: shared file list + paired editors
+/* Hallmark · component scope · existing ShareOJ tokens · reference: shared file list + paired editors
  * pre-emit critique: P5 H4 E4 S5 R5 V4 */
 .test-case-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 .case-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--color-line); }

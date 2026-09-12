@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { postSchema } from '~~/shared/types/post'
-useSeoMeta({ title: '記事を書く | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '記事を書く | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
 const router = useRouter()
 const { refreshAccount } = useAccount()
@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="author-page">
     <header class="editor-topbar">
-      <NuxtLink class="wordmark" to="/" aria-label="OpenOJ ホーム">Open<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
+      <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
       <div v-show="!managing" class="editor-view-switch" aria-label="表示の切り替え">
         <button type="button" class="editor-button" :aria-pressed="mode === 'edit'" aria-label="編集" title="編集" @click="mode = 'edit'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg></button>
         <button type="button" class="editor-button split-button" :aria-pressed="mode === 'split'" aria-label="分割" title="分割" @click="mode = 'split'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 3v18" /></svg></button>

@@ -6,7 +6,7 @@ const config = useRuntimeConfig()
 const { data: problem, error } = await useFetch(() => `/api/problems/${encodeURIComponent(String(route.params.id))}`)
 if (error.value || !problem.value) throw createError({ statusCode: error.value?.statusCode === 404 ? 404 : 502, statusMessage: error.value?.statusCode === 404 ? 'Problem not found' : 'Problem service unavailable', fatal: true })
 const canonical = computed(() => new URL(`/problems/${problem.value!.id}`, config.public.siteUrl).href)
-useSeoMeta({ title: () => `${problem.value?.title} | OpenOJ`, description: () => problem.value?.markdown.slice(0, 160), ogTitle: () => `${problem.value?.title} | OpenOJ`, ogUrl: () => canonical.value, ogType: 'article' })
+useSeoMeta({ title: () => `${problem.value?.title} | ShareOJ`, description: () => problem.value?.markdown.slice(0, 160), ogTitle: () => `${problem.value?.title} | ShareOJ`, ogUrl: () => canonical.value, ogType: 'article' })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 <template>

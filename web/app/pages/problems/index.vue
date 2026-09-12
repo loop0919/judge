@@ -13,7 +13,7 @@ async function more() {
   catch { message.value = '問題を取得できませんでした。もう一度お試しください。' }
   finally { loading.value = false }
 }
-useSeoMeta({ title: '公開問題 | OpenOJ', description: 'ユーザーが作成・公開したプログラミング問題。', ogTitle: '公開問題 | OpenOJ', ogUrl: canonical, ogType: 'website' })
+useSeoMeta({ title: '公開問題 | ShareOJ', description: 'ユーザーが作成・公開したプログラミング問題。', ogTitle: '公開問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>

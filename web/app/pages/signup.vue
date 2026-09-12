@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { data: providers } = await useFetch<{ google: boolean }>('/api/auth/providers')
-useSeoMeta({ title: 'アカウントを作成 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'アカウントを作成 | ShareOJ', robots: 'noindex, nofollow' })
 const email = ref('')
 const password = ref('')
 const repeatedPassword = ref('')

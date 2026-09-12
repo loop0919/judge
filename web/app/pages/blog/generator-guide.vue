@@ -3,7 +3,7 @@ const config = useRuntimeConfig()
 const title = '入出力生成と入力検証の使い方'
 const description = 'コードによる入力と期待出力の生成、入力の制約を検証する手順をC++17の例で紹介します。'
 const canonical = new URL('/blog/generator-guide', config.public.siteUrl).href
-useSeoMeta({ title: `${title} | OpenOJ ブログ`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
+useSeoMeta({ title: `${title} | ShareOJ ブログ`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 const inputCode = '#include <iostream>\n\nint main() {\n    long long case_number;\n    std::cin >> case_number;\n    std::cout << case_number << " " << case_number + 1 << "\\n";\n}'
 const outputCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n    std::cin >> a >> b;\n    std::cout << a + b << "\\n";\n}'
@@ -14,7 +14,7 @@ const validationCode = '#include <iostream>\n\nint main() {\n    long long a, b;
   <article class="blog-article">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">ブログ</NuxtLink><span aria-hidden="true">/</span><span>生成と検証ガイド</span></nav>
     <header class="blog-article-header">
-      <p class="eyebrow">OPENOJ GUIDE</p>
+      <p class="eyebrow">SHAREOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">テストケースをコードで作れます。ケース番号から入力を生成し、その入力を解答プログラムに渡して期待出力を揃えましょう。</p>
     </header>

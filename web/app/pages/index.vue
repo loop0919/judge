@@ -6,7 +6,7 @@ const gridDots = Array.from({ length: 17 * 15 }, (_, index) => {
   const y = 25 + Math.floor(index / 17) * 24
   return { x, y, delay: `${(2.55 + Math.hypot(x - 364, y - 96) / 480 * .9).toFixed(3)}s` }
 })
-useSeoMeta({ title: 'ホーム | OpenOJ', description: 'ひらめきを問題に。解き方を記事に。プログラミングの知識を、みんなで持ち寄る場所。', ogTitle: 'OpenOJ — 考える楽しさを、次の一問へ。', ogDescription: 'ひらめきを問題に。解き方を記事に。' })
+useSeoMeta({ title: 'ホーム | ShareOJ', description: 'ひらめきを問題に。解き方を記事に。プログラミングの知識を、みんなで持ち寄る場所。', ogTitle: 'ShareOJ — 考える楽しさを、次の一問へ。', ogDescription: 'ひらめきを問題に。解き方を記事に。' })
 useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).href }] })
 </script>
 
@@ -14,7 +14,7 @@ useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).h
   <div class="home">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <p class="hero-kicker"><span aria-hidden="true" />OPEN ONLINE JUDGE</p>
+        <p class="hero-kicker"><span aria-hidden="true" />SHARE ONLINE JUDGE</p>
         <h1 id="hero-title">考える楽しさを、<br><span>次の一問へ。</span></h1>
         <p class="hero-description">ひらめきを問題に。解き方を記事に。<br>プログラミングの知識を、<wbr>みんなで持ち寄る場所。</p>
         <div class="hero-actions">
@@ -54,7 +54,7 @@ useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).h
 
 <style scoped>
 /* Hallmark · pre-emit critique: P4 H5 E4 S5 R5 V4
- * component: home hero · genre: modern-minimal · theme: existing OpenOJ tokens
+ * component: home hero · genre: modern-minimal · theme: existing ShareOJ tokens
  * Sequential path reveal with reduced-motion support; navigation states: default, hover, focus-visible, active. */
 .home { padding-bottom: 64px; }
 .hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 24px; min-height: 600px; padding-block: 72px 80px; }

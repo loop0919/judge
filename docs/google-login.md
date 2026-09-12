@@ -1,6 +1,6 @@
 # Googleログインの設定
 
-Google → Cognito → OpenOJの順で認証します。
+Google → Cognito → ShareOJの順で認証します。
 初回のGoogleログイン時にCognitoユーザーが作成され、そのユーザーIDで問題を保存します。
 メールアドレスとパスワードによる登録・ログインも引き続き利用できます。
 既存のメールアドレス登録とは別のユーザーになるため、同じメールアドレスでも保存済みの問題は自動で共有・統合されません。
@@ -42,6 +42,6 @@ CognitoアクセストークンをGo APIで検証してから既存のログイ�
 
 参考: [AWSのGoogle連携手順](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-social-idp.html)、[認可エンドポイント](https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html)。
 
-Googleで初回ログインしたユーザーは `/onboarding` に進み、OpenOJ用のユーザーIDを登録する。
+Googleで初回ログインしたユーザーは `/onboarding` に進み、ShareOJ用のユーザーIDを登録する。
 Googleの名前・メールアドレスからユーザーIDを自動生成せず、ユーザー本人が決める。
 登録済みユーザーは `/my` に進む。

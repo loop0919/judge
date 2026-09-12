@@ -1,11 +1,11 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'ユーザーIDを登録 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'ユーザーIDを登録 | ShareOJ', robots: 'noindex, nofollow' })
 const { user } = useAccount()
 </script>
 <template>
   <section class="profile-page">
     <h1>ユーザーIDを登録</h1>
-    <p class="muted">OpenOJで使うユーザーIDを決めてください。</p>
+    <p class="muted">ShareOJで使うユーザーIDを決めてください。</p>
     <ProfileForm v-if="user" :initial="null" onboarding />
   </section>
 </template>

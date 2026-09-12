@@ -26,7 +26,7 @@ for (const modifier of ['Control', 'Meta']) {
     }, 'openoj.problem-cache.v1.')
     expect(stored.markdown).toBe('## ショートカットで保存')
     await expect(page).toHaveURL(/problem=/)
-    await page.getByRole('link', { name: 'OpenOJ ホーム' }).click()
+    await page.getByRole('link', { name: 'ShareOJ ホーム' }).click()
     await expect(page).toHaveURL('/')
     const prevented = await page.evaluate(() => {
       const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true, bubbles: true })

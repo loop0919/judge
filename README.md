@@ -1,6 +1,6 @@
-# OpenOJ
+# ShareOJ
 
-OpenOJ（Open Online Judge）は、オンラインジャッジサービス。
+ShareOJ（Share Online Judge）は、オンラインジャッジサービス。
 
 Go API、Nuxtフロントエンド、AWS上のジャッジ基盤を開発するリポジトリ。
 

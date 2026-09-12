@@ -20,7 +20,7 @@ let disposed = false
 let inFlight: Promise<boolean> | undefined
 const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非公開')
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
-useSeoMeta({ title: '問題を作成 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '問題を作成 | ShareOJ', robots: 'noindex, nofollow' })
 const draft = reactive({ title: '', markdown: initialProblemMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
 const memoryLimitPresets = [64, 128, 256, 512]
@@ -311,7 +311,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </div>
     </dialog>
     <header class="editor-topbar">
-      <NuxtLink class="wordmark" to="/" aria-label="OpenOJ ホーム">Open<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
+      <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
       <div v-show="section === 'statement'" class="editor-view-switch" aria-label="表示の切り替え">
         <button type="button" class="editor-button" :aria-pressed="mode === 'edit'" aria-label="編集" title="編集" @click="mode = 'edit'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg></button>
         <button type="button" class="editor-button split-button" :aria-pressed="mode === 'split'" aria-label="分割" title="分割" @click="mode = 'split'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 3v18" /></svg></button>

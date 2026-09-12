@@ -15,7 +15,7 @@ async function more() {
   finally { loading.value = false }
 }
 const date = (value: string) => new Date(value).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
-useSeoMeta({ title: 'ブログ | OpenOJ', description: 'ユーザーと運営が投稿する記事。', ogTitle: 'ブログ | OpenOJ', ogUrl: canonical, ogType: 'website' })
+useSeoMeta({ title: 'ブログ | ShareOJ', description: 'ユーザーと運営が投稿する記事。', ogTitle: 'ブログ | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>

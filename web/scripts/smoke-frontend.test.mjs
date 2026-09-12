@@ -8,8 +8,8 @@ async function site(t, overrides = {}) {
   const server = createServer((req, res) => {
     paths.push(req.url)
     if (overrides[req.url]) return overrides[req.url](res)
-    if (req.url === '/problems') return res.end(`<title>OpenOJ</title><link rel="canonical" href="http://${req.headers.host}/problems"><script src="/app.js"></script><link href="/app.css">`)
-    if (req.url === '/blog') return res.end('OpenOJ: 公開された記事はまだありません。')
+    if (req.url === '/problems') return res.end(`<title>ShareOJ</title><link rel="canonical" href="http://${req.headers.host}/problems"><script src="/app.js"></script><link href="/app.css">`)
+    if (req.url === '/blog') return res.end('ShareOJ: 公開された記事はまだありません。')
     if (req.url === '/api/problems' || req.url === '/api/posts') return res.end(JSON.stringify({ items: [], nextCursor: '' }))
     if (req.url === '/blog/markdown-guide') return res.end('<span class="katex-html">math</span>')
     if (['/problems/new', '/blog/new', '/login', '/signup'].includes(req.url)) return res.end('<meta name="robots" content="noindex, nofollow">')

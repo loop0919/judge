@@ -7,7 +7,7 @@ test('creation page has noindex and is linked from navigation', async ({ page, r
   await page.goto('/')
   await page.getByRole('navigation', { name: 'メインナビゲーション' }).getByRole('link', { name: 'マイページ' }).click()
   await page.getByRole('link', { name: '新しい問題を作成' }).click()
-  await expect(page).toHaveTitle('問題を作成 | OpenOJ')
+  await expect(page).toHaveTitle('問題を作成 | ShareOJ')
   await expect(page.getByLabel('問題のタイトル', { exact: true })).toBeEnabled()
   await expect(page.locator('#memory-limit')).toHaveValue('512')
   await expect(page.locator('#memory-limit')).toHaveAttribute('aria-valuemax', '512')

@@ -19,7 +19,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'ja' },
-      title: 'OpenOJ — Open Online Judge',
+      title: 'ShareOJ — Share Online Judge',
       link: [
         { rel: 'icon', href: '/favicon.ico', sizes: '16x16 32x32 48x48' },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg', sizes: 'any' },
@@ -27,7 +27,7 @@ export default defineNuxtConfig({
       ],
       meta: [
         { name: 'theme-color', content: '#ffffff' },
-        { property: 'og:site_name', content: 'OpenOJ' },
+        { property: 'og:site_name', content: 'ShareOJ' },
       ],
     },
   },
