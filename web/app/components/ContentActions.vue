@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
-defineProps<{ title: string, editTo: RouteLocationRaw, viewTo: string, published: boolean }>()
+defineProps<{ title: string, editTo: RouteLocationRaw, viewTo: string, published: boolean, canView?: boolean }>()
 </script>
 
 <template>
@@ -8,7 +8,7 @@ defineProps<{ title: string, editTo: RouteLocationRaw, viewTo: string, published
     <NuxtLink :to="editTo" class="editor-button" :aria-label="`${title}を編集`" title="編集">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z" /><path d="m13 6 5 5" /></svg>
     </NuxtLink>
-    <NuxtLink v-if="published" :to="viewTo" class="editor-button" :aria-label="`${title}を閲覧`" title="閲覧">
+    <NuxtLink v-if="published || canView" :to="viewTo" class="editor-button" :aria-label="`${title}を閲覧`" title="閲覧">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m8 4 12 8-12 8Z" /></svg>
     </NuxtLink>
     <span v-else title="公開すると閲覧できます">

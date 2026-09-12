@@ -53,7 +53,7 @@ for (const width of [375, 1280]) {
     await expect(page.getByRole('table', { name: '作成した問題' })).toBeVisible()
     await expect(page.getByRole('table', { name: '作成した記事' })).toBeHidden()
     await expect(page.getByRole('link', { name: 'A + Bを編集' })).toHaveAttribute('href', `/problems/new?problem=${id}`)
-    await expect(page.getByRole('button', { name: '未公開の問題を閲覧（公開すると閲覧できます）' })).toBeDisabled()
+    await expect(page.getByRole('link', { name: '未公開の問題を閲覧' })).toHaveAttribute('href', `/problems/${draftId}`)
     await page.getByRole('button', { name: '記事', exact: true }).click()
     await expect(page.getByRole('button', { name: '記事', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('table', { name: '作成した問題' })).toBeHidden()

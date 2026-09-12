@@ -19,6 +19,12 @@ createServer(async (req, res) => {
   else if (path === '/auth/me' || path.startsWith('/my/')) {
     if (req.headers.authorization !== 'Bearer valid-access') return res.writeHead(401).end('{}')
     if (path === '/auth/me') return res.end(JSON.stringify({ id: 'session-user' }))
+    if (path === '/my/profile') return res.end(JSON.stringify({ profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-10T00:00:00Z' } }))
+    if (path === '/my/problems/55555555-5555-4555-8555-555555555555') return res.end(JSON.stringify({
+      id: '55555555-5555-4555-8555-555555555555', version: 1, publishedVersion: 0, updatedAt: '2026-09-10T00:00:00Z',
+      draft: { title: '非公開の練習問題', markdown: '保存済みの問題文', editorial: '非公開の解説', timeLimitMs: '2000', memoryLimitMb: '512', testCases: [{ input: 'secret-input', output: 'secret-output' }] },
+    }))
+    if (path.startsWith('/my/problems/')) return res.writeHead(404).end('{}')
     if (req.method === 'POST') {
       let raw = ''
       for await (const chunk of req) raw += chunk

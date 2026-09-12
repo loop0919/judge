@@ -42,7 +42,7 @@ onMounted(() => { void loadAccount() })
             <th scope="row">{{ entry.title.trim() || '無題の問題' }}</th>
             <td>{{ entry.publishedVersion ? '公開中' : '非公開' }}</td>
             <td><time :datetime="entry.updatedAt">{{ updatedLabel(entry.updatedAt) }}</time></td>
-            <td><ContentActions :title="entry.title.trim() || '無題の問題'" :edit-to="{ path: '/problems/new', query: { problem: entry.id } }" :view-to="`/problems/${entry.id}`" :published="!!entry.publishedVersion" /></td>
+            <td><ContentActions :title="entry.title.trim() || '無題の問題'" :edit-to="{ path: '/problems/new', query: { problem: entry.id } }" :view-to="`/problems/${entry.id}`" :published="!!entry.publishedVersion" can-view /></td>
           </tr></tbody>
         </table>
       </div>

@@ -85,7 +85,7 @@ func scan(row pgx.Row) (Submission, error) {
 	return s, err
 }
 
-// Create pins the published version and limits in the same statement as insertion.
+// Create pins the published version, or the owner's unpublished draft, at insertion.
 func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image string) (Submission, error) {
 	return s.CreateRuntime(ctx, owner, id, problemID, source, image, "cpp17-local")
 }
@@ -93,14 +93,18 @@ func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image 
 func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source, image, runtime string) (Submission, error) {
 	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
-  SELECT $1,$2,id,published_version,published_draft->>'title',$6,$4,
-  jsonb_build_object('image',$5::text,'cases',published_draft->'testCases',
-  'timeLimitMs',(published_draft->>'timeLimitMs')::int,
-  'memoryLimitMb',(published_draft->>'memoryLimitMb')::int)
-  FROM problem_drafts WHERE id=$3 AND published_draft IS NOT NULL
-  AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) > 0
-  AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) <= 100
-  AND ($6 = 'cpp17-local' OR (published_draft->>'memoryLimitMb')::int = 512)
+  SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,
+  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases',
+  'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
+  'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
+  FROM (
+    SELECT id, COALESCE(published_draft,draft) AS selected_draft,
+      CASE WHEN published_draft IS NULL THEN version ELSE published_version END AS selected_version
+    FROM problem_drafts WHERE id=$3 AND (published_draft IS NOT NULL OR owner_id=$2)
+  ) problem
+  WHERE jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) > 0
+  AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) <= 100
+  AND ($6 = 'cpp17-local' OR (selected_draft->>'memoryLimitMb')::int = 512)
   RETURNING `+columns, id, owner, problemID, source, image, runtime))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady

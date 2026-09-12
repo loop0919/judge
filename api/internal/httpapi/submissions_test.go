@@ -394,4 +394,46 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Fatal("generated file skipped validation", pinned, ready, err)
 	}
 
+	// Unpublished problems are judgeable only by their owner, with immutable inputs.
+	const privateID = "55555555-5555-4555-8555-555555555555"
+	privateDraft := problems.Draft{Title: "Private", Markdown: "Private statement", TimeLimitMS: "1000", MemoryLimitMB: "512", TestCases: []problems.TestCase{{Input: "private-input", Output: "private-output"}}}
+	privateProblem, err := store.Save(ctx, "alice", privateID, 0, privateDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateBody := strings.Replace(body, id, privateID, 1)
+	request("GET", "/problems/"+privateID, "", "", 404)
+	request("GET", "/my/problems/"+privateID, "bob", "", 404)
+	request("GET", "/my/problems/"+privateID, "alice", "", 200)
+	request("POST", "/my/submissions", "", privateBody, 401)
+	request("POST", "/my/submissions", "bob", privateBody, 409)
+	var privateItem submissions.Submission
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", privateBody, 202)), &privateItem); err != nil {
+		t.Fatal(err)
+	}
+	if privateItem.ProblemVersion != privateProblem.Version {
+		t.Fatal("draft version not pinned")
+	}
+	privateDraft.TestCases[0].Output = "changed"
+	if _, err := store.Save(ctx, "alice", privateID, privateProblem.Version, privateDraft); err != nil {
+		t.Fatal(err)
+	}
+	var privateRaw []byte
+	if err := store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, privateItem.ID).Scan(&privateRaw); err != nil {
+		t.Fatal(err)
+	}
+	var privateJob submissions.Job
+	if json.Unmarshal(privateRaw, &privateJob) != nil || privateJob.Cases[0].Output != "private-output" || privateJob.TimeLimitMS != 1000 {
+		t.Fatalf("private snapshot: %s", privateRaw)
+	}
+	currentPrivate, err := store.Get(ctx, "alice", privateID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentPrivate.Draft.TestCases = nil
+	if _, err := store.Save(ctx, "alice", privateID, currentPrivate.Version, currentPrivate.Draft); err != nil {
+		t.Fatal(err)
+	}
+	request("POST", "/my/submissions", "alice", privateBody, 409)
+
 }
