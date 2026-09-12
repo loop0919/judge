@@ -24,8 +24,9 @@ type Generator struct {
 	Source  string `json:"source"`
 }
 type Generators struct {
-	Input  Generator `json:"input"`
-	Output Generator `json:"output"`
+	Validation Generator `json:"validation,omitzero"`
+	Input      Generator `json:"input"`
+	Output     Generator `json:"output"`
 }
 
 type Draft struct {

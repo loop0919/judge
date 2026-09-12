@@ -202,7 +202,7 @@ func Judge(ctx context.Context, source string, job Job) Result {
 			verdict = "OLE"
 		case job.Generate && (!utf8.Valid(actual.output) || bytes.ContainsRune(actual.output, 0)):
 			verdict = "RE"
-		case !job.Generate && !equalTokens(actual.output, []byte(c.Output)):
+		case !job.Generate && !job.Validate && !equalTokens(actual.output, []byte(c.Output)):
 			verdict = "WA"
 		default:
 			r.Passed++

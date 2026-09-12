@@ -106,6 +106,34 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
         self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2), ('JUDGING', 2, 2)])
 
+    def test_validation_uses_exit_status_and_does_not_save_output(self):
+        import tempfile
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   validate=True, memoryLimitMb=512, timeLimitMs=1000,
+                   cases=[dict(input=str(i), output='secret') for i in range(3)])
+        calls = []
+        def execute(request, compile_phase=False):
+            calls.append(compile_phase)
+            if compile_phase:
+                return {'compiled': True}
+            index = int(base64.b64decode(request['input']))
+            return dict(status='TO' if index == 2 else '', oom=False, overflow=False,
+                        exitCode=1 if index == 1 else 0, signal=0,
+                        cpuTimeMs=0, wallTimeMs=1, memoryBytes=1024, output=base64.b64encode(b'ignored').decode())
+        save = Mock(side_effect=AssertionError('validation must not save output'))
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+            result = host.judge(job, 'sha256:test', save_output=save)
+        self.assertEqual([c['verdict'] for c in result['cases']], ['AC', 'RE', 'TLE'])
+        self.assertEqual(result['passed'], 1)
+        self.assertEqual(calls, [True, False, False, False])
+        self.assertTrue(all('output' not in c and 'outputFile' not in c for c in result['cases']))
+        save.assert_not_called()
+        job['validate'] = 'true'
+        with self.assertRaises(ValueError):
+            host.validate_job(job, 'sha256:test')
+
     def test_generation_preserves_stdout_and_enforces_file_and_total_limits(self):
         import tempfile
         job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
@@ -196,6 +224,32 @@ class RunnerTests(unittest.TestCase):
             result = host.judge(job, 'sha256:test', lambda _: '3\n')
         self.assertEqual(result['verdict'], 'AC')
         self.assertEqual(calls[-1]['input'], base64.b64encode(b'3\n').decode())
+
+    def test_validation_accepts_16_mib_input_file(self):
+        import tempfile
+        data = '1 ' * (host.TEST_FILE_LIMIT // 2)
+        file = dict(id='11111111-1111-4111-8111-111111111111', size=len(data), sha256='a' * 64,
+                    key='test-files/' + 'b' * 32 + '/22222222-2222-4222-8222-222222222222/11111111-1111-4111-8111-111111111111',
+                    versionId='version')
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   validate=True, memoryLimitMb=512, timeLimitMs=5000,
+                   cases=[dict(input='', output='', inputFile=file)])
+        def execute(request, compile_phase=False):
+            if compile_phase:
+                return {'compiled': True}
+            self.assertEqual(base64.b64decode(request['input']), data.encode())
+            return dict(status='', oom=False, overflow=False, exitCode=0, signal=0,
+                        cpuTimeMs=1, wallTimeMs=1, memoryBytes=1024, output='')
+        load = Mock(return_value=data)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+            result = host.judge(job, 'sha256:test', load_file=load)
+        self.assertEqual(result['verdict'], 'AC')
+        load.assert_called_once_with(file)
+        job['cases'][0]['inputFile']['size'] += 1
+        with self.assertRaises(ValueError):
+            host.validate_job(job, 'sha256:test')
 
     def test_test_set_size_limit(self):
         file = dict(id='11111111-1111-4111-8111-111111111111', size=16 * 1024 * 1024,

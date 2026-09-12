@@ -136,6 +136,13 @@ func TestGeneratorDocker(t *testing.T) {
 	if result.Verdict != "AC" || result.Cases[0].Output == nil || *result.Cases[0].Output != "" {
 		t.Fatalf("empty output: %+v", result)
 	}
+	job.Generate, job.Validate = false, true
+	stored = nil
+	result = Judge(ctx, "#include <iostream>\nint main(){int n;std::cin>>n;std::cout<<\"ignored\";return n==7?0:1;}", job)
+	if result.Passed != 1 || result.Cases[0].Verdict != "AC" || result.Cases[1].Verdict != "RE" || len(stored) != 0 || result.Cases[0].Output != nil {
+		t.Fatalf("input validation: %+v", result)
+	}
+	job.Generate, job.Validate = true, false
 	job.GenerationBaseBytes = GenerationOutputLimit - 32768
 	result = Judge(ctx, "#include <iostream>\nint main(){for(int i=0;i<20000;i++)std::cout<<'x';}", job)
 	if result.Verdict != "OLE" {

@@ -323,6 +323,24 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Fatalf("output generation job: %s", raw)
 	}
 
+	validation := strings.Replace(generation, `"mode":"output"`, `"mode":"validation"`, 1)
+	request("POST", "/my/submissions", "bob", validation, 404)
+	request("POST", "/my/submissions", "alice", strings.Replace(validation, `"start":1`, `"start":2`, 1), 400)
+	var validated submissions.Submission
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", validation, 202)), &validated); err != nil {
+		t.Fatal(err)
+	}
+	var validationRaw []byte
+	if err := store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, validated.ID).Scan(&validationRaw); err != nil {
+		t.Fatal(err)
+	}
+	var validationJob submissions.Job
+	if json.Unmarshal(validationRaw, &validationJob) != nil || !validationJob.Validate || validationJob.Generate || len(validationJob.Cases) != 1 || validationJob.Cases[0].Input != " 1  2\n" || validationJob.Cases[0].Output != "" || validationJob.Cases[0].OutputFile != nil {
+		t.Fatalf("validation job: %s", validationRaw)
+	}
+	if strings.Contains(request("GET", "/my/submissions", "alice", "", 200), validated.ID) {
+		t.Fatal("validation appeared in submission history")
+	}
 	if generationJob.GenerationBaseBytes != int64(len(" 1  2\n")) {
 		t.Fatalf("replaced output still counted: %+v", generationJob)
 	}

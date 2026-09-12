@@ -1,26 +1,27 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const title = '入出力ジェネレータの使い方'
-const description = 'ケース番号から入力を作り、解答プログラムから期待出力を生成する手順を、C++17の例で紹介します。'
+const title = '入出力生成と入力検証の使い方'
+const description = 'コードによる入力と期待出力の生成、入力の制約を検証する手順をC++17の例で紹介します。'
 const canonical = new URL('/blog/generator-guide', config.public.siteUrl).href
 useSeoMeta({ title: `${title} | OpenOJ ブログ`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 const inputCode = '#include <iostream>\n\nint main() {\n    long long case_number;\n    std::cin >> case_number;\n    std::cout << case_number << " " << case_number + 1 << "\\n";\n}'
 const outputCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n    std::cin >> a >> b;\n    std::cout << a + b << "\\n";\n}'
+const validationCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n    if (!(std::cin >> a >> b)) return 1;\n    if (a < 0 || a > 1000000000 || b < 0 || b > 1000000000) return 1;\n    std::cin >> std::ws;\n    return std::cin.eof() ? 0 : 1;\n}'
 </script>
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">ブログ</NuxtLink><span aria-hidden="true">/</span><span>ジェネレータガイド</span></nav>
+    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">ブログ</NuxtLink><span aria-hidden="true">/</span><span>生成と検証ガイド</span></nav>
     <header class="blog-article-header">
       <p class="eyebrow">OPENOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">テストケースをコードで作れます。ケース番号から入力を生成し、その入力を解答プログラムに渡して期待出力を揃えましょう。</p>
     </header>
-    <nav class="blog-toc" aria-label="記事の目次"><a href="#input">入力を作る</a><a href="#output">期待出力を作る</a><a href="#steps">画面での手順</a><a href="#limits">上限と失敗時の動作</a><a href="#check">生成後の確認</a></nav>
+    <nav class="blog-toc" aria-label="記事の目次"><a href="#input">入力を作る</a><a href="#output">期待出力を作る</a><a href="#validation">入力を検証する</a><a href="#steps">画面での手順</a><a href="#limits">上限と失敗時の動作</a><a href="#check">生成後の確認</a></nav>
     <section id="input">
       <h2>ケース番号から入力を作る</h2>
-      <p>問題作成画面のサイドバーで「ジェネレータ」を開き、種類を「入力ジェネレータ」にします。開始ケース番号と生成件数を指定すると、番号を1ずつ増やしながら、各ケースについてプログラムを実行します。</p>
+      <p>問題作成画面のサイドバーで「生成と検証」を開き、種類を「入力生成」にします。開始ケース番号と生成件数を指定すると、番号を1ずつ増やしながら、各ケースについてプログラムを実行します。</p>
       <p>現在の実装では、ケース番号は標準入力に整数1個と改行で渡されます。プログラムの第一引数ではなく、C++なら <code>std::cin</code> から読み取ってください。標準出力に書いた文字列が、新しいテストケースの入力になります。</p>
       <p>たとえば「2つの整数の和」を求める問題なら、次のC++17プログラムで入力を作れます。</p>
       <pre><code>{{ inputCode }}</code></pre>
@@ -30,21 +31,29 @@ const outputCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n  
     </section>
     <section id="output">
       <h2>解答プログラムから期待出力を作る</h2>
-      <p>種類を「出力ジェネレータ」にすると、既存ケースの入力が標準入力へ渡されます。問題を解くプログラムを書き、その答えを標準出力へ出してください。</p>
+      <p>種類を「出力生成」にすると、既存ケースの入力が標準入力へ渡されます。問題を解くプログラムを書き、その答えを標準出力へ出してください。</p>
       <pre><code>{{ outputCode }}</code></pre>
       <p>入力が <code>7 8</code> なら、期待出力は <code>15</code> と改行になります。標準出力の空白と改行はそのまま保存されます。デバッグ用の表示は期待出力に混ざるため、標準出力には答えだけを書いてください。</p>
-      <p>出力ジェネレータの「開始位置」は、テストケース一覧の上から数えた位置です。1が先頭を表し、入力生成で使ったケース番号やファイル名とは別です。開始位置1、生成件数3なら、一覧の先頭3件の期待出力を置き換えます。</p>
+      <p>出力生成の「開始位置」は、テストケース一覧の上から数えた位置です。1が先頭を表し、入力生成で使ったケース番号やファイル名とは別です。開始位置1、生成件数3なら、一覧の先頭3件の期待出力を置き換えます。</p>
+    </section>
+    <section id="validation">
+      <h2>入力が制約を満たすか検証する</h2>
+      <p>種類を「入力検証」にすると、指定した既存ケースの入力が標準入力へ渡されます。終了コード0で合格、0以外の終了コードや異常終了で不合格になります。標準出力は保存せず、入力と期待出力も変更しません。</p>
+      <p>次のC++17の例では、0以上10億以下の整数が2つだけあることを検証します。末尾の空白と改行は許可します。</p>
+      <pre><code>{{ validationCode }}</code></pre>
+      <p>「開始位置」と「検証件数」で対象を指定し、「検証する」を押してください。ケースごとの結果が表示されます。時間超過（TLE）、メモリ超過（MLE）、出力超過（OLE）は「検証未完了」です。コードや実行条件を確認して再実行してください。</p>
+      <p>この例は整数の値と個数を検証します。行数や区切り文字まで厳密に指定する問題では、その形式もコードで検証してください。</p>
     </section>
     <section id="steps">
       <h2>画面で生成して確認する</h2>
       <ol>
-        <li>ログインして問題を開き、サイドバーの「ジェネレータ」を選びます。</li>
-        <li>「入力ジェネレータ」で言語とコード、開始ケース番号、生成件数を設定し、「生成する」を押します。</li>
+        <li>ログインして問題を開き、サイドバーの「生成と検証」を選びます。</li>
+        <li>「入力生成」で言語とコード、開始ケース番号、生成件数を設定し、「生成する」を押します。</li>
         <li>完了したら「テストケースを確認」で入力を確認します。</li>
-        <li>「ジェネレータ」に戻り、「出力ジェネレータ」で解答コードと対象範囲を設定します。</li>
+        <li>「生成と検証」に戻り、「出力生成」で解答コードと対象範囲を設定します。</li>
         <li>「生成する」を押し、期待出力を上書きする確認に同意します。完了後に入出力の組を確認してください。</li>
       </ol>
-      <p>入力用と出力用のコード、言語はそれぞれ下書きに保存されます。実行前には下書きを保存し、生成結果も通常のテストケースと同じく自動保存されます。採点への反映には「問題管理」から公開するか、公開内容を更新してください。</p>
+      <p>入力生成・出力生成・入力検証のコードと言語はそれぞれ下書きに保存されます。実行前には下書きを保存し、生成結果も通常のテストケースと同じく自動保存されます。採点への反映には「問題管理」から公開するか、公開内容を更新してください。</p>
     </section>
     <section id="limits">
       <h2>上限と失敗時の動作</h2>
@@ -58,7 +67,7 @@ const outputCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n  
     </section>
     <section id="check">
       <h2>生成した答えも確認する</h2>
-      <p>出力ジェネレータが正常終了しても、その答えが正しいとは限りません。解答コードの誤りが、そのまま期待出力になるためです。手計算できる小さなケースや、別の方法で求めた答えと照合してください。</p>
+      <p>出力生成が正常終了しても、その答えが正しいとは限りません。解答コードの誤りが、そのまま期待出力になるためです。手計算できる小さなケースや、別の方法で求めた答えと照合してください。</p>
       <p>入力が問題の制約を満たすかも確認します。この例は連続する2つの整数を作るだけなので、最小値や最大値を含むケースは問題に合わせて追加しましょう。</p>
     </section>
     <NuxtLink class="return-link" to="/problems/new">問題作成画面へ →</NuxtLink>

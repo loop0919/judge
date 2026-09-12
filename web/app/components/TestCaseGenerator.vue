@@ -7,14 +7,19 @@ const config = defineModel<Generators>('config', { required: true })
 const busy = defineModel<boolean>('busy', { required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string, save: () => Promise<boolean> }>()
 const emit = defineEmits<{ 'show-cases': [] }>()
-const mode = ref<'input' | 'output'>('input')
+const mode = ref<'input' | 'output' | 'validation'>('input')
 const start = ref(1)
 const count = ref(1)
 const message = ref('')
 const failure = ref('')
+const validationResults = ref<{ name: string, verdict: string }[]>([])
+const modeLabel = computed(() => ({ input: '入力生成', output: '出力生成', validation: '入力検証' })[mode.value])
 const { data: catalog } = useFetch('/api/runtimes')
 const available = computed(() => catalog.value?.items ?? [])
 const program = computed(() => config.value[mode.value])
+watch([mode, start, count, () => JSON.stringify(program.value), () => JSON.stringify(persistedDraft({ testCases: cases.value }))], () => {
+  if (validationResults.value.length) { validationResults.value = []; message.value = '' }
+}, { flush: 'sync' })
 let disposed = false
 onBeforeUnmount(() => { disposed = true })
 watch(mode, () => { start.value = 1; count.value = 1; failure.value = ''; message.value = '' })
@@ -23,6 +28,7 @@ async function generate() {
   if (busy.value || props.disabled) return
   failure.value = ''
   message.value = ''
+  validationResults.value = []
   const first = Number(start.value), amount = Number(count.value)
   if (!Number.isInteger(first) || !Number.isInteger(amount) || amount < 1 || amount > 100 || first < -2147483648 || first + amount - 1 > 2147483647) {
     failure.value = '開始番号は32ビット整数、件数は1〜100の整数で指定してください。'
@@ -52,13 +58,22 @@ async function generate() {
     })
     const deadline = Date.now() + 60 * 60 * 1000
     while (!disposed && result.status !== 'DONE') {
-      message.value = result.status === 'QUEUED' ? '実行待ちです…' : `生成中… ${result.progress?.completed ?? 0} / ${amount}件`
+      message.value = result.status === 'QUEUED' ? '実行待ちです…' : `${mode.value === 'validation' ? '検証' : '生成'}中… ${result.progress?.completed ?? 0} / ${amount}件`
       if (Date.now() > deadline) throw new Error('結果の確認がタイムアウトしました。')
       await new Promise(resolve => setTimeout(resolve, 1500))
       if (disposed) return
       result = await $fetch<Submission>(`/api/my/submissions/${result.id}`)
     }
     if (disposed) return
+    if (mode.value === 'validation') {
+      if (fingerprint() !== snapshot) throw new Error('実行中にテストケースが変更されました。再実行してください。')
+      if (!result.result || ['CE', 'JE'].includes(result.result.verdict)) throw new Error(`検証を完了できませんでした（${result.result?.verdict ?? 'JE'}）。${result.result?.compileLog ?? ''}`)
+      const results = result.result.cases
+      if (results?.length !== amount) throw new Error('検証結果が不完全です。')
+      validationResults.value = results.map((item, index) => ({ name: cases.value[first - 1 + index]?.name || `ケース ${first + index}`, verdict: item.verdict }))
+      message.value = `${amount}件中${results.filter(item => item.verdict === 'AC').length}件が合格しました。`
+      return
+    }
     if (result.result?.verdict !== 'AC') throw new Error(`生成に失敗しました（${result.result?.verdict ?? 'JE'}）。${result.result?.compileLog ?? ''}`)
     const outputs = result.result.cases
     if (outputs?.length !== amount || outputs.some(item => item.outputFile ? item.output !== undefined : typeof item.output !== 'string')) throw new Error('生成結果が不完全です。')
@@ -96,7 +111,7 @@ async function generate() {
     message.value = `${amount}件の${mode.value === 'input' ? '入力を追加' : '出力を更新'}しました。`
   } catch (error) {
     message.value = ''
-    failure.value = error instanceof Error && !('statusCode' in error) ? error.message : '生成を実行できませんでした。ログイン状態と実行環境を確認してください。'
+    failure.value = error instanceof Error && !('statusCode' in error) ? error.message : '実行できませんでした。ログイン状態と実行環境を確認してください。'
   } finally { busy.value = false }
 }
 </script>
@@ -104,28 +119,35 @@ async function generate() {
 <template>
   <section class="generator" aria-labelledby="generator-title">
     <header class="generator-heading">
-      <div><h1 id="generator-title">ジェネレータ</h1><p>コードからテストケースの入力と期待出力を作成します。</p></div>
-      <NuxtLink to="/blog/generator-guide" target="_blank" rel="noopener noreferrer">入出力ジェネレータの使い方 ↗</NuxtLink>
+      <div><h1 id="generator-title">生成と検証</h1><p>コードでテストケースの入出力を生成し、入力が制約を満たすか検証します。</p></div>
+      <NuxtLink to="/blog/generator-guide" target="_blank" rel="noopener noreferrer">入出力生成と入力検証の使い方 ↗</NuxtLink>
     </header>
     <div class="generator-panel">
       <div class="generator-options">
-        <label>種類<select v-model="mode" :disabled="disabled || busy"><option value="input">入力ジェネレータ</option><option value="output">出力ジェネレータ</option></select></label>
+        <label>種類<select v-model="mode" :disabled="disabled || busy"><option value="input">入力生成</option><option value="output">出力生成</option><option value="validation">入力検証</option></select></label>
         <label>言語<select v-model="program.runtime" :disabled="disabled || busy"><option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
         <label>{{ mode === 'input' ? '開始ケース番号' : '開始位置（一覧の1件目から）' }}<input v-model="start" type="number" step="1" :disabled="disabled || busy"></label>
-        <label>生成件数<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
+        <label>{{ mode === 'validation' ? '検証件数' : '生成件数' }}<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
       </div>
       <p v-if="mode === 'input'">ケース番号を標準入力で受け取り、標準出力から新規ケースの入力を作成します。</p>
-      <p v-else>指定した既存ケースの入力を読み、標準出力で期待出力を置き換えます。</p>
+      <p v-else-if="mode === 'output'">指定した既存ケースの入力を読み、標準出力で期待出力を置き換えます。</p>
+      <p v-else>既存ケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
       <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
-      <SourceCodeEditor v-model="program.source" :label="mode === 'input' ? '入力ジェネレータのコード' : '出力ジェネレータのコード'" :disabled="disabled || busy" :key="mode" />
+      <SourceCodeEditor v-model="program.source" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />
       <p v-if="failure" class="editor-error" role="alert">{{ failure }}</p>
-      <div class="generator-actions"><button type="button" class="editor-button primary" :disabled="disabled || busy || !available.length" @click="generate">{{ busy ? '生成中…' : '生成する' }}</button><button type="button" class="editor-button" @click="emit('show-cases')">テストケースを確認</button></div>
+      <div class="generator-actions"><button type="button" class="editor-button primary" :disabled="disabled || busy || !available.length" @click="generate">{{ mode === 'validation' ? (busy ? '検証中…' : '検証する') : (busy ? '生成中…' : '生成する') }}</button><button type="button" class="editor-button" @click="emit('show-cases')">テストケースを確認</button></div>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
+    <table v-if="validationResults.length" class="validation-results" aria-label="入力検証の結果">
+      <thead><tr><th>テストケース</th><th>検証結果</th></tr></thead>
+      <tbody><tr v-for="(item, index) in validationResults" :key="index"><td>{{ item.name }}</td><td>{{ item.verdict === 'AC' ? '合格' : item.verdict === 'RE' ? '不合格（終了コード・異常終了）' : `検証未完了（${item.verdict}）` }}</td></tr></tbody>
+    </table>
   </section>
 </template>
 
 <style scoped>
+.validation-results { width: 100%; max-width: 1000px; border-collapse: collapse; font-size: .8125rem; overflow-wrap: anywhere; table-layout: fixed; }
+.validation-results th, .validation-results td { text-align: left; padding: 10px; border-bottom: 1px solid var(--color-line); }
 .generator { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; padding: 24px; }
 .generator-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--color-line); }
 .generator-heading h1 { margin: 0; font-size: 1.25rem; }

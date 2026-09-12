@@ -105,7 +105,7 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 			authError(w, 503, "database_unavailable")
 			return
 		}
-		if (g.Mode != "input" && g.Mode != "output") || g.Count < 1 || g.Count > 100 || g.Start < -2147483648 || g.Start > 2147483647-int64(g.Count-1) {
+		if (g.Mode != "input" && g.Mode != "output" && g.Mode != "validation") || g.Count < 1 || g.Count > 100 || g.Start < -2147483648 || g.Start > 2147483647-int64(g.Count-1) {
 			authError(w, 400, "invalid_submission")
 			return
 		}
@@ -114,7 +114,7 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 			problemError(w, getErr)
 			return
 		}
-		job := submissions.Job{Generate: true, GenerationPrefix: testfiles.GenerationPrefix(owner, input.ProblemID), Image: p.JudgeImage, TimeLimitMS: 5000, MemoryLimitMB: 512}
+		job := submissions.Job{Generate: g.Mode != "validation", Validate: g.Mode == "validation", GenerationPrefix: testfiles.GenerationPrefix(owner, input.ProblemID), Image: p.JudgeImage, TimeLimitMS: 5000, MemoryLimitMB: 512}
 		if g.Mode == "input" {
 			if len(problem.Draft.TestCases)+g.Count > 100 {
 				authError(w, 400, "invalid_submission")

@@ -23,6 +23,7 @@ type Job struct {
 	GenerationPrefix    string                                                    `json:"generationPrefix,omitempty"`
 	SaveOutput          func(context.Context, []byte) (*problems.TestFile, error) `json:"-"`
 	LoadFile            func(context.Context, *problems.TestFile) (string, error) `json:"-"`
+	Validate            bool                                                      `json:"validate,omitempty"`
 	Generate            bool                                                      `json:"generate,omitempty"`
 	Image               string                                                    `json:"image"`
 	TimeLimitMS         int                                                       `json:"timeLimitMs"`
@@ -112,7 +113,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
 }
 
 func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 AND NOT COALESCE((job->>'generate')::boolean,false) ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
+	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 AND NOT COALESCE((job->>'generate')::boolean,false) AND NOT COALESCE((job->>'validate')::boolean,false) ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
 	if err != nil {
 		return nil, err
 	}

@@ -38,7 +38,7 @@ def pointer(body):
 def validate_job(job, runtime):
     if job.get('runtimeDigest') != runtime or job.get('runtime') not in RUNTIMES:
         raise ValueError('runtime mismatch')
-    if type(job.get('generate', False)) is not bool:
+    if type(job.get('generate', False)) is not bool or type(job.get('validate', False)) is not bool or (job.get('generate') and job.get('validate')):
         raise ValueError('generation mode')
     base = job.get('generationBaseBytes', 0)
     if type(base) is not int or not 0 <= base <= TEST_SET_LIMIT:
@@ -86,7 +86,7 @@ def number(value, maximum):
     return value
 
 
-def case_result(reply, index, case, generate=False):
+def case_result(reply, index, case, generate=False, validate=False):
     if reply.get('index') != index or reply.get('status') not in ('', 'RE', 'SG', 'TO'):
         raise ValueError('invalid case response')
     for key in ('oom', 'overflow'):
@@ -109,7 +109,7 @@ def case_result(reply, index, case, generate=False):
         verdict = 'TLE'
     elif reply['status'] or reply['exitCode'] or reply['signal']:
         verdict = 'RE'
-    elif not generate and re.findall(rb'[^ \t\n\r\v\f]+', output) != re.findall(rb'[^ \t\n\r\v\f]+', case['output'].encode()):
+    elif not generate and not validate and re.findall(rb'[^ \t\n\r\v\f]+', output) != re.findall(rb'[^ \t\n\r\v\f]+', case['output'].encode()):
         verdict = 'WA'
     else:
         verdict = 'AC'
@@ -180,7 +180,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
             reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
                                          timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
             reply['index'] = index
-            item = case_result(reply, index, case, job.get('generate', False))
+            item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False))
             if 'output' in item:
                 generated_bytes += len(item['output'].encode())
                 if generated_bytes > TEST_SET_LIMIT:
