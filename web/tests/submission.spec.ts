@@ -3,6 +3,44 @@ import { expect, test } from '@playwright/test'
 const problemId = '11111111-1111-4111-8111-111111111111'
 const submissionId = '22222222-2222-4222-8222-222222222222'
 
+test('language selection survives reloads and returning to the problem', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.goto(`/problems/${problemId}`)
+  const language = page.getByRole('combobox', { name: '言語' })
+  await expect(language).toHaveValue('cpp17')
+  await language.selectOption('python314')
+  await page.reload()
+  await expect(language).toHaveValue('python314')
+  await page.goto('/problems')
+  await page.getByRole('link', { name: 'A + B alice', exact: true }).click()
+  await expect(language).toHaveValue('python314')
+  await language.selectOption('cpp17')
+  await page.reload()
+  await expect(language).toHaveValue('cpp17')
+})
+
+test('an unavailable saved language falls back to the default', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.addInitScript(() => localStorage.setItem('openoj.submission-runtime', 'removed-runtime'))
+  await page.goto(`/problems/${problemId}`)
+  await expect(page.getByRole('combobox', { name: '言語' })).toHaveValue('cpp17')
+})
+
+test('language selection works when browser storage is disabled', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError') } })
+  })
+  const errors: Error[] = []
+  page.on('pageerror', error => errors.push(error))
+  await page.goto(`/problems/${problemId}`)
+  const language = page.getByRole('combobox', { name: '言語' })
+  await expect(language).toHaveValue('cpp17')
+  await language.selectOption('python314')
+  await expect(language).toHaveValue('python314')
+  expect(errors).toEqual([])
+})
+
 test('unauthenticated visitors see a login card instead of the submission form', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: null } }))
   await page.goto(`/problems/${problemId}`)

@@ -7,6 +7,17 @@ const source = ref('')
 const runtime = ref('cpp17')
 const { data: catalog, error: catalogError } = await useFetch('/api/runtimes')
 const available = computed(() => catalog.value?.items ?? [])
+const runtimeStorageKey = 'openoj.submission-runtime'
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(runtimeStorageKey)
+    if (saved && available.value.some(item => item.id === saved)) runtime.value = saved
+  } catch { /* Storage may be disabled by the browser. */ }
+})
+function rememberRuntime() {
+  try { localStorage.setItem(runtimeStorageKey, runtime.value) }
+  catch { /* Keep language selection usable without storage. */ }
+}
 watch(available, items => {
   if (!items.some(item => item.id === runtime.value)) runtime.value = items[0]?.id ?? ''
 }, { immediate: true })
@@ -46,7 +57,7 @@ async function submit() {
     <p class="muted">ソースコードは64 KiBまで</p>
     <form @submit.prevent="submit">
       <label for="submission-language">言語</label>
-      <select id="submission-language" v-model="runtime" :disabled="sending">
+      <select id="submission-language" v-model="runtime" :disabled="sending" @change="rememberRuntime">
         <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
       </select>
       <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
