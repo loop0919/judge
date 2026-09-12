@@ -3,20 +3,24 @@
 ## 初期対応する提出形式
 
 初期リリースでは、次の提出形式を提供する方針とする。
-表の「採用済み」は設計上の決定を示し、本番基盤と各言語の実装完了を示さない。
+実機smokeの確認日は2026年9月12日である。
+実装と公開は別に管理し、現在の受付対象はAPIの`GET /runtimes`で確認する。
 
 | 提出形式 | コンパイル | 実行基盤 | 状態 |
 | --- | --- | --- | --- |
-| C | あり | Lightsail / isolate | 採用済み |
-| C++17 | あり | Lightsail / isolate | 実装済み。Lightsail実機検証は有効化前に実施 |
-| Rust | あり | Lightsail / isolate | 採用済み |
-| Java | あり | Lightsail / isolate | 採用済み |
-| Python | 構文検査のみ | Lightsail / isolate | 採用済み |
+| C23（GCC、Clang） | あり | Lightsail / isolate | 実装済み、実機smoke合格 |
+| C++17、C++23（GCC、Clang） | あり | Lightsail / isolate | 実装済み、実機smoke合格。C++17はGCCのみ |
+| Rust | あり | Lightsail / isolate | 実装済み、実機smoke合格 |
+| Java | あり | Lightsail / isolate | 実装済み、実機smoke合格。保守されている版を決めるまで公開保留 |
+| CPython、PyPy | 構文検査 | Lightsail / isolate | 実装済み、実機smoke合格 |
+| Codon | ネイティブコンパイル | Lightsail / isolate | 実装済み、実機smoke合格 |
 | `txt` | 未決定 | 未決定 | 採用済み（判定方式は未決定） |
 
 C++17はUbuntu 24.04のg++を`-std=c++17 -O2 -pipe`で実行する。
 インストール時に実際のパッケージ一覧、カーネル、isolate、制御コードを指紋化し、採点時に一致を確認する。
-他言語の版と制限値は未決定である。
+追加言語の構成は[ADR 0007](../adr/0007-limit-judge-runtime-libraries.md)に従う。
+実行コマンドは`judge/runtimes.py`、配布元とSHA-256は`judge/runtime-sources.lock.json`に固定する。
+構築済みであっても、実機のsmoke testに合格して公開リストへ追加するまで提出を受け付けない。
 
 ## ランタイム識別子
 
@@ -36,13 +40,13 @@ C++17はUbuntu 24.04のg++を`-std=c++17 -O2 -pipe`で実行する。
 - 実行時間係数。
 - メモリ制御方法。
 
-現在の実装では`cpp17-isolate`とruntime digestの組を実行条件の識別に使う。
+現在の実装では、`cpp17-isolate`などのランタイム名とruntime digestの組を実行条件の識別に使う。
 変更時はdigestを更新し、旧digestの提出を異なる条件で採点しない。
 旧環境を保存して再採点する仕組みは未実装である。
 
 ## 共通の計算資源
 
-現在のC++17実装は専用ホスト上のisolateで実行する。
+各言語を専用ホスト上のisolateで実行する。
 
 | 項目 | 方針 |
 | --- | --- |
@@ -55,7 +59,12 @@ C++17はUbuntu 24.04のg++を`-std=c++17 -O2 -pipe`で実行する。
 
 ユーザープログラムの上限は、そのプログラムが生成した子孫プロセスを含めて適用する。
 コンパイル処理の上限は、この512 MiBとは別にランタイムごとに定める。
-C++17のコンパイル用上限は1 GiB、CPU 30秒、経過40秒とする。
+コンパイル用上限は初期値として全言語で1 GiB、CPU 30秒、経過40秒とする。
+Javaはヒープ256 MiB、メタスペース96 MiB、コードキャッシュ32 MiB、直接メモリ32 MiBに制限し、Serial GCを使う。
+NumPyとSciPyの内部スレッドは1本に制限する。
+Javaのヒープ上限による例外終了など、cgroup OOMを伴わない停止はREとして扱う。
+Javaは`-XX:-UsePerfData`を指定し、隔離環境で作成できない性能計測用ファイルの警告が標準出力へ混ざることを防ぐ。
+Rustは`/etc/alternatives`を参照せず、リンカーを`/usr/bin/gcc`へ固定する。
 計測値の単位と欠測、判定の根拠は[実行モデル](execution-model.md)に従う。
 
 ## 判定結果
@@ -94,3 +103,5 @@ C++17の初期値は[実行モデル](execution-model.md)に記録した。
 ## 関連する決定
 
 - [ADR 0006](../adr/0006-use-lightsail-and-isolate.md)
+- [ADR 0007](../adr/0007-limit-judge-runtime-libraries.md)
+- [ランタイムの再構築と公開](runtime-rollout.md)

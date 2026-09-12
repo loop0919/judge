@@ -16,3 +16,4 @@ Architecture Decision Record（ADR）は、採用した設計だけでなく、�
 | [0004](0004-use-postgresql-as-primary-database.md) | Accepted | 主データベースにPostgreSQLを採用する |
 | [0005](0005-use-firecracker-and-isolate-on-ec2.md) | Superseded by 0006 | EC2上のFirecrackerとisolateで採点する |
 | [0006](0006-use-lightsail-and-isolate.md) | Accepted | Lightsailの2 GBインスタンスでisolateを使う |
+| [0007](0007-limit-judge-runtime-libraries.md) | Accepted | 競技プログラミング向けのランタイム構成を限定する |
