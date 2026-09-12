@@ -56,7 +56,8 @@ def regular_read(path, limit):
         return file.read(limit + 1)
 
 
-def execute(request, compile_phase=False):
+def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
+    artifact = ARTIFACT if artifact is None else artifact
     runtime = RUNTIMES[request.get('runtime', 'cpp17-isolate')]
     if compile_phase:
         source = request.get('source')
@@ -80,13 +81,23 @@ def execute(request, compile_phase=False):
             (box / runtime['source']).write_text(source)
             command = runtime['compile']
         else:
-            shutil.copyfile(ARTIFACT, box / 'main')
+            shutil.copyfile(artifact, box / 'main')
             (box / 'main').chmod(0o555)
             data = base64.b64decode(request.get('input', ''), validate=True)
             if len(data) > 16 * 1024 * 1024:
                 raise ValueError('input limit')
             (box / 'input').write_bytes(data)
             command = runtime['run']
+            if checker_files is not None:
+                # Only the checker box receives these files; argv is operator-owned.
+                for name in ('test-input', 'expected-output', 'submission-source'):
+                    (box / name).write_bytes(checker_files[name])
+                (box / 'score').write_bytes(b'')
+                (box / 'score').chmod(0o666)
+                command = [*command, '/box/test-input', '/box/expected-output',
+                           '/box/submission-source', '/box/score']
+                if runtime['artifact'] == 'java':
+                    command.insert(1, '-ea')
         # Metadata and saved artifact are outside /box and never mapped into it.
         args = [f'--meta={META}', f'--time={cpu}', f'--wall-time={wall}',
                 f'--cg-mem={memory * 1024}', '--processes=64', '--open-files=64',
@@ -107,14 +118,16 @@ def execute(request, compile_phase=False):
         if compile_phase:
             success = not (result.returncode or overflow or metrics['oom'] or metrics['status'])
             if success:
-                artifact = collect_artifact(box, runtime)
-                if not artifact or len(artifact) > 32 * 1024 * 1024:
+                binary = collect_artifact(box, runtime)
+                if not binary or len(binary) > 32 * 1024 * 1024:
                     success = False
                 else:
-                    ARTIFACT.write_bytes(artifact)
-                    ARTIFACT.chmod(0o500)
+                    artifact.write_bytes(binary)
+                    artifact.chmod(0o500)
             return {'compiled': success, 'compileLog': stderr[:65536].decode(errors='replace')}
         metrics.update(output=base64.b64encode(stdout[:OUTPUT_LIMIT]).decode(), overflow=overflow)
+        if checker_files is not None:
+            metrics['checkerLog'] = stderr[:65536].decode(errors='replace')
         return metrics
     finally:
         # isolate cleanup destroys the box and its cgroup, including descendants.

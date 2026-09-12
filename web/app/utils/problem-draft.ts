@@ -63,6 +63,7 @@ export type Generators = z.infer<typeof generatorsSchema>
 export const emptyGenerators = (): Generators => ({ input: { runtime: 'cpp17', source: '' }, output: { runtime: 'cpp17', source: '' }, validation: { runtime: 'cpp17', source: '' } })
 
 export const problemDraftSchema = z.object({
+  checker: generatorSchema.nullable().default(null),
   generators: generatorsSchema.default(emptyGenerators),
   title: z.string().max(120),
   markdown: z.string().max(100_000),
@@ -80,6 +81,7 @@ export function draftErrors(draft: ProblemDraft) {
   const time = Number(draft.timeLimitMs)
   const memory = Number(draft.memoryLimitMb)
   return {
+    checker: draft.checker && (!draft.checker.source.trim() || new TextEncoder().encode(draft.checker.source).length > 65536 || draft.checker.source.includes('\0')) ? '検証コードを1〜65,536バイトで入力してください。' : '',
     title: draft.title.trim() ? '' : '問題のタイトルを入力してください。',
     markdown: draft.markdown.trim() ? '' : '問題の本文を入力してください。',
     timeLimitMs: Number.isInteger(time) && time >= 100 && time <= 5000 && time % 100 === 0 ? '' : '100〜5,000 ms の範囲で100 ms刻みの値を選んでください。',

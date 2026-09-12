@@ -34,6 +34,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
       </template>
       <template v-else>
         <ProblemMarkdown :source="problem.markdown" />
+        <p v-if="problem.specialJudge" class="muted">スペシャルジャッジ問題：提出の出力を検証コードで判定します。</p>
         <SubmissionForm :problem-id="problem.id" />
       </template>
     </article>

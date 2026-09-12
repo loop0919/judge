@@ -163,3 +163,55 @@ func TestGeneratorDocker(t *testing.T) {
 		t.Fatalf("file limit: %+v", result)
 	}
 }
+
+func TestSpecialJudgeDocker(t *testing.T) {
+	image := os.Getenv("TEST_JUDGE_CPP_IMAGE")
+	if image == "" {
+		t.Skip("TEST_JUDGE_CPP_IMAGE required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	raw, err := exec.CommandContext(ctx, "docker", "image", "inspect", "--format={{.Id}}", image).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checker := `#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <string>
+int main(int argc,char** argv){
+ assert(argc==5); int n,x; std::ifstream(argv[1])>>n;
+ std::string expected; std::ifstream(argv[2])>>expected; assert(expected=="secret");
+ std::string source; std::getline(std::ifstream(argv[3]) >> std::ws,source); assert(!source.empty());
+ assert(std::cin>>x); assert(x>=0 && x<=n); std::string extra; assert(!(std::cin>>extra));
+ assert(!std::ifstream("/tmp/marker").good()); std::ofstream("/tmp/marker")<<1;
+ std::ofstream score(argv[4]); assert(score.good()); score<<123;
+ std::cerr<<"private diagnostic";
+}`
+	for _, tc := range []struct{ name, source, checker, verdict string }{
+		{"alternative answer", "#include <cstdio>\nint main(){puts(\"7\");}", checker, "AC"},
+		{"assert", "#include <cstdio>\nint main(){puts(\"99\");}", checker, "WA"},
+		{"trailing output", "#include <cstdio>\nint main(){puts(\"7 8\");}", checker, "WA"},
+		{"submission RE", "int main(){return 1;}", "int main(){return 0;}", "RE"},
+		{"checker CE", "int main(){}", "invalid syntax", "JE"},
+		{"checker TLE", "int main(){}", "int main(){for(;;){}}", "JE"},
+		{"exit 100", "int main(){}", "int main(){return 100;}", "WA"},
+		{"private checker files", `#include <unistd.h>
+int main(){return access("/submission/expected-output",F_OK)==-1 && access("/submission/test-input",F_OK)==-1 ? 0:1;}`, "int main(){return 0;}", "AC"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			job := Job{Image: strings.TrimSpace(string(raw)), TimeLimitMS: 1000, MemoryLimitMB: 512,
+				Checker: &problems.Generator{Runtime: "cpp17", Source: tc.checker}, Cases: []Case{{Input: "10", Output: "secret"}, {Input: "10", Output: "secret"}}}
+			r := Judge(ctx, tc.source, job)
+			if r.Verdict != tc.verdict {
+				t.Fatalf("got %+v want %s", r, tc.verdict)
+			}
+			if tc.verdict == "AC" && r.Passed != 2 {
+				t.Fatal(r)
+			}
+			if tc.verdict == "JE" && (r.Passed != 0 || len(r.Cases) != 0) {
+				t.Fatal(r)
+			}
+		})
+	}
+}

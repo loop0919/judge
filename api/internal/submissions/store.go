@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"judge/api/internal/problems"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,7 @@ type Case = problems.TestCase
 const GenerationOutputLimit = 512 << 20
 
 type Job struct {
+	Checker             *problems.Generator                                       `json:"checker,omitempty"`
 	GenerationBaseBytes int64                                                     `json:"generationBaseBytes,omitempty"`
 	GenerationPrefix    string                                                    `json:"generationPrefix,omitempty"`
 	SaveOutput          func(context.Context, []byte) (*problems.TestFile, error) `json:"-"`
@@ -42,6 +44,7 @@ type CaseResult struct {
 }
 
 type Result struct {
+	CheckerLog string       `json:"checkerLog,omitempty"`
 	Cases      []CaseResult `json:"cases,omitempty"`
 	Verdict    string       `json:"verdict"`
 	Passed     int          `json:"passed"`
@@ -90,11 +93,14 @@ func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image 
 	return s.CreateRuntime(ctx, owner, id, problemID, source, image, "cpp17-local")
 }
 
-func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source, image, runtime string) (Submission, error) {
+func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source, image, runtime string, checkerRuntimes ...string) (Submission, error) {
+	if len(checkerRuntimes) == 0 {
+		checkerRuntimes = []string{"cpp17"}
+	}
 	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
   SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,
-  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases',
+  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases','checker',selected_draft->'checker',
   'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
   FROM (
@@ -105,7 +111,11 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
   WHERE jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) > 0
   AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) <= 100
   AND ($6 = 'cpp17-local' OR (selected_draft->>'memoryLimitMb')::int = 512)
-  RETURNING `+columns, id, owner, problemID, source, image, runtime))
+  AND (COALESCE(selected_draft->'checker','null'::jsonb) = 'null'::jsonb OR
+    (selected_draft->'checker'->>'runtime'=ANY($7::text[]) AND
+     length(btrim(selected_draft->'checker'->>'source', E' \t\r\n'))>0 AND
+     ($6 <> 'cpp17-local' OR selected_draft->'checker'->>'runtime'='cpp17')))
+  RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady
 	}
@@ -113,7 +123,9 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
 }
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
-	return scan(s.Pool.QueryRow(ctx, `SELECT `+columns+` FROM submissions WHERE id=$1 AND owner_id=$2`, id, owner))
+	// Checker diagnostics can contain private tests and checker source.
+	privateColumns := strings.Replace(columns, "result,", `CASE WHEN EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=submissions.problem_id AND p.owner_id=$2) THEN result ELSE result-'checkerLog' END,`, 1)
+	return scan(s.Pool.QueryRow(ctx, `SELECT `+privateColumns+` FROM submissions WHERE id=$1 AND owner_id=$2`, id, owner))
 }
 
 func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
@@ -124,6 +136,9 @@ func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Submission, error) {
 		item, err := scan(row)
 		item.Source = ""
+		if item.Result != nil {
+			item.Result.CheckerLog = ""
+		}
 		return item, err
 	})
 }

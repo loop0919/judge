@@ -98,7 +98,11 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 	}
 	var item submissions.Submission
 	if input.Generation == nil {
-		item, err = p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected)
+		var checkerRuntimes []string
+		for _, r := range p.availableRuntimes() {
+			checkerRuntimes = append(checkerRuntimes, r.ID)
+		}
+		item, err = p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected, checkerRuntimes...)
 	} else {
 		g := input.Generation
 		if p.Store == nil {

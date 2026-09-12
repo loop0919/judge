@@ -41,6 +41,8 @@ class SmokeReportTests(unittest.TestCase):
             first = next(baseline, None)
             if first:
                 return {'verdict': first}
+            if job.get('checker'):
+                return {'verdict': 'WA' if 'assert(0)' in job['checker']['source'] or job['checker']['runtime'] != 'c23-gcc' else 'AC'}
             if job['runtime'] == 'cpp17-isolate':
                 return {'verdict': 'WA'}
             verdict = 'CE' if job['source'] == 'not c' else 'TLE' if 'for(;;)' in job['source'] else 'WA' if job['cases'][0]['output'] == '4' else 'AC'

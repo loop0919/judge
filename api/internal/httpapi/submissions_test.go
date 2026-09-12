@@ -436,4 +436,84 @@ func TestSubmissionsPostgres(t *testing.T) {
 	}
 	request("POST", "/my/submissions", "alice", privateBody, 409)
 
+	// Checker source and language are pinned with the selected problem version.
+	const checkerID = "77777777-7777-4777-8777-777777777777"
+	checkerDraft := problems.Draft{Title: "Checker", Markdown: "Construct", TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: &problems.Generator{Runtime: "cpp17", Source: "checker-original"}, TestCases: []problems.TestCase{{Input: "10", Output: ""}}}
+	cp, err := store.Save(ctx, "alice", checkerID, 0, checkerDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkerBody := strings.Replace(body, id, checkerID, 1)
+	var cs submissions.Submission
+	if err = json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", checkerBody, 202)), &cs); err != nil {
+		t.Fatal(err)
+	}
+	checkerDraft.Checker = &problems.Generator{Runtime: "python314", Source: "assert True"}
+	cp, err = store.Save(ctx, "alice", checkerID, cp.Version, checkerDraft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checkerRaw []byte
+	if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, cs.ID).Scan(&checkerRaw); err != nil {
+		t.Fatal(err)
+	}
+	var pinnedChecker submissions.Job
+	if json.Unmarshal(checkerRaw, &pinnedChecker) != nil || pinnedChecker.Checker == nil || pinnedChecker.Checker.Source != "checker-original" || pinnedChecker.Checker.Runtime != "cpp17" {
+		t.Fatalf("checker changed: %s", checkerRaw)
+	}
+	request("POST", "/my/submissions", "alice", checkerBody, 409) // Python is not published locally.
+	request("PUT", "/my/problems/"+checkerID+"/publication", "alice", fmt.Sprintf(`{"version":%d,"publish":true}`, cp.Version), 400)
+	h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", JudgeEnabledRuntimes: "cpp17,python314", Verifier: newCognitoVerifier(f.server.URL, "client")})
+	checkerBody = strings.Replace(checkerBody, "cpp17-local", "cpp17", 1)
+	request("POST", "/my/submissions", "alice", checkerBody, 202)
+	cp, err = store.Publish(ctx, "alice", checkerID, cp.Version, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkerDraft.Checker = nil
+	if _, err = store.Save(ctx, "alice", checkerID, cp.Version, checkerDraft); err != nil {
+		t.Fatal(err)
+	}
+	publicChecker := request("GET", "/problems/"+checkerID, "", "", 200)
+	if !strings.Contains(publicChecker, `"specialJudge":true`) || strings.Contains(publicChecker, "assert True") {
+		t.Fatal(publicChecker)
+	}
+	for _, submitter := range []string{"alice", "bob"} {
+		if err = json.Unmarshal([]byte(request("POST", "/my/submissions", submitter, checkerBody, 202)), &cs); err != nil {
+			t.Fatal(err)
+		}
+		if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, cs.ID).Scan(&checkerRaw); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(checkerRaw), "assert True") {
+			t.Fatal("published checker not pinned")
+		}
+		if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET status='DONE',result='{"verdict":"WA","passed":0,"total":1,"checkerLog":"private-checker-diagnostic"}' WHERE id=$1`, cs.ID); err != nil {
+			t.Fatal(err)
+		}
+		detail := request("GET", "/my/submissions/"+cs.ID, submitter, "", 200)
+		if strings.Contains(detail, "private-checker-diagnostic") != (submitter == "alice") {
+			t.Fatal("checker diagnostic authorization", detail)
+		}
+		if strings.Contains(request("GET", "/my/submissions", submitter, "", 200), "private-checker-diagnostic") {
+			t.Fatal("checker diagnostic leaked through list")
+		}
+	}
+
+}
+
+func TestCheckerDraftValidation(t *testing.T) {
+	for _, tc := range []struct {
+		runtime, source string
+		valid           bool
+	}{
+		{"cpp17", "", true}, {"python314", "assert True", true}, {"java24", "class Main {}", true},
+		{"sh", "exit 0", false}, {"cpp17-isolate", "int main(){}", false},
+		{"cpp17", "\x00", false}, {"cpp17", strings.Repeat("あ", 22000), false},
+	} {
+		draft := problems.Draft{TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: &problems.Generator{Runtime: tc.runtime, Source: tc.source}}
+		if validDraft(draft) != tc.valid {
+			t.Fatalf("runtime=%s valid=%v", tc.runtime, tc.valid)
+		}
+	}
 }

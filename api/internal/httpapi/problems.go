@@ -163,6 +163,16 @@ func (p PrivateProblems) publishProblem(w http.ResponseWriter, r *http.Request, 
 		authError(w, 400, "incomplete_problem")
 		return
 	}
+	if *in.Publish && current.Draft.Checker != nil {
+		available := false
+		for _, runtime := range p.availableRuntimes() {
+			available = available || runtime.ID == current.Draft.Checker.Runtime
+		}
+		if !available || strings.TrimSpace(current.Draft.Checker.Source) == "" {
+			authError(w, 400, "incomplete_problem")
+			return
+		}
+	}
 	result, err := store.Publish(r.Context(), owner, id, in.Version, *in.Publish)
 	if err != nil {
 		problemError(w, err)

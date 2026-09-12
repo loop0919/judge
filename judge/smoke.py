@@ -48,7 +48,56 @@ with slot():
                 break
             print(name, fixture['name'], result['verdict'], 'OK', flush=True)
         else:
+            # Compile and execute this runtime as a checker, independently of C++ submissions.
+            fixture = next(f for f in fixtures[name] if f['verdict'] == 'AC')
+            literal = json.dumps(fixture.get('input', ''))
+            source = '#include <cstdio>\nint main(){fputs(' + literal + ',stdout);}'
+            checker = dict(runtime=name.removesuffix('-isolate'), source=fixture['source'])
+            job = dict(runtime='cpp17-isolate', runtimeDigest=runtime, source=source, checker=checker,
+                       timeLimitMs=1000, memoryLimitMb=512,
+                       cases=[dict(input='', output='different expected output')] * 2)
+            result = judge(job, runtime)
+            if result['verdict'] != 'AC':
+                print(name, 'checker FAILED', result, flush=True)
+                failed.append(name)
+                continue
+            assertion = ('#include <assert.h>\nint main(){assert(0);}' if name.startswith(('cpp', 'c23')) else
+                         'fn main(){assert!(false);}' if name == 'rust2024-isolate' else
+                         'public class Main { public static void main(String[] args){assert false;} }' if name == 'java24-isolate' else
+                         'assert False')
+            job['checker'] = dict(runtime=name.removesuffix('-isolate'), source=assertion)
+            result = judge(job, runtime)
+            if result['verdict'] != 'WA':
+                print(name, 'checker assertion FAILED', result, flush=True)
+                failed.append(name)
+                continue
+            if name == 'cpp17-isolate':
+                checker_source = r'''#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <unistd.h>
+int main(int argc,char** argv){
+ assert(argc==5); int n,x; std::ifstream(argv[1])>>n; assert(std::cin>>x); assert(x>=0 && x<=n);
+ assert(std::ifstream(argv[2]).peek()==EOF); assert(std::ifstream(argv[3]).peek()!=EOF);
+ std::ofstream score(argv[4]); assert(score.good()); score<<1;
+ assert(access("marker",F_OK)==-1); std::ofstream("marker")<<1;
+ assert(access("/run/judge/main",F_OK)==-1); assert(access("/root/.aws/credentials",F_OK)==-1);
+}'''
+                for want, code, output in [('AC', checker_source, '7'), ('WA', checker_source, '99'),
+                                           ('JE', 'invalid checker', '7'), ('JE', 'int main(){for(;;){}}', '7')]:
+                    job.update(source='#include <cstdio>\nint main(){puts("' + output + '");}',
+                               checker=dict(runtime='cpp17', source=code), cases=[dict(input='10', output='')] * 2)
+                    result = judge(job, runtime)
+                    if result['verdict'] != want:
+                        print(name, 'checker', want, 'FAILED', result, flush=True)
+                        failed.append(name)
+                        break
+                else:
+                    passed.append(name)
+                    print(name, 'checker OK', flush=True)
+                continue
             passed.append(name)
+            print(name, 'checker OK', flush=True)
     print(json.dumps({'runtimeDigest': runtime, 'passedRuntimes': passed, 'failedRuntimes': failed}), flush=True)
     if failed:
         raise SystemExit(1)

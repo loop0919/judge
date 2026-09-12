@@ -107,6 +107,9 @@ func container(ctx context.Context, image, dir, input string, memory int, deadli
 // Judge is a local Docker adapter. It never runs submitted code on the worker host.
 func Judge(ctx context.Context, source string, job Job) Result {
 	r := Result{Verdict: "JE", Total: len(job.Cases)}
+	if job.Checker != nil && (job.Checker.Runtime != "cpp17" || strings.TrimSpace(job.Checker.Source) == "" || len(job.Checker.Source) > 65536 || !utf8.ValidString(job.Checker.Source) || strings.ContainsRune(job.Checker.Source, 0) || job.Generate || job.Validate) {
+		return r
+	}
 	if len(job.Cases) == 0 || job.TimeLimitMS < 100 || job.TimeLimitMS > 5000 || job.TimeLimitMS%100 != 0 || len(job.Cases) > 100 || job.MemoryLimitMB < 64 || job.MemoryLimitMB > 1024 || !strings.HasPrefix(job.Image, "sha256:") {
 		return r
 	}
@@ -149,6 +152,28 @@ func Judge(ctx context.Context, source string, job Job) Result {
 	}
 	if os.Remove(filepath.Join(dir, "main.cpp")) != nil || os.WriteFile(filepath.Join(dir, "main"), compiled.output, 0555) != nil {
 		return r
+	}
+	checkerDir := ""
+	checkerError := func(log string) Result {
+		return Result{Verdict: "JE", Total: len(job.Cases), CheckerLog: checkerLog(r.CheckerLog, log)}
+	}
+	if job.Checker != nil {
+		checkerDir, err = os.MkdirTemp("", "openoj-checker-")
+		if err != nil {
+			return r
+		}
+		defer func() { _ = os.RemoveAll(checkerDir) }()
+		if os.Chmod(checkerDir, 0755) != nil || os.WriteFile(filepath.Join(checkerDir, "main.cpp"), []byte(job.Checker.Source), 0644) != nil {
+			return r
+		}
+		checked := container(ctx, job.Image, checkerDir, "", 1536, 30*time.Second, 32<<20,
+			"sh", "-c", "g++ -std=c++17 -O2 -pipe /submission/main.cpp -o /tmp/main && cat /tmp/main")
+		if checked.err != nil || checked.code != 0 || checked.timedOut || checked.oom || checked.overflow || len(checked.output) == 0 {
+			return checkerError("検証コードのコンパイル失敗\n" + string(checked.diagnostic))
+		}
+		if os.WriteFile(filepath.Join(checkerDir, "main"), checked.output, 0555) != nil || os.WriteFile(filepath.Join(checkerDir, "submission-source"), []byte(source), 0644) != nil {
+			return checkerError("検証コードの準備失敗")
+		}
 	}
 	r.Verdict = "AC"
 	generatedBytes := job.GenerationBaseBytes
@@ -202,9 +227,24 @@ func Judge(ctx context.Context, source string, job Job) Result {
 			verdict = "OLE"
 		case job.Generate && (!utf8.Valid(actual.output) || bytes.ContainsRune(actual.output, 0)):
 			verdict = "RE"
-		case !job.Generate && !job.Validate && !equalTokens(actual.output, []byte(c.Output)):
+		case job.Checker == nil && !job.Generate && !job.Validate && !equalTokens(actual.output, []byte(c.Output)):
 			verdict = "WA"
-		default:
+		}
+		if job.Checker != nil && verdict == "AC" {
+			if os.WriteFile(filepath.Join(checkerDir, "test-input"), []byte(c.Input), 0644) != nil || os.WriteFile(filepath.Join(checkerDir, "expected-output"), []byte(c.Output), 0644) != nil {
+				return checkerError("検証データの準備失敗")
+			}
+			checked := container(ctx, job.Image, checkerDir, string(actual.output), 512, 15*time.Second, 16<<20,
+				"sh", "-c", "touch /tmp/score && exec timeout --signal=TERM --kill-after=0.1s 5s /submission/main /submission/test-input /submission/expected-output /submission/submission-source /tmp/score")
+			r.CheckerLog = checkerLog(r.CheckerLog, fmt.Sprintf("ケース%d: exit=%d\n%s\n", i+1, checked.code, checked.diagnostic))
+			if checked.err != nil || checked.timedOut || checked.oom || checked.overflow || ((checked.code == 124 || checked.code == 137) && checked.elapsed >= 5*time.Second) {
+				return checkerError("検証コードの実行失敗・制限超過")
+			}
+			if checked.code != 0 {
+				verdict = "WA"
+			}
+		}
+		if verdict == "AC" {
 			r.Passed++
 		}
 		if job.Generate && verdict == "AC" {
@@ -234,6 +274,14 @@ func Judge(ctx context.Context, source string, job Job) Result {
 		}
 	}
 	return r
+}
+
+func checkerLog(previous, message string) string {
+	log := strings.ToValidUTF8(previous+message, "�")
+	if len(log) > 16384 {
+		log = strings.ToValidUTF8(log[:16384], "")
+	}
+	return log
 }
 
 func equalTokens(a, b []byte) bool {

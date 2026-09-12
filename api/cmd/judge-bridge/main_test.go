@@ -70,6 +70,9 @@ func TestResultValidation(t *testing.T) {
 	if !validResult(submissions.Result{Verdict: "JE"}) {
 		t.Fatal("infrastructure failure may have no measurements")
 	}
+	if !validResult(submissions.Result{Verdict: "JE", CheckerLog: strings.Repeat("a", 16384)}) || validResult(submissions.Result{Verdict: "JE", CheckerLog: strings.Repeat("a", 16385)}) {
+		t.Fatal("checker diagnostic budget")
+	}
 }
 
 func TestOutboxAndResultIdempotency(t *testing.T) {
@@ -119,7 +122,7 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(submissions.Job{Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}})
+	raw, _ := json.Marshal(submissions.Job{Checker: &problems.Generator{Runtime: "python314", Source: "checker-secret"}, Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}})
 	_, err = db.Exec(ctx, `INSERT INTO submissions(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,judge_attempt)
  VALUES ($1,'alice',$1,1,'test',$4,'source-secret',$2,$3)`, id, raw, attempt, runtime)
 	if err != nil {
@@ -166,6 +169,9 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	}
 	if !bytes.Contains(jobs[0], []byte(`"runtime":"`+runtime+`"`)) {
 		t.Fatal("submitted runtime was not preserved in dispatch")
+	}
+	if !bytes.Contains(jobs[0], []byte(`"checker":{"runtime":"python314","source":"checker-secret"}`)) {
+		t.Fatal("checker was not preserved in dispatch")
 	}
 	if _, _, err = (&submissions.Store{Pool: db}).Claim(ctx); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("local worker claimed a cloud job", err)

@@ -40,6 +40,15 @@ def validate_job(job, runtime):
         raise ValueError('runtime mismatch')
     if type(job.get('generate', False)) is not bool or type(job.get('validate', False)) is not bool or (job.get('generate') and job.get('validate')):
         raise ValueError('generation mode')
+    checker = job.get('checker')
+    if checker is not None:
+        if (not isinstance(checker, dict) or not isinstance(checker.get('runtime'), str)
+                or checker['runtime'] + '-isolate' not in RUNTIMES
+                or job.get('generate') or job.get('validate')):
+            raise ValueError('checker runtime or mode')
+        code = checker.get('source')
+        if not isinstance(code, str) or not code.strip() or len(code.encode()) > 65536 or '\0' in code:
+            raise ValueError('checker source')
     base = job.get('generationBaseBytes', 0)
     if type(base) is not int or not 0 <= base <= TEST_SET_LIMIT:
         raise ValueError('generation budget')
@@ -160,12 +169,27 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
     deadline = time.monotonic() + 1800
     generated_bytes = job.get('generationBaseBytes', 0)
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
+    checker = job.get('checker')
+    checker_artifact = sandbox.ARTIFACT.with_name('checker')
+
+    def diagnostic(message):
+        result['checkerLog'] = (result.get('checkerLog', '') + message).encode()[:16384].decode(errors='ignore')
+
+    def checker_error():
+        return dict(verdict='JE', passed=0, total=len(job['cases']), checkerLog=result.get('checkerLog', ''))
+
     try:
         if progress:
             progress('PREPARING', 0, result['total'])
         compiled = sandbox.execute(dict(source=job['source'], runtime=job['runtime']), True)
         if not compiled['compiled']:
             return dict(verdict='CE', passed=0, total=len(job['cases']), compileLog=compiled['compileLog'])
+        if checker is not None:
+            compiled = sandbox.execute(dict(source=checker['source'], runtime=checker['runtime'] + '-isolate'),
+                                       True, artifact=checker_artifact)
+            if not compiled['compiled']:
+                diagnostic('検証コードのコンパイル失敗\n' + compiled.get('compileLog', ''))
+                return checker_error()
         if progress:
             progress('JUDGING', 0, result['total'])
         for index, case in enumerate(job['cases']):
@@ -180,7 +204,19 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
             reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
                                          timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
             reply['index'] = index
-            item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False))
+            item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False) or checker is not None)
+            if checker is not None and item['verdict'] == 'AC':
+                checked = sandbox.execute(dict(runtime=checker['runtime'] + '-isolate', input=reply['output'],
+                                               timeLimitMs=5000, memoryLimitMb=512), artifact=checker_artifact,
+                                          checker_files={'test-input': case['input'].encode(),
+                                                         'expected-output': case['output'].encode(),
+                                                         'submission-source': job['source'].encode()})
+                checked['index'] = index
+                check_result = case_result(checked, index, case, validate=True)
+                diagnostic(f"ケース{index + 1}: {check_result['verdict']}\n" + checked.get('checkerLog', '') + '\n')
+                if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
+                    return checker_error()
+                item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
             if 'output' in item:
                 generated_bytes += len(item['output'].encode())
                 if generated_bytes > TEST_SET_LIMIT:
@@ -197,8 +233,11 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                 result['verdict'] = item['verdict']
             if progress:
                 progress('JUDGING', index + 1, result['total'])
+            if time.monotonic() >= deadline:
+                raise TimeoutError('job deadline')
     finally:
         sandbox.ARTIFACT.unlink(missing_ok=True)
+        checker_artifact.unlink(missing_ok=True)
         sandbox.META.unlink(missing_ok=True)
     return result
 

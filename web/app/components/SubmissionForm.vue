@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Submission } from '../../shared/types/submission'
 
-const props = defineProps<{ problemId: string }>()
+const props = defineProps<{ problemId: string, beforeSubmit?: () => Promise<boolean>, disabled?: boolean }>()
 const { user } = useAccount()
 const source = ref('')
 const runtime = ref('cpp17')
@@ -24,7 +24,7 @@ watch(available, items => {
 const sending = ref(false)
 const message = ref('')
 async function submit() {
-  if (sending.value || !available.value.some(item => item.id === runtime.value)) return
+  if (props.disabled || sending.value || !available.value.some(item => item.id === runtime.value)) return
   if (!source.value.trim() || new TextEncoder().encode(source.value).length > 65536) {
     message.value = 'ソースコードを1〜65,536バイトで入力してください。'
     return
@@ -32,6 +32,10 @@ async function submit() {
   sending.value = true
   message.value = ''
   try {
+    if (props.beforeSubmit && !await props.beforeSubmit()) {
+      message.value = '下書きを保存できませんでした。保存内容を確認してください。'
+      return
+    }
     const result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: runtime.value, source: source.value } })
     await navigateTo(`/my/submissions/${result.id}`)
   } catch (error) {
@@ -39,7 +43,7 @@ async function submit() {
     const code = failure.data?.data?.code
     if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
     else if (code === 'profile_required') message.value = 'プロフィールを登録してから提出してください。'
-    else if (code === 'tests_not_ready') message.value = 'この問題の現在の版には、採点用テストが登録されていません。'
+    else if (code === 'tests_not_ready') message.value = 'テストケース、検証コード、利用できる言語の設定を確認してください。'
     else if (code === 'judging_unavailable') message.value = 'ジャッジが設定されていません。'
     else message.value = '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
   } finally { sending.value = false }
@@ -64,7 +68,7 @@ async function submit() {
       <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>
       <div class="submission-actions">
-        <button class="editor-button primary" type="submit" :disabled="sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
+        <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
   </section>
