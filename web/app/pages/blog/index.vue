@@ -28,6 +28,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
     </article>
     <p v-if="message" role="alert">{{ message }}</p>
     <button v-if="cursor" class="editor-button" :disabled="loading" @click="more">さらに読み込む</button>
+    <p><NuxtLink to="/blog/generator-guide">入出力ジェネレータの使い方</NuxtLink></p>
     <p><NuxtLink to="/blog/markdown-guide">Markdown・数式の書き方</NuxtLink></p>
   </div>
 </template>

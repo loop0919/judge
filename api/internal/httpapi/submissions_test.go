@@ -16,6 +16,7 @@ import (
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 )
 
 func TestDraftTestCaseLimits(t *testing.T) {
@@ -276,5 +277,88 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	request("POST", "/my/submissions", "alice", body, 409)
+
+	// Generation works without published tests and remains scoped to the draft owner.
+	generation := strings.TrimSuffix(body, "}") + `,"generation":{"mode":"input","start":7,"count":2}}`
+	request("POST", "/my/submissions", "bob", generation, 404)
+	for _, invalid := range []string{
+		strings.Replace(generation, `"count":2`, `"count":0`, 1),
+		strings.Replace(generation, `"start":7`, `"start":2147483647`, 1),
+		strings.Replace(generation, `"mode":"input"`, `"mode":"output"`, 1),
+	} {
+		request("POST", "/my/submissions", "alice", invalid, 400)
+	}
+	var generated submissions.Submission
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", generation, 202)), &generated); err != nil {
+		t.Fatal(err)
+	}
+	var raw []byte
+	if err := store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, generated.ID).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var generationJob submissions.Job
+	if json.Unmarshal(raw, &generationJob) != nil || !generationJob.Generate || len(generationJob.Cases) != 2 || generationJob.Cases[0].Input != "7\n" || generationJob.Cases[1].Input != "8\n" {
+		t.Fatalf("generation job: %s", raw)
+	}
+	if got := request("GET", "/my/submissions", "alice", "", 200); strings.Contains(got, generated.ID) {
+		t.Fatal("generation appeared in submission history")
+	}
+	request("GET", "/my/submissions/"+generated.ID, "bob", "", 404)
+	current, err = store.Get(ctx, "alice", id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current.Draft.TestCases = []problems.TestCase{{Input: " 1  2\n", Output: "secret"}}
+	if _, err = store.Save(ctx, "alice", id, current.Version, current.Draft); err != nil {
+		t.Fatal(err)
+	}
+	generation = strings.Replace(generation, `"mode":"input","start":7,"count":2`, `"mode":"output","start":1,"count":1`, 1)
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", generation, 202)), &generated); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, generated.ID).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	if json.Unmarshal(raw, &generationJob) != nil || generationJob.Cases[0].Input != " 1  2\n" || generationJob.Cases[0].Output != "" {
+		t.Fatalf("output generation job: %s", raw)
+	}
+
+	if generationJob.GenerationBaseBytes != int64(len(" 1  2\n")) {
+		t.Fatalf("replaced output still counted: %+v", generationJob)
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET status='RUNNING' WHERE id=$1`, generated.ID); err != nil {
+		t.Fatal(err)
+	}
+	file := problems.TestFile{ID: "44444444-4444-4444-8444-444444444444", Size: 16 << 20, SHA256: strings.Repeat("a", 64), Key: testfiles.GenerationPrefix("bob", id) + "44444444-4444-4444-8444-444444444444", Version: "generated-version"}
+	generatedResult := submissions.Result{Verdict: "AC", Passed: 1, Total: 1, Cases: []submissions.CaseResult{{Verdict: "AC", OutputFile: &file}}}
+	if err = queue.Finish(ctx, generated.ID, generatedResult); err == nil {
+		t.Fatal("cross-owner generated file registered")
+	}
+	file.Key = testfiles.GenerationPrefix("alice", id) + file.ID
+	// A result cannot bypass the complete set budget even if the worker is wrong.
+	if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET job=jsonb_set(job,'{generationBaseBytes}',to_jsonb($2::bigint)) WHERE id=$1`, generated.ID, int64(submissions.GenerationOutputLimit)-(16<<20)+1); err != nil {
+		t.Fatal(err)
+	}
+	if err = queue.Finish(ctx, generated.ID, generatedResult); err == nil {
+		t.Fatal("over-budget generated file registered")
+	}
+	if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET job=jsonb_set(job,'{generationBaseBytes}',to_jsonb($2::bigint)) WHERE id=$1`, generated.ID, int64(submissions.GenerationOutputLimit)-(16<<20)); err != nil {
+		t.Fatal(err)
+	}
+	if err = queue.Finish(ctx, generated.ID, generatedResult); err != nil {
+		t.Fatal(err)
+	}
+	if err = queue.Finish(ctx, generated.ID, generatedResult); err != nil {
+		t.Fatal("duplicate result not ignored", err)
+	}
+	got = request("GET", "/my/submissions/"+generated.ID, "alice", "", 200)
+	if strings.Contains(got, "generated-version") || strings.Contains(got, "test-files/") || !strings.Contains(got, `"size":16777216`) {
+		t.Fatal("invalid generated reference response", got)
+	}
+	var pinned string
+	var ready bool
+	if err = store.Pool().QueryRow(ctx, `SELECT upload_version_id,ready FROM test_files WHERE id=$1 AND owner_id='alice'`, file.ID).Scan(&pinned, &ready); err != nil || pinned != "generated-version" || ready {
+		t.Fatal("generated file skipped validation", pinned, ready, err)
+	}
 
 }

@@ -106,6 +106,63 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
         self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2), ('JUDGING', 2, 2)])
 
+    def test_generation_preserves_stdout_and_enforces_file_and_total_limits(self):
+        import tempfile
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   generate=True, memoryLimitMb=512, timeLimitMs=1000,
+                   generationPrefix='test-files/' + 'a' * 32 + '/11111111-1111-4111-8111-111111111111/generated/',
+                   cases=[dict(input='7\n', output=''), dict(input='8\n', output='')])
+        for output, base, overflow, verdict in [
+                (b' 3\n\n', 0, False, 'AC'), (b'', host.TEST_SET_LIMIT, False, 'AC'),
+                (b'\xff', 0, False, 'RE'), (b'\0', 0, False, 'RE'),
+                (b'x' * host.TEST_FILE_LIMIT, host.TEST_SET_LIMIT - 2 * host.TEST_FILE_LIMIT, False, 'AC'),
+                (b'x' * host.TEST_FILE_LIMIT, host.TEST_SET_LIMIT - 2 * host.TEST_FILE_LIMIT + 1, False, 'OLE'),
+                (b'x' * host.TEST_FILE_LIMIT, 0, True, 'OLE')]:
+            calls, stored = [], []
+            job['generationBaseBytes'] = base
+            def execute(request, compile_phase=False):
+                calls.append((request, compile_phase))
+                if compile_phase:
+                    return {'compiled': True}
+                return dict(status='', oom=False, overflow=overflow, exitCode=0, signal=0,
+                            cpuTimeMs=0, wallTimeMs=1, memoryBytes=1024,
+                            output=base64.b64encode(output).decode())
+            def save(data):
+                stored.append(data)
+                return {'size': len(data), 'id': str(len(stored))}
+            with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                    patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                    patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+                result = host.judge(job, 'sha256:test', save_output=save)
+            self.assertEqual(result['verdict'], verdict)
+            self.assertEqual([phase for _, phase in calls], [True, False, False])
+            self.assertEqual([base64.b64decode(req['input']) for req, phase in calls if not phase], [b'7\n', b'8\n'])
+            if verdict == 'AC' and output:
+                self.assertEqual(stored, [output, output])
+                self.assertNotIn('output', result['cases'][0])
+            elif verdict == 'AC':
+                self.assertEqual(stored, [])
+                self.assertEqual([c['output'] for c in result['cases']], ['', ''])
+            else:
+                self.assertNotIn('outputFile', result['cases'][-1])
+                self.assertNotIn('output', result['cases'][-1])
+
+    def test_generated_upload_is_checksummed_pending_and_versioned(self):
+        import hashlib
+        client = Mock()
+        client.put_object.return_value = {'VersionId': 'immutable'}
+        prefix = 'test-files/owner/problem/generated/'
+        data = b'x' * host.TEST_FILE_LIMIT
+        result = worker.write_generated_file(client, 'bucket', prefix, data)
+        self.assertEqual(result['size'], host.TEST_FILE_LIMIT)
+        self.assertEqual(result['sha256'], hashlib.sha256(data).hexdigest())
+        self.assertEqual(result['versionId'], 'immutable')
+        self.assertEqual(client.put_object.call_args.kwargs['Tagging'], 'status=pending')
+        self.assertEqual(result['key'], prefix + result['id'])
+        client.put_object.return_value = {}
+        with self.assertRaises(ValueError):
+            worker.write_generated_file(client, 'bucket', prefix, data)
+
     def test_compile_error_never_reports_judging(self):
         import tempfile
         progress = []

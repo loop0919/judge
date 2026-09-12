@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { accountProblemSchema, accountError } from '~/utils/account-problems'
-import { draftErrors, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase } from '~/utils/problem-draft'
+import { draftErrors, emptyGenerators, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase } from '~/utils/problem-draft'
 import { uploadTestFile } from '~/utils/test-files'
 
 import { readProblemCache, writeProblemCache, removeProblemCache } from '~/utils/problem-cache'
@@ -21,7 +21,7 @@ let inFlight: Promise<boolean> | undefined
 const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非公開')
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | OpenOJ', robots: 'noindex, nofollow' })
-const draft = reactive({ title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const draft = reactive({ title: '', markdown: initialProblemMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
 const memoryLimitPresets = [64, 128, 256, 512]
 // Keep in-range memory limits from older drafts selectable.
@@ -37,7 +37,8 @@ const storageError = ref('')
 const leaveDialog = ref<HTMLDialogElement>()
 const leaveError = ref('')
 const manageDialog = ref<HTMLDialogElement>()
-const section = ref<'statement' | 'tests' | 'management'>('statement')
+const generating = ref(false)
+const section = ref<'statement' | 'tests' | 'generators' | 'management'>('statement')
 const managing = computed(() => section.value === 'management')
 const sidebarExpanded = ref(false)
 const confirmingDelete = ref(false)
@@ -130,7 +131,7 @@ async function saveDraft(manual = false, updateLocation = true): Promise<boolean
 }
 
 async function publishProblem(publish: boolean) {
-  if (publishing.value || saving.value) return
+  if (publishing.value || saving.value || generating.value) return
   publicationError.value = ''
   if (publish && (!draft.title.trim() || !draft.markdown.trim())) { publicationError.value = '公開するにはタイトルと本文を入力してください。'; return }
   if (!await saveDraft(true)) return
@@ -188,7 +189,7 @@ onMounted(async () => {
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
+      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
       renderedSource.value = draft.markdown
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
@@ -249,6 +250,7 @@ onBeforeUnmount(() => {
 })
 
 function clearTestCases() {
+  if (generating.value) return
   if (window.confirm('編集中のテストケースをすべて削除しますか？採点への反映には公開内容の更新が必要です。')) draft.testCases = []
 }
 function openManagement() {
@@ -256,7 +258,7 @@ function openManagement() {
 }
 function openDeleteConfirmation() {
   clearTimeout(saveTimer)
-  if (saving.value || publishing.value) return
+  if (saving.value || publishing.value || generating.value) return
   confirmingDelete.value = true
   deleteError.value = ''
   manageDialog.value?.showModal()
@@ -334,6 +336,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
           <button type="button" class="editor-button editor-sidebar-item" :aria-current="section === 'statement' ? 'page' : undefined" aria-label="問題文" title="問題文" @click="section = 'statement'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8M8 16h6" /></svg><span class="editor-sidebar-label">問題文</span></button>
 
           <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="section === 'tests' ? 'page' : undefined" aria-label="テストケース" title="テストケース" @click="section = 'tests'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 2 2 3-4m-5 9 2 2 3-4m-5 9 2 2 3-4M12 6h9M12 13h9M12 20h9" /></svg><span class="editor-sidebar-label">テストケース</span></button>
+          <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="section === 'generators' ? 'page' : undefined" aria-label="ジェネレータ" title="ジェネレータ" @click="section = 'generators'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7-5 5 5 5m10-10 5 5-5 5M14 4l-4 16" /></svg><span class="editor-sidebar-label">ジェネレータ</span></button>
           <button type="button" class="editor-button editor-sidebar-item" disabled aria-label="解説（準備中）" title="解説（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15" /></svg><span class="editor-sidebar-label">解説</span></button>
           <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="managing ? 'page' : undefined" aria-label="問題管理" title="問題管理" @click="openManagement"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 .6-2h4.8l.6 2 2 1.2 2.1-.5 2.4 4.2-1.5 1.5v2.3l1.5 1.5-2.4 4.2-2.1-.5-2 1.2-.6 2H9l-.6-2-2-1.2-2.1.5-2.4-4.2 1.5-1.5V9.4L1.9 7.9l2.4-4.2 2.1.5Z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg><span class="editor-sidebar-label">問題管理</span></button>
         </nav>
@@ -388,15 +391,16 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </section>
     </div>
     </div>
-    <TestCaseEditor v-if="section === 'tests'" v-model="draft.testCases" :disabled="!ready || publishing" :problem-id="cloudId" />
+    <TestCaseEditor v-if="section === 'tests'" v-model="draft.testCases" :disabled="!ready || publishing || generating" :problem-id="cloudId" />
+    <TestCaseGenerator v-if="ready" v-show="section === 'generators'" v-model="draft.testCases" v-model:config="draft.generators" v-model:busy="generating" :save="saveDraft" :disabled="publishing" :problem-id="cloudId" @show-cases="section = 'tests'" />
     <section v-if="managing" class="problem-management" aria-labelledby="management-title">
       <div class="management-content">
         <header><h1 id="management-title">問題管理</h1><p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p><p class="muted">{{ saveLocation }}</p></header>
-        <section class="management-row"><div><h2>公開設定</h2><p>問題文とテストケースは「公開内容を更新」を押すまで採点に反映されません。テストケースの入出力は公開ページには表示しません。</p><p v-if="publicationError" class="editor-error" role="alert">{{ publicationError }}</p><NuxtLink v-if="publishedVersion" :to="`/problems/${cloudId}`" target="_blank">公開ページを見る</NuxtLink></div><div class="publication-actions"><button class="editor-button primary" :disabled="saving || publishing" @click="publishProblem(true)">{{ publishedVersion ? '公開内容を更新' : '公開する' }}</button><button v-if="publishedVersion" class="editor-button" :disabled="saving || publishing" @click="publishProblem(false)">非公開に戻す</button></div></section>
+        <section class="management-row"><div><h2>公開設定</h2><p>問題文とテストケースは「公開内容を更新」を押すまで採点に反映されません。テストケースの入出力は公開ページには表示しません。</p><p v-if="publicationError" class="editor-error" role="alert">{{ publicationError }}</p><NuxtLink v-if="publishedVersion" :to="`/problems/${cloudId}`" target="_blank">公開ページを見る</NuxtLink></div><div class="publication-actions"><button class="editor-button primary" :disabled="saving || publishing || generating" @click="publishProblem(true)">{{ publishedVersion ? '公開内容を更新' : '公開する' }}</button><button v-if="publishedVersion" class="editor-button" :disabled="saving || publishing || generating" @click="publishProblem(false)">非公開に戻す</button></div></section>
         <section class="management-row"><div><h2>テスターリンク</h2><p>公開前の問題をテスターに共有します。</p></div><button type="button" class="editor-button" disabled>リンクを発行（準備中）</button></section>
         <section class="management-row"><div><h2>リジャッジ</h2><p>テストケースや採点設定の変更後に、提出を再採点します。</p></div><button type="button" class="editor-button" disabled>リジャッジ（準備中）</button></section>
-        <section class="management-row"><div><h2>テストケースの一括削除</h2><p>この問題に登録したテストケースをまとめて削除します。</p></div><button type="button" class="editor-button" :disabled="!draft.testCases.length || publishing" @click="clearTestCases">一括削除</button></section>
-        <section class="management-row"><div><h2>問題の削除</h2><p>問題を削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" @click="openDeleteConfirmation">問題を削除</button></section>
+        <section class="management-row"><div><h2>テストケースの一括削除</h2><p>この問題に登録したテストケースをまとめて削除します。</p></div><button type="button" class="editor-button" :disabled="!draft.testCases.length || publishing || generating" @click="clearTestCases">一括削除</button></section>
+        <section class="management-row"><div><h2>問題の削除</h2><p>問題を削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" :disabled="generating" @click="openDeleteConfirmation">問題を削除</button></section>
       </div>
     </section>
       </div>

@@ -5,7 +5,8 @@ import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 
 const source = defineModel<string>({ required: true })
-const props = defineProps<{ disabled?: boolean, readonly?: boolean }>()
+const props = defineProps<{ disabled?: boolean, readonly?: boolean, label?: string }>()
+const labelId = useId()
 const container = ref<HTMLDivElement>()
 const bytes = computed(() => new TextEncoder().encode(source.value).length)
 const editable = new Compartment()
@@ -20,7 +21,7 @@ onMounted(() => {
       basicSetup,
       cpp(),
       editable.of(editing()),
-      EditorView.contentAttributes.of({ 'aria-labelledby': 'submission-source-label', 'aria-multiline': 'true', ...(props.readonly ? { tabindex: '0', 'aria-readonly': 'true' } : {}) }),
+      EditorView.contentAttributes.of({ 'aria-labelledby': labelId, 'aria-multiline': 'true', ...(props.readonly ? { tabindex: '0', 'aria-readonly': 'true' } : {}) }),
       EditorView.updateListener.of(update => {
         if (update.docChanged) source.value = update.state.doc.toString()
       }),
@@ -49,7 +50,7 @@ onBeforeUnmount(() => editor?.destroy())
 <template>
   <div class="source-code-editor" :class="{ 'is-disabled': disabled, 'is-readonly': readonly }">
     <div class="pane-heading">
-      <span id="submission-source-label">ソースコード</span>
+      <span :id="labelId">{{ label || 'ソースコード' }}</span>
       <span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span>
     </div>
     <div ref="container" class="code-surface" />

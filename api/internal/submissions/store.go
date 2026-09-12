@@ -16,19 +16,28 @@ var ErrNotReady = errors.New("problem is not ready for judging")
 
 type Case = problems.TestCase
 
+const GenerationOutputLimit = 512 << 20
+
 type Job struct {
-	Image         string `json:"image"`
-	TimeLimitMS   int    `json:"timeLimitMs"`
-	MemoryLimitMB int    `json:"memoryLimitMb"`
-	Cases         []Case `json:"cases"`
+	GenerationBaseBytes int64                                                     `json:"generationBaseBytes,omitempty"`
+	GenerationPrefix    string                                                    `json:"generationPrefix,omitempty"`
+	SaveOutput          func(context.Context, []byte) (*problems.TestFile, error) `json:"-"`
+	LoadFile            func(context.Context, *problems.TestFile) (string, error) `json:"-"`
+	Generate            bool                                                      `json:"generate,omitempty"`
+	Image               string                                                    `json:"image"`
+	TimeLimitMS         int                                                       `json:"timeLimitMs"`
+	MemoryLimitMB       int                                                       `json:"memoryLimitMb"`
+	Cases               []Case                                                    `json:"cases"`
 }
 
 type CaseResult struct {
-	Name        string   `json:"name"`
-	Verdict     string   `json:"verdict"`
-	CPUTimeMS   *float64 `json:"cpuTimeMs,omitempty"`
-	WallTimeMS  *float64 `json:"wallTimeMs,omitempty"`
-	MemoryBytes *int64   `json:"memoryBytes,omitempty"`
+	OutputFile  *problems.TestFile `json:"outputFile,omitempty"`
+	Output      *string            `json:"output,omitempty"`
+	Name        string             `json:"name"`
+	Verdict     string             `json:"verdict"`
+	CPUTimeMS   *float64           `json:"cpuTimeMs,omitempty"`
+	WallTimeMS  *float64           `json:"wallTimeMs,omitempty"`
+	MemoryBytes *int64             `json:"memoryBytes,omitempty"`
 }
 
 type Result struct {
@@ -103,7 +112,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
 }
 
 func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
+	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 AND NOT COALESCE((job->>'generate')::boolean,false) ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -134,15 +143,6 @@ func (s *Store) Claim(ctx context.Context) (Submission, Job, error) {
 		err = json.Unmarshal(raw, &job)
 	}
 	return item, job, err
-}
-
-func (s *Store) Finish(ctx context.Context, id string, result Result) error {
-	data, err := json.Marshal(result)
-	if err != nil {
-		return err
-	}
-	_, err = s.Pool.Exec(ctx, `UPDATE submissions SET status='DONE',result=$2,finished_at=clock_timestamp() WHERE id=$1 AND status='RUNNING'`, id, data)
-	return err
 }
 
 // ResolveTestFiles replaces owner-visible file IDs with the immutable S3 locations used by the worker.
@@ -188,4 +188,16 @@ func (s *Store) ResolveTestFiles(ctx context.Context, job *Job) error {
 		return problems.ErrTestFile
 	}
 	return nil
+}
+
+// CreateGeneration accepts only cases constructed by the owner-authorized HTTP handler.
+func (s *Store) CreateGeneration(ctx context.Context, owner, id, problemID, source, runtime string, job Job) (Submission, error) {
+	raw, err := json.Marshal(job)
+	if err != nil {
+		return Submission{}, err
+	}
+	return scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
+ (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
+ SELECT $1,$2,id,version,draft->>'title',$5,$4,$6 FROM problem_drafts
+ WHERE id=$3 AND owner_id=$2 RETURNING `+columns, id, owner, problemID, source, runtime, raw))
 }

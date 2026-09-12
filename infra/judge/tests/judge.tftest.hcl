@@ -42,8 +42,14 @@ run "isolated_worker" {
     error_message = "Only operator IPv6 SSH and ICMPv6 may be exposed."
   }
   assert {
-    condition     = !strcontains(aws_iam_user_policy.worker.policy, "secretsmanager") && !strcontains(aws_iam_user_policy.worker.policy, "s3:PutObject") && !strcontains(aws_iam_user_policy.worker.policy, "s3:ListBucket")
+    condition     = !strcontains(aws_iam_user_policy.worker.policy, "secretsmanager") && !strcontains(aws_iam_user_policy.worker.policy, "s3:ListBucket")
     error_message = "Worker must not access database credentials or mutate job objects."
+  }
+  assert {
+    condition = alltrue([for statement in jsondecode(aws_iam_user_policy.worker.policy).Statement :
+      !contains(statement.Action, "s3:PutObject") || statement.Resource == "arn:aws:s3:::judge-test-data/test-files/*/*/generated/*"
+    ])
+    error_message = "Worker writes must be limited to generated test files, never job objects or manually uploaded tests."
   }
   assert {
     condition = (

@@ -1,0 +1,144 @@
+<script setup lang="ts">
+import type { Submission } from '../../shared/types/submission'
+import { testCaseError, testFileSchema, persistedDraft, type TestCase, type Generators } from '~/utils/problem-draft'
+
+const cases = defineModel<TestCase[]>({ required: true })
+const config = defineModel<Generators>('config', { required: true })
+const busy = defineModel<boolean>('busy', { required: true })
+const props = defineProps<{ disabled: boolean, problemId?: string, save: () => Promise<boolean> }>()
+const emit = defineEmits<{ 'show-cases': [] }>()
+const mode = ref<'input' | 'output'>('input')
+const start = ref(1)
+const count = ref(1)
+const message = ref('')
+const failure = ref('')
+const { data: catalog } = useFetch('/api/runtimes')
+const available = computed(() => catalog.value?.items ?? [])
+const program = computed(() => config.value[mode.value])
+let disposed = false
+onBeforeUnmount(() => { disposed = true })
+watch(mode, () => { start.value = 1; count.value = 1; failure.value = ''; message.value = '' })
+
+async function generate() {
+  if (busy.value || props.disabled) return
+  failure.value = ''
+  message.value = ''
+  const first = Number(start.value), amount = Number(count.value)
+  if (!Number.isInteger(first) || !Number.isInteger(amount) || amount < 1 || amount > 100 || first < -2147483648 || first + amount - 1 > 2147483647) {
+    failure.value = '開始番号は32ビット整数、件数は1〜100の整数で指定してください。'
+    return
+  }
+  if (mode.value === 'input' ? cases.value.length + amount > 100 : first < 1 || first + amount - 1 > cases.value.length) {
+    failure.value = mode.value === 'input' ? '追加後のテストケースは100件以内にしてください。' : '既存のテストケースの範囲を指定してください。'
+    return
+  }
+  if (!program.value.source.trim() || new TextEncoder().encode(program.value.source).length > 65536 || program.value.source.includes('\0')) {
+    failure.value = 'ソースコードを1〜65,536バイトで入力してください。'
+    return
+  }
+  if (!available.value.some(item => item.id === program.value.runtime)) {
+    failure.value = '利用できる言語を選択してください。'
+    return
+  }
+  if (mode.value === 'output' && !window.confirm('指定したケースの出力を生成結果で上書きしますか？')) return
+  busy.value = true
+  try {
+    message.value = '下書きを保存しています…'
+    if (!await props.save() || !props.problemId) throw new Error('下書きを保存してから再実行してください。')
+    const fingerprint = () => JSON.stringify(persistedDraft({ testCases: cases.value }))
+    const snapshot = fingerprint()
+    let result = await $fetch<Submission>('/api/my/submissions', {
+      method: 'POST', body: { problemId: props.problemId, ...program.value, generation: { mode: mode.value, start: first, count: amount } },
+    })
+    const deadline = Date.now() + 60 * 60 * 1000
+    while (!disposed && result.status !== 'DONE') {
+      message.value = result.status === 'QUEUED' ? '実行待ちです…' : `生成中… ${result.progress?.completed ?? 0} / ${amount}件`
+      if (Date.now() > deadline) throw new Error('結果の確認がタイムアウトしました。')
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (disposed) return
+      result = await $fetch<Submission>(`/api/my/submissions/${result.id}`)
+    }
+    if (disposed) return
+    if (result.result?.verdict !== 'AC') throw new Error(`生成に失敗しました（${result.result?.verdict ?? 'JE'}）。${result.result?.compileLog ?? ''}`)
+    const outputs = result.result.cases
+    if (outputs?.length !== amount || outputs.some(item => item.outputFile ? item.output !== undefined : typeof item.output !== 'string')) throw new Error('生成結果が不完全です。')
+    if (fingerprint() !== snapshot) throw new Error('実行中にテストケースが変更されたため、結果は反映していません。再実行してください。')
+    const updated = cases.value.map(item => ({ ...item }))
+    if (mode.value === 'input') {
+      const names = new Set(updated.map(item => item.name?.trim()))
+      for (const [index, generated] of outputs.entries()) {
+        const base = `generated_${first + index}`
+        let name = `${base}.txt`, suffix = 1
+        while (names.has(name)) name = `${base}_${suffix++}.txt`
+        names.add(name)
+        updated.push({ name, input: generated.output ?? '', inputFile: generated.outputFile ? testFileSchema.parse(generated.outputFile) : undefined, output: '' })
+      }
+    } else {
+      outputs.forEach((generated, index) => {
+        const item = updated[first - 1 + index]!
+        item.output = generated.output ?? ''
+        item.outputFile = generated.outputFile ? testFileSchema.parse(generated.outputFile) : undefined
+        item._outputDirty = !item.outputFile
+      })
+    }
+    const error = testCaseError(updated)
+    if (error) throw new Error(error)
+    message.value = '生成ファイルを検証しています…'
+    for (const generated of outputs) {
+      if (!generated.outputFile) continue
+      const file = testFileSchema.parse(generated.outputFile)
+      const completed = testFileSchema.parse(await $fetch(`/api/my/problems/${props.problemId}/test-files/${file.id}/complete`, { method: 'POST' }))
+      if (completed.id !== file.id || completed.size !== file.size || completed.sha256 !== file.sha256) throw new Error('生成ファイルが一致しません。')
+      if (disposed) return
+    }
+    if (fingerprint() !== snapshot) throw new Error('実行中にテストケースが変更されたため、結果は反映していません。再実行してください。')
+    cases.value = updated
+    message.value = `${amount}件の${mode.value === 'input' ? '入力を追加' : '出力を更新'}しました。`
+  } catch (error) {
+    message.value = ''
+    failure.value = error instanceof Error && !('statusCode' in error) ? error.message : '生成を実行できませんでした。ログイン状態と実行環境を確認してください。'
+  } finally { busy.value = false }
+}
+</script>
+
+<template>
+  <section class="generator" aria-labelledby="generator-title">
+    <header class="generator-heading">
+      <div><h1 id="generator-title">ジェネレータ</h1><p>コードからテストケースの入力と期待出力を作成します。</p></div>
+      <NuxtLink to="/blog/generator-guide" target="_blank" rel="noopener noreferrer">入出力ジェネレータの使い方 ↗</NuxtLink>
+    </header>
+    <div class="generator-panel">
+      <div class="generator-options">
+        <label>種類<select v-model="mode" :disabled="disabled || busy"><option value="input">入力ジェネレータ</option><option value="output">出力ジェネレータ</option></select></label>
+        <label>言語<select v-model="program.runtime" :disabled="disabled || busy"><option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
+        <label>{{ mode === 'input' ? '開始ケース番号' : '開始位置（一覧の1件目から）' }}<input v-model="start" type="number" step="1" :disabled="disabled || busy"></label>
+        <label>生成件数<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
+      </div>
+      <p v-if="mode === 'input'">ケース番号を標準入力で受け取り、標準出力から新規ケースの入力を作成します。</p>
+      <p v-else>指定した既存ケースの入力を読み、標準出力で期待出力を置き換えます。</p>
+      <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
+      <SourceCodeEditor v-model="program.source" :label="mode === 'input' ? '入力ジェネレータのコード' : '出力ジェネレータのコード'" :disabled="disabled || busy" :key="mode" />
+      <p v-if="failure" class="editor-error" role="alert">{{ failure }}</p>
+      <div class="generator-actions"><button type="button" class="editor-button primary" :disabled="disabled || busy || !available.length" @click="generate">{{ busy ? '生成中…' : '生成する' }}</button><button type="button" class="editor-button" @click="emit('show-cases')">テストケースを確認</button></div>
+    </div>
+    <p v-if="message" role="status">{{ message }}</p>
+  </section>
+</template>
+
+<style scoped>
+.generator { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; padding: 24px; }
+.generator-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--color-line); }
+.generator-heading h1 { margin: 0; font-size: 1.25rem; }
+.generator-heading a { font-size: .8125rem; padding-block: 4px; }
+.generator-panel { max-width: 1000px; margin-top: 20px; }
+.generator-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.generator-actions button { min-height: 40px; }
+@media (max-width: 600px) { .generator { padding: 16px 12px; } }
+.generator p { margin: 8px 0; font-size: .8125rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.generator-options { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.generator-options label { display: flex; flex-direction: column; gap: 4px; font-size: .75rem; max-width: 100%; }
+.generator-options input, .generator-options select { box-sizing: border-box; width: 100%; max-width: 240px; min-height: 36px; padding: 4px 8px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); }
+.generator-panel :deep(.source-code-editor) { margin: 12px 0; }
+.generator-panel :deep(.code-surface) { height: clamp(240px, 42vh, 520px); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+</style>

@@ -19,12 +19,22 @@ var (
 	ErrTestFile = errors.New("invalid test file")
 )
 
+type Generator struct {
+	Runtime string `json:"runtime"`
+	Source  string `json:"source"`
+}
+type Generators struct {
+	Input  Generator `json:"input"`
+	Output Generator `json:"output"`
+}
+
 type Draft struct {
-	Title         string     `json:"title"`
-	Markdown      string     `json:"markdown"`
-	TimeLimitMS   string     `json:"timeLimitMs"`
-	MemoryLimitMB string     `json:"memoryLimitMb"`
-	TestCases     []TestCase `json:"testCases,omitempty"`
+	Generators    *Generators `json:"generators,omitempty"`
+	Title         string      `json:"title"`
+	Markdown      string      `json:"markdown"`
+	TimeLimitMS   string      `json:"timeLimitMs"`
+	MemoryLimitMB string      `json:"memoryLimitMb"`
+	TestCases     []TestCase  `json:"testCases,omitempty"`
 }
 
 type TestCase struct {

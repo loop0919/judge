@@ -260,6 +260,14 @@ func (p PrivateProblems) testFile(w http.ResponseWriter, r *http.Request, owner 
 }
 
 func validDraft(d problems.Draft) bool {
+	if d.Generators != nil {
+		for _, g := range []problems.Generator{d.Generators.Input, d.Generators.Output} {
+			if len(g.Runtime) > 64 || len(g.Source) > 65536 || !utf8.ValidString(g.Source) || strings.ContainsRune(g.Source+g.Runtime, 0) {
+				return false
+			}
+		}
+	}
+
 	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
 	if e1 != nil || timeMS < 100 || timeMS > 5000 || timeMS%100 != 0 || len(d.TestCases) > 100 {
 		return false
