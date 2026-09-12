@@ -308,3 +308,59 @@ UIの選択肢に表示せず、APIへの`cpp17`、`cpp17-isolate`、`cpp17-loca
 公開言語はJavaとC++17を除く8ランタイムとし、runtime digestは変更しない。
 過去の提出結果、受理済みのジョブを処理するbridge、workerのC++17と共通隔離smokeは残す。
 GitHubの`dev`環境にある`JUDGE_ENABLED_RUNTIMES`も上記の8言語に更新する。
+
+## 2026年9月13日のスペシャルジャッジ対応
+
+[ADR 0008](../adr/0008-support-special-judge.md)の実装を、既存のLightsail workerへ配置した。
+提出受付を停止して通常キューと失敗キューのdrainを確認し、定期dispatchと結果受信を停止してからコードを更新した。
+OS、コンパイラ、ライブラリ、インスタンス構成は変更していない。
+
+| 項目 | 値 |
+| --- | --- |
+| worker | `judge-dev-judge-worker` |
+| SSM管理対象 | `mi-08a9ccbdc9116b369` |
+| 実装コミット | `1eea4f1` |
+| runtime digest | `sha256:7c71bb6883d092fa7a109f88082ec2e8e91447c3de4d8379b5cb0d0497e8156f` |
+| コード配布物SHA-256 | `2ab6134cd6ccba11eec14fb7a648c587d9ba3e09d838504a475789e792712772` |
+| コード配置のSSMコマンドID | `bdd6e0a4-ce9f-486a-8a21-ab9860a196a3` |
+| 全言語smokeのSSMコマンドID | `f5490563-3c1b-4ec6-bc54-6d8355ea4860` |
+
+コード配布物は専用ジョブバケットの`releases/<SHA-256>/special-judge-code.tar.gz`に保存した。
+旧コードと設定はworkerの`/opt/judge-release/spj-2ab6134cd6ccba11/before.tar.gz`に退避した。
+API、bridge、WebのLambdaコードも同時に更新した。
+
+01:29 JSTに共通の隔離テストと全10ランタイムのsmokeが成功した。
+各言語の検証コードによるACとassertによるWA、C++検証コードの引数契約と時間超過・コンパイル失敗を確認した。
+JavaとC++17の公開保留を維持し、従来の8ランタイムで受付を再開した。
+
+### 公開APIからの実提出
+
+一時的な非公開問題の2ケースを使い、以下の6件が期待した判定になった。
+検証コードと提出コードを別言語にし、入力・期待出力・提出ソースの読み取りとスコアファイルへの書き込みも確認した。
+作問者の提出詳細では診断ログを取得でき、提出一覧には含まれないことを確認した。
+
+| 検証内容 | 判定 | 提出ID |
+| --- | --- | --- |
+| C++検証コードとPython提出 | AC | `34e9bf00-eb35-4fe8-8e76-e48b89567dc7` |
+| C++のassert失敗 | WA | `f84f9c6f-bfaa-4edc-8e9a-6bd5a704b5dc` |
+| Python検証コードとC++提出 | AC | `5ba2566e-0734-4ac5-94e3-4fdd10cf4bfd` |
+| Pythonのassert失敗 | WA | `4a957eaa-cb01-42ae-b2ec-03b7814fe394` |
+| 検証コードの時間超過 | JE | `b620487f-6438-4ab2-94b6-1e1e2a826f41` |
+| 検証コードのコンパイル失敗 | JE | `a5af9f67-cf1d-404a-ba3f-ec66c70f9fe7` |
+
+一時問題`620120f0-291f-4998-8035-270b9b778260`と、メール送信を抑止して作成した検証アカウントを削除した。
+プロフィールと提出の監査記録は残る。
+公開WebのSSR、API接続、静的ファイル取得と、WebのLambdaパッケージテストも成功した。
+
+### 配置後の状態
+
+API、bridge、workerのruntime digestを一致させ、定期dispatchと結果受信を再開した。
+workerは再起動0回で稼働し、manifestと設定のdigestも一致した。
+要求キュー、結果キュー、両方の失敗キューは、可視・処理中・遅延のすべてが0件だった。
+ローカルの`infra/api/runtime.auto.tfvars`と`infra/judge/terraform.tfvars`、GitHub Actionsの`dev`環境変数を同期した。
+この同期により、上記の過去の実施記録にあるCI変数の未更新は解消した。
+
+```ini
+JUDGE_RUNTIME_DIGEST=sha256:7c71bb6883d092fa7a109f88082ec2e8e91447c3de4d8379b5cb0d0497e8156f
+JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","python314","pypy311","codon020","rust2024","cpp23-gcc","cpp23-clang"]
+```
