@@ -22,7 +22,7 @@ const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非�
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | ShareOJ', robots: 'noindex, nofollow' })
 const section = ref<'statement' | 'editorial' | 'tests' | 'generators' | 'checker' | 'management'>('statement')
-const draft = reactive({ checker: null as ProblemDraft['checker'], title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const draft = reactive({ checker: null as ProblemDraft['checker'], interactor: null as ProblemDraft['interactor'], title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const activeMarkdown = computed({
   get: () => section.value === 'editorial' ? draft.editorial : draft.markdown,
   set: value => { if (section.value === 'editorial') draft.editorial = value; else draft.markdown = value },
@@ -194,7 +194,7 @@ onMounted(async () => {
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { checker: null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
+      Object.assign(draft, { checker: null, interactor: null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
       renderedSource.value = activeMarkdown.value
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
@@ -403,7 +403,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       </section>
     </div>
     </div>
-    <ProblemChecker v-if="ready" v-show="section === 'checker'" v-model="draft.checker" :disabled="publishing" :problem-id="cloudId" :save="saveDraft" :published="!!publishedVersion" />
+    <ProblemChecker v-if="ready" v-show="section === 'checker'" v-model="draft.checker" v-model:interactor="draft.interactor" :disabled="publishing" :problem-id="cloudId" :save="saveDraft" :published="!!publishedVersion" />
     <TestCaseEditor v-if="section === 'tests'" v-model="draft.testCases" :disabled="!ready || publishing || generating" :problem-id="cloudId" />
     <TestCaseGenerator v-if="ready" v-show="section === 'generators'" v-model="draft.testCases" v-model:config="draft.generators" v-model:busy="generating" :save="saveDraft" :disabled="publishing" :problem-id="cloudId" @show-cases="section = 'tests'" />
     <section v-if="managing" class="problem-management" aria-labelledby="management-title">

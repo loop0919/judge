@@ -98,6 +98,9 @@ int main(int argc,char** argv){
                 continue
             passed.append(name)
             print(name, 'checker OK', flush=True)
+    if not failed:
+        import interactive_smoke
+        interactive_smoke.run(runtime, requested, fixtures, judge)
     print(json.dumps({'runtimeDigest': runtime, 'passedRuntimes': passed, 'failedRuntimes': failed}), flush=True)
     if failed:
         raise SystemExit(1)

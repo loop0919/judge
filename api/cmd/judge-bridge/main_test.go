@@ -122,7 +122,11 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(submissions.Job{Checker: &problems.Generator{Runtime: "python314", Source: "checker-secret"}, Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}})
+	job := submissions.Job{Checker: &problems.Generator{Runtime: "python314", Source: "checker-secret"}, Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}}
+	if runtime == "rust2024-isolate" {
+		job.Interactor, job.Checker = job.Checker, nil
+	}
+	raw, _ := json.Marshal(job)
 	_, err = db.Exec(ctx, `INSERT INTO submissions(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,judge_attempt)
  VALUES ($1,'alice',$1,1,'test',$4,'source-secret',$2,$3)`, id, raw, attempt, runtime)
 	if err != nil {
@@ -170,7 +174,11 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if !bytes.Contains(jobs[0], []byte(`"runtime":"`+runtime+`"`)) {
 		t.Fatal("submitted runtime was not preserved in dispatch")
 	}
-	if !bytes.Contains(jobs[0], []byte(`"checker":{"runtime":"python314","source":"checker-secret"}`)) {
+	field := "checker"
+	if job.Interactor != nil {
+		field = "interactor"
+	}
+	if !bytes.Contains(jobs[0], []byte(`"`+field+`":{"runtime":"python314","source":"checker-secret"}`)) {
 		t.Fatal("checker was not preserved in dispatch")
 	}
 	if _, _, err = (&submissions.Store{Pool: db}).Claim(ctx); !errors.Is(err, pgx.ErrNoRows) {

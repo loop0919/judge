@@ -25,7 +25,7 @@ export default defineEventHandler(async event => {
     return {
       id, title: draft.title.trim() || '無題の問題', markdown: draft.markdown, editorial: draft.editorial,
       timeLimitMs: Number(draft.timeLimitMs), memoryLimitMb: Number(draft.memoryLimitMb),
-      author: author.data.profile?.handle ?? '', isPrivate: true, specialJudge: draft.checker !== null,
+      author: author.data.profile?.handle ?? '', isPrivate: true, specialJudge: draft.checker !== null, interactive: draft.interactor !== null,
     }
   }
   const result = publicProblemSchema.safeParse(content)

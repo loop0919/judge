@@ -20,6 +20,7 @@ type Case = problems.TestCase
 const GenerationOutputLimit = 512 << 20
 
 type Job struct {
+	Interactor          *problems.Generator                                       `json:"interactor,omitempty"`
 	Checker             *problems.Generator                                       `json:"checker,omitempty"`
 	GenerationBaseBytes int64                                                     `json:"generationBaseBytes,omitempty"`
 	GenerationPrefix    string                                                    `json:"generationPrefix,omitempty"`
@@ -100,7 +101,7 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
 	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
   SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,
-  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases','checker',selected_draft->'checker',
+  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases','checker',selected_draft->'checker','interactor',selected_draft->'interactor',
   'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
   FROM (
@@ -115,6 +116,10 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
     (selected_draft->'checker'->>'runtime'=ANY($7::text[]) AND
      length(btrim(selected_draft->'checker'->>'source', E' \t\r\n'))>0 AND
      ($6 <> 'cpp17-local' OR selected_draft->'checker'->>'runtime'='cpp17')))
+  AND (COALESCE(selected_draft->'interactor','null'::jsonb) = 'null'::jsonb OR
+    ($6 <> 'cpp17-local' AND COALESCE(selected_draft->'checker','null'::jsonb) = 'null'::jsonb AND
+     selected_draft->'interactor'->>'runtime'=ANY($7::text[]) AND
+     length(btrim(selected_draft->'interactor'->>'source', E' \t\r\n'))>0))
   RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady

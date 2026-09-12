@@ -13,6 +13,7 @@ import time
 import uuid
 
 import sandbox
+import interactive
 from runtimes import RUNTIMES, ROOT
 
 ASSETS = Path('/opt/judge/assets')
@@ -40,15 +41,19 @@ def validate_job(job, runtime):
         raise ValueError('runtime mismatch')
     if type(job.get('generate', False)) is not bool or type(job.get('validate', False)) is not bool or (job.get('generate') and job.get('validate')):
         raise ValueError('generation mode')
-    checker = job.get('checker')
-    if checker is not None:
-        if (not isinstance(checker, dict) or not isinstance(checker.get('runtime'), str)
-                or checker['runtime'] + '-isolate' not in RUNTIMES
+    if job.get('checker') is not None and job.get('interactor') is not None:
+        raise ValueError('conflicting judge modes')
+    for field in ('checker', 'interactor'):
+        code = job.get(field)
+        if code is None:
+            continue
+        if (not isinstance(code, dict) or not isinstance(code.get('runtime'), str)
+                or code['runtime'] + '-isolate' not in RUNTIMES
                 or job.get('generate') or job.get('validate')):
-            raise ValueError('checker runtime or mode')
-        code = checker.get('source')
-        if not isinstance(code, str) or not code.strip() or len(code.encode()) > 65536 or '\0' in code:
-            raise ValueError('checker source')
+            raise ValueError('judge code runtime or mode')
+        source = code.get('source')
+        if not isinstance(source, str) or not source.strip() or len(source.encode()) > 65536 or '\0' in source:
+            raise ValueError('judge code source')
     base = job.get('generationBaseBytes', 0)
     if type(base) is not int or not 0 <= base <= TEST_SET_LIMIT:
         raise ValueError('generation budget')
@@ -170,6 +175,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
     generated_bytes = job.get('generationBaseBytes', 0)
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
     checker = job.get('checker')
+    judge_code = job.get('interactor') or checker
     checker_artifact = sandbox.ARTIFACT.with_name('checker')
 
     def diagnostic(message):
@@ -184,8 +190,8 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
         compiled = sandbox.execute(dict(source=job['source'], runtime=job['runtime']), True)
         if not compiled['compiled']:
             return dict(verdict='CE', passed=0, total=len(job['cases']), compileLog=compiled['compileLog'])
-        if checker is not None:
-            compiled = sandbox.execute(dict(source=checker['source'], runtime=checker['runtime'] + '-isolate'),
+        if judge_code is not None:
+            compiled = sandbox.execute(dict(source=judge_code['source'], runtime=judge_code['runtime'] + '-isolate'),
                                        True, artifact=checker_artifact)
             if not compiled['compiled']:
                 diagnostic('検証コードのコンパイル失敗\n' + compiled.get('compileLog', ''))
@@ -201,22 +207,29 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     if load_file is None:
                         raise ValueError('test file loader unavailable')
                     case[key] = load_file(case[key + 'File'])
-            reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
-                                         timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
-            reply['index'] = index
-            item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False) or checker is not None)
-            if checker is not None and item['verdict'] == 'AC':
-                checked = sandbox.execute(dict(runtime=checker['runtime'] + '-isolate', input=reply['output'],
-                                               timeLimitMs=5000, memoryLimitMb=512), artifact=checker_artifact,
-                                          checker_files={'test-input': case['input'].encode(),
-                                                         'expected-output': case['output'].encode(),
-                                                         'submission-source': job['source'].encode()})
-                checked['index'] = index
-                check_result = case_result(checked, index, case, validate=True)
-                diagnostic(f"ケース{index + 1}: {check_result['verdict']}\n" + checked.get('checkerLog', '') + '\n')
-                if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
+            if job.get('interactor') is not None:
+                diagnostic(f"ケース{index + 1}:\n")
+                item = interactive.execute(job, case, checker_artifact, diagnostic)
+                item['name'] = case.get('name') or f'ケース{index + 1}'
+                if item['verdict'] == 'JE':
                     return checker_error()
-                item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
+            else:
+                reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
+                                             timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
+                reply['index'] = index
+                item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False) or checker is not None)
+                if checker is not None and item['verdict'] == 'AC':
+                    checked = sandbox.execute(dict(runtime=checker['runtime'] + '-isolate', input=reply['output'],
+                                                   timeLimitMs=5000, memoryLimitMb=512), artifact=checker_artifact,
+                                              checker_files={'test-input': case['input'].encode(),
+                                                             'expected-output': case['output'].encode(),
+                                                             'submission-source': job['source'].encode()})
+                    checked['index'] = index
+                    check_result = case_result(checked, index, case, validate=True)
+                    diagnostic(f"ケース{index + 1}: {check_result['verdict']}\n" + checked.get('checkerLog', '') + '\n')
+                    if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
+                        return checker_error()
+                    item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
             if 'output' in item:
                 generated_bytes += len(item['output'].encode())
                 if generated_bytes > TEST_SET_LIMIT:

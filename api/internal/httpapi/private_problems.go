@@ -260,12 +260,18 @@ func (p PrivateProblems) testFile(w http.ResponseWriter, r *http.Request, owner 
 }
 
 func validDraft(d problems.Draft) bool {
-	if d.Checker != nil {
+	if d.Checker != nil && d.Interactor != nil {
+		return false
+	}
+	for _, code := range []*problems.Generator{d.Checker, d.Interactor} {
+		if code == nil {
+			continue
+		}
 		known := false
 		for _, r := range submissions.Runtimes {
-			known = known || r.ID == d.Checker.Runtime
+			known = known || r.ID == code.Runtime
 		}
-		if !known || len(d.Checker.Source) > 65536 || !utf8.ValidString(d.Checker.Source) || strings.ContainsRune(d.Checker.Source, 0) {
+		if !known || len(code.Source) > 65536 || !utf8.ValidString(code.Source) || strings.ContainsRune(code.Source, 0) {
 			return false
 		}
 	}

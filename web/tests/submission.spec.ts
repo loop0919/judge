@@ -122,13 +122,13 @@ for (const view of ['detail', 'history']) {
   })
 }
 
-test('unregistered tests explain why submission was rejected', async ({ page }) => {
+test('unready judging settings explain why submission was rejected', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
   await page.route('**/api/my/submissions', route => route.fulfill({ status: 409, json: { data: { code: 'tests_not_ready' } } }))
   await page.goto(`/problems/${problemId}`)
   await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
   await page.getByRole('button', { name: '提出する', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('採点用テストが登録されていません')
+  await expect(page.getByRole('alert')).toContainText('テストケース、検証コード、利用できる言語の設定を確認してください。')
   await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('int main(){}')
   await expect(page.getByLabel('ソースコード', { exact: true })).toBeEditable()
 })

@@ -19,8 +19,8 @@ ARTIFACT = Path('/run/judge/main')
 OUTPUT_LIMIT = 16 * 1024 * 1024
 
 
-def invoke(args, timeout=10):
-    return subprocess.run([ISOLATE, '--cg', '--box-id=0', *args],
+def invoke(args, timeout=10, *, box_id=0):
+    return subprocess.run([ISOLATE, '--cg', f'--box-id={box_id}', *args],
                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                           stderr=subprocess.DEVNULL, timeout=timeout, check=False,
                           env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
@@ -81,31 +81,13 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
             (box / runtime['source']).write_text(source)
             command = runtime['compile']
         else:
-            shutil.copyfile(artifact, box / 'main')
-            (box / 'main').chmod(0o555)
+            command = prepare_program(box, runtime, artifact, checker_files)
             data = base64.b64decode(request.get('input', ''), validate=True)
             if len(data) > 16 * 1024 * 1024:
                 raise ValueError('input limit')
             (box / 'input').write_bytes(data)
-            command = runtime['run']
-            if checker_files is not None:
-                # Only the checker box receives these files; argv is operator-owned.
-                for name in ('test-input', 'expected-output', 'submission-source'):
-                    (box / name).write_bytes(checker_files[name])
-                (box / 'score').write_bytes(b'')
-                (box / 'score').chmod(0o666)
-                command = [*command, '/box/test-input', '/box/expected-output',
-                           '/box/submission-source', '/box/score']
-                if runtime['artifact'] == 'java':
-                    command.insert(1, '-ea')
-        # Metadata and saved artifact are outside /box and never mapped into it.
-        args = [f'--meta={META}', f'--time={cpu}', f'--wall-time={wall}',
-                f'--cg-mem={memory * 1024}', '--processes=64', '--open-files=64',
-                '--fsize=32768' if compile_phase else '--fsize=16384',
-                '--stdout=stdout', '--stderr=stderr', '--env=PATH=/usr/bin:/bin',
-                '--dir=/etc=/opt/judge/sandbox-etc',
-                *(['--dir=' + ROOT] if request.get('runtime', 'cpp17-isolate') != 'cpp17-isolate' else []),
-                *['--env=' + value for value in ENVIRONMENT], '--run']
+        args = run_args(request.get('runtime', 'cpp17-isolate'), cpu, wall, memory,
+                        compile_phase=compile_phase)
         if not compile_phase:
             args.insert(-1, '--stdin=input')
         result = invoke([*args, '--', *command], timeout=wall + 10)
@@ -133,6 +115,32 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
         # isolate cleanup destroys the box and its cgroup, including descendants.
         if invoke(['--cleanup']).returncode:
             raise SystemExit('isolate cleanup failed; refusing another job')
+
+
+def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, interactive=False):
+    # Metadata and saved artifacts remain outside the sandbox.
+    return [f'--meta={META if meta is None else meta}', f'--time={cpu}', f'--wall-time={wall}',
+            f'--cg-mem={memory * 1024}', '--processes=32' if interactive else '--processes=64',
+            '--open-files=64', '--fsize=32768' if compile_phase else '--fsize=16384',
+            *([] if interactive else ['--stdout=stdout']), '--stderr=stderr',
+            '--env=PATH=/usr/bin:/bin', '--dir=/etc=/opt/judge/sandbox-etc',
+            *(['--dir=' + ROOT] if runtime != 'cpp17-isolate' else []),
+            *['--env=' + value for value in ENVIRONMENT], '--run']
+
+
+def prepare_program(box, runtime, artifact, files=None):
+    shutil.copyfile(artifact, box / 'main')
+    (box / 'main').chmod(0o555)
+    command = list(runtime['run'])
+    if files is not None:
+        for name in ('test-input', 'expected-output', 'submission-source'):
+            (box / name).write_bytes(files[name])
+        (box / 'score').write_bytes(b'')
+        (box / 'score').chmod(0o666)
+        command += ['/box/test-input', '/box/expected-output', '/box/submission-source', '/box/score']
+        if runtime['artifact'] == 'java':
+            command.insert(1, '-ea')
+    return command
 
 
 def collect_artifact(box, runtime):

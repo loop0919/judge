@@ -107,6 +107,9 @@ func container(ctx context.Context, image, dir, input string, memory int, deadli
 // Judge is a local Docker adapter. It never runs submitted code on the worker host.
 func Judge(ctx context.Context, source string, job Job) Result {
 	r := Result{Verdict: "JE", Total: len(job.Cases)}
+	if job.Interactor != nil {
+		return Result{Verdict: "JE", Total: len(job.Cases), CheckerLog: "対話形式はisolateワーカーで実行してください。"}
+	}
 	if job.Checker != nil && (job.Checker.Runtime != "cpp17" || strings.TrimSpace(job.Checker.Source) == "" || len(job.Checker.Source) > 65536 || !utf8.ValidString(job.Checker.Source) || strings.ContainsRune(job.Checker.Source, 0) || job.Generate || job.Validate) {
 		return r
 	}

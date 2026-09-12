@@ -30,6 +30,7 @@ type Generators struct {
 }
 
 type Draft struct {
+	Interactor    *Generator  `json:"interactor,omitempty"`
 	Checker       *Generator  `json:"checker,omitempty"`
 	Generators    *Generators `json:"generators,omitempty"`
 	Title         string      `json:"title"`

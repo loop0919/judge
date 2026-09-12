@@ -9,7 +9,7 @@ trap 'rm -rf "$build_dir"' EXIT
 curl --fail --location --proto '=https' --tlsv1.2 \
   "https://codeload.github.com/ioi/isolate/tar.gz/$ISOLATE_COMMIT" -o "$build_dir/isolate.tar.gz"
 printf '%s\n' "$ISOLATE_COMMIT" > "$build_dir/isolate-commit"
-cp host.py sandbox.py worker.py smoke.py install.sh fingerprint.py smoke.sh judge-worker.service runtimes.py language-smoke.json "$build_dir/"
+cp host.py sandbox.py interactive.py interactive_smoke.py worker.py smoke.py install.sh fingerprint.py smoke.sh judge-worker.service runtimes.py language-smoke.json "$build_dir/"
 cp .build/runtime.tar.gz "$build_dir/"
 mkdir -p .build
 # The large runtime archive is already compressed.

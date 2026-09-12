@@ -10,6 +10,7 @@ import (
 )
 
 type PublicProblem struct {
+	Interactive   bool      `json:"interactive,omitempty"`
 	SpecialJudge  bool      `json:"specialJudge,omitempty"`
 	ID            string    `json:"id"`
 	Title         string    `json:"title"`
@@ -61,6 +62,7 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 	p.TimeLimitMS = d.TimeLimitMS
 	p.MemoryLimitMB = d.MemoryLimitMB
 	p.SpecialJudge = d.Checker != nil
+	p.Interactive = d.Interactor != nil
 	return p, nil
 }
 

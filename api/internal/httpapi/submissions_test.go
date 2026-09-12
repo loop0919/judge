@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -500,6 +501,66 @@ func TestSubmissionsPostgres(t *testing.T) {
 		}
 	}
 
+	const interactiveID = "88888888-8888-4888-8888-888888888888"
+	draft := problems.Draft{Title: "Interactive", Markdown: "Protocol", TimeLimitMS: "1000", MemoryLimitMB: "512", Interactor: &problems.Generator{Runtime: "python314", Source: "private-interactor"}, TestCases: []problems.TestCase{{Input: "secret", Output: ""}}}
+	ip, err := store.Save(ctx, "alice", interactiveID, 0, draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ibody := strings.Replace(checkerBody, checkerID, interactiveID, 1)
+	// Draft submissions pin the same interactor and cases before subsequent edits.
+	var isub submissions.Submission
+	if err = json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", ibody, 202)), &isub); err != nil {
+		t.Fatal(err)
+	}
+	draft.Interactor.Source = "edited-interactor"
+	ip, err = store.Save(ctx, "alice", interactiveID, ip.Version, draft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, isub.ID).Scan(&checkerRaw); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(checkerRaw), "private-interactor") || strings.Contains(string(checkerRaw), "edited-interactor") {
+		t.Fatal(string(checkerRaw))
+	}
+	ip, err = store.Publish(ctx, "alice", interactiveID, ip.Version, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft.Interactor = nil
+	if _, err = store.Save(ctx, "alice", interactiveID, ip.Version, draft); err != nil {
+		t.Fatal(err)
+	}
+	detail := request("GET", "/problems/"+interactiveID, "", "", 200)
+	if !strings.Contains(detail, `"interactive":true`) || strings.Contains(detail, "interactor") {
+		t.Fatal(detail)
+	}
+	for _, owner := range []string{"alice", "bob"} {
+		if err = json.Unmarshal([]byte(request("POST", "/my/submissions", owner, ibody, 202)), &isub); err != nil {
+			t.Fatal(err)
+		}
+		if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, isub.ID).Scan(&checkerRaw); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(checkerRaw), "edited-interactor") {
+			t.Fatal("published interactor not pinned")
+		}
+		if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET status='DONE',result='{"verdict":"AC","passed":1,"total":1,"checkerLog":"private-dialogue"}' WHERE id=$1`, isub.ID); err != nil {
+			t.Fatal(err)
+		}
+		detail = request("GET", "/my/submissions/"+isub.ID, owner, "", 200)
+		if strings.Contains(detail, "private-dialogue") != (owner == "alice") {
+			t.Fatal("dialogue authorization", detail)
+		}
+		if strings.Contains(request("GET", "/my/submissions", owner, "", 200), "private-dialogue") {
+			t.Fatal("dialogue leaked through list")
+		}
+	}
+	if _, err = queue.CreateRuntime(ctx, "alice", "99999999-9999-4999-8999-999999999999", interactiveID, "source", image, "cpp17-local", "python314"); !errors.Is(err, submissions.ErrNotReady) {
+		t.Fatal("local worker accepted interactive job", err)
+	}
+
 }
 
 func TestCheckerDraftValidation(t *testing.T) {
@@ -512,8 +573,20 @@ func TestCheckerDraftValidation(t *testing.T) {
 		{"cpp17", "\x00", false}, {"cpp17", strings.Repeat("あ", 22000), false},
 	} {
 		draft := problems.Draft{TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: &problems.Generator{Runtime: tc.runtime, Source: tc.source}}
-		if validDraft(draft) != tc.valid {
-			t.Fatalf("runtime=%s valid=%v", tc.runtime, tc.valid)
+		for _, interactive := range []bool{false, true} {
+			if interactive {
+				draft.Interactor, draft.Checker = draft.Checker, nil
+			}
+			if validDraft(draft) != tc.valid {
+				t.Fatalf("runtime=%s interactive=%v valid=%v", tc.runtime, interactive, tc.valid)
+			}
 		}
+	}
+}
+
+func TestConflictingJudgeModes(t *testing.T) {
+	code := &problems.Generator{Runtime: "python314", Source: "print(1)"}
+	if validDraft(problems.Draft{TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: code, Interactor: code}) {
+		t.Fatal("accepted two judge modes")
 	}
 }

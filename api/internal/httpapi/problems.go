@@ -163,12 +163,15 @@ func (p PrivateProblems) publishProblem(w http.ResponseWriter, r *http.Request, 
 		authError(w, 400, "incomplete_problem")
 		return
 	}
-	if *in.Publish && current.Draft.Checker != nil {
+	for _, code := range []*problems.Generator{current.Draft.Checker, current.Draft.Interactor} {
+		if !*in.Publish || code == nil {
+			continue
+		}
 		available := false
 		for _, runtime := range p.availableRuntimes() {
-			available = available || runtime.ID == current.Draft.Checker.Runtime
+			available = available || runtime.ID == code.Runtime
 		}
-		if !available || strings.TrimSpace(current.Draft.Checker.Source) == "" {
+		if !available || strings.TrimSpace(code.Source) == "" {
 			authError(w, 400, "incomplete_problem")
 			return
 		}

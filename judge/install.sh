@@ -19,10 +19,12 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   build-essential pkg-config libcap-dev libseccomp-dev libsystemd-dev python3 python3-boto3 \
   libssl3t64 libffi8 libbz2-1.0 liblzma5 libsqlite3-0 libreadline8t64 libzstd1 libncursesw6 libxml2 libedit2 zlib1g-dev
 # UID/GID belongs exclusively to the sandbox, never to an operator/service.
-if getent passwd 60000 >/dev/null || getent group 60000 >/dev/null; then
-  echo 'UID/GID 60000 must remain unassigned' >&2
+for sandbox_id in 60000 60001; do
+if getent passwd "$sandbox_id" >/dev/null || getent group "$sandbox_id" >/dev/null; then
+  echo 'Sandbox UID/GID must remain unassigned' >&2
   exit 1
 fi
+done
 build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT
 tar -xzf isolate.tar.gz -C "$build_dir" --strip-components=1
@@ -31,10 +33,10 @@ install -m 0755 "$build_dir/isolate" /usr/local/bin/isolate
 install -d -m 700 /opt/judge /opt/judge/assets /root/.aws
 install -d -m 755 /opt/judge/sandbox-etc /var/local/lib/isolate
 # Only a minimal synthetic /etc is visible to submissions.
-printf 'root:x:0:0:root:/:/usr/sbin/nologin\nisolate:x:60000:60000::/box:/usr/sbin/nologin\n' > /opt/judge/sandbox-etc/passwd
-printf 'root:x:0:\nisolate:x:60000:\n' > /opt/judge/sandbox-etc/group
+printf 'root:x:0:0:root:/:/usr/sbin/nologin\nisolate:x:60000:60000::/box:/usr/sbin/nologin\nisolate1:x:60001:60001::/box:/usr/sbin/nologin\n' > /opt/judge/sandbox-etc/passwd
+printf 'root:x:0:\nisolate:x:60000:\nisolate1:x:60001:\n' > /opt/judge/sandbox-etc/group
 chmod 644 /opt/judge/sandbox-etc/*
-install -m 0644 host.py sandbox.py worker.py smoke.py fingerprint.py runtimes.py language-smoke.json /opt/judge/
+install -m 0644 host.py sandbox.py interactive.py interactive_smoke.py worker.py smoke.py fingerprint.py runtimes.py language-smoke.json /opt/judge/
 test -f runtime.tar.gz
 runtime_archive_sha=$(sha256sum runtime.tar.gz | cut -d ' ' -f1)
 if [ -e /opt/judge-runtimes ]; then
@@ -52,7 +54,7 @@ lock_root = /run/isolate/locks
 cg_root = auto:/run/judge/cgroup
 first_uid = 60000
 first_gid = 60000
-num_boxes = 1
+num_boxes = 2
 restricted_init = 1
 CONFIG
 /usr/local/bin/isolate --check-config
