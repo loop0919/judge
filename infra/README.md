@@ -291,6 +291,8 @@ Google CloudでWebアプリ用OAuthクライアントを作り、承認済みリ
 CognitoドメインはUser Pool IDの小文字化・アンダースコアのハイフン置換を接頭辞とする。
 東京では`https://<接頭辞>.auth.ap-northeast-1.amazoncognito.com`となり、apply後は`cognito_domain`出力でも確認できる。
 アプリ側のコールバックは`PUBLIC_SITE_URL/auth/google/callback`としてTerraformが設定する。
+`environment = "dev"`でGoogleログインが有効な場合は、`http://localhost:3000/auth/google/callback`も許可するため、applyのたびに手動で追加する必要はない。
+デフォルトのリダイレクト先は公開サイトのURLを維持する。
 OAuth同意画面がテスト公開の場合は、Google側でテストユーザーの登録も必要になる。
 Googleを使わない場合はIDとSecretを両方空にして、メール認証だけでデプロイできる。
 

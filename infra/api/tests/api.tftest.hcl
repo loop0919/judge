@@ -51,7 +51,7 @@ run "api_contract" {
     error_message = "Immediate dispatch must invoke only this environment's existing judge bridge."
   }
   assert {
-    condition     = !aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client && aws_cognito_user_pool_client.api.default_redirect_uri == "https://disabled.invalid/auth/google/callback" && contains(aws_cognito_user_pool_client.api.callback_urls, aws_cognito_user_pool_client.api.default_redirect_uri)
+    condition     = !aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client && aws_cognito_user_pool_client.api.default_redirect_uri == "https://disabled.invalid/auth/google/callback" && aws_cognito_user_pool_client.api.callback_urls == toset([aws_cognito_user_pool_client.api.default_redirect_uri])
     error_message = "Email-only configuration must disable OAuth and replace imported redirects with a consistent inert URL."
   }
 
@@ -181,11 +181,28 @@ run "google_contract" {
       aws_cognito_user_pool_client.api.default_redirect_uri == "https://judge.example/auth/google/callback" &&
       aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client &&
       aws_cognito_user_pool_client.api.allowed_oauth_flows == toset(["code"]) &&
-      aws_cognito_user_pool_client.api.callback_urls == toset(["https://judge.example/auth/google/callback"]) &&
+      aws_cognito_user_pool_client.api.callback_urls == toset(["https://judge.example/auth/google/callback", "http://localhost:3000/auth/google/callback"]) &&
       contains(aws_cognito_user_pool_client.api.supported_identity_providers, "Google") &&
       aws_cognito_identity_provider.google[0].user_pool_id == aws_cognito_user_pool.users.id
     )
-    error_message = "Google must use authorization code flow and the deployed callback without removing email login."
+    error_message = "Google must preserve both deployed and localhost callbacks in dev, with the deployed default and email login intact."
+  }
+}
+
+run "production_google_callback" {
+  command = plan
+  variables {
+    environment          = "prod"
+    google_client_id     = "test.apps.googleusercontent.com"
+    google_client_secret = "test-only-secret"
+    public_site_url      = "https://judge.example"
+  }
+  assert {
+    condition = (
+      aws_cognito_user_pool_client.api.callback_urls == toset(["https://judge.example/auth/google/callback"]) &&
+      aws_cognito_user_pool_client.api.default_redirect_uri == "https://judge.example/auth/google/callback"
+    )
+    error_message = "Production must only allow the deployed callback."
   }
 }
 

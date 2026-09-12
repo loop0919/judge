@@ -63,7 +63,11 @@ resource "aws_cognito_user_pool_client" "api" {
   allowed_oauth_flows_user_pool_client = var.google_client_id != ""
   allowed_oauth_flows                  = var.google_client_id != "" ? ["code"] : []
   allowed_oauth_scopes                 = var.google_client_id != "" ? ["openid", "email"] : []
-  callback_urls                        = [local.cognito_callback_url]
+  # Manage the local callback too, so apply preserves local Google login in dev.
+  callback_urls = concat(
+    [local.cognito_callback_url],
+    var.environment == "dev" && var.google_client_id != "" ? ["http://localhost:3000/auth/google/callback"] : []
+  )
   # Keep the default and allowlist consistent when adopting existing clients.
   default_redirect_uri = local.cognito_callback_url
   depends_on           = [aws_cognito_identity_provider.google]
