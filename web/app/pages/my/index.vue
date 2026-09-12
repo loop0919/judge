@@ -14,16 +14,16 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
     <nav class="content-menu" aria-label="作成したコンテンツ">
       <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">問題</button>
       <button :aria-pressed="activeContent === 'posts'" @click="activeContent = 'posts'">記事</button>
+      <NuxtLink to="/my/submissions">提出履歴</NuxtLink>
     </nav>
     <SavedProblems v-show="activeContent === 'problems'" />
     <SavedPosts v-show="activeContent === 'posts'" />
-    <p><NuxtLink to="/my/submissions">提出履歴</NuxtLink></p>
     <div class="account-actions"><button class="editor-button" @click="logout">ログアウト</button></div>
   </section>
 </template>
 <style scoped>
 .content-menu { display: flex; gap: 24px; border-bottom: 1px solid var(--color-line); margin-top: 24px; }
-.content-menu button { padding: 12px 8px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-muted); font: inherit; cursor: pointer; }
+.content-menu button, .content-menu a { padding: 12px 8px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-muted); font: inherit; cursor: pointer; text-decoration: none; }
 .content-menu button[aria-pressed="true"] { border-bottom-color: currentColor; color: var(--color-ink); font-weight: 600; }
 .account-actions { padding-block: 24px 40px; border-top: 1px solid var(--color-line); }
 .my-page { margin-top: 40px; }
