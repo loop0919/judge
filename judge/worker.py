@@ -7,8 +7,6 @@ import os
 import signal
 import time
 
-import boto3
-from botocore.config import Config
 from host import judge, prepare_cgroup, verify_assets, pointer, slot
 
 
@@ -24,14 +22,40 @@ def read_test_file(s3, bucket, item):
         raise ValueError('test file encoding') from error
 
 
+def progress_reporter(client, queue, item):
+    last_phase, last_sent, enabled = None, 0, True
+
+    def report(phase, completed, total):
+        nonlocal last_phase, last_sent, enabled
+        now = time.monotonic()
+        # At most one case update per second; stage changes are sent immediately.
+        if not enabled or (phase == last_phase and now - last_sent < 1):
+            return
+        last_phase, last_sent = phase, now
+        payload = dict(submissionId=item['submissionId'], attemptId=item['attemptId'],
+                       progress=dict(phase=phase, completed=completed, total=total))
+        try:
+            client.send_message(QueueUrl=queue, MessageBody=json.dumps(payload))
+        except Exception:
+            # Optional telemetry must not turn a correct submission into JE or delay every case.
+            enabled = False
+            logging.warning('progress unavailable submission=%s', item['submissionId'])
+    return report
+
+
 def main():
+    import boto3
+    from botocore.config import Config
+
     logging.basicConfig(level=logging.INFO, format='%(message)s')
-    runtime = verify_assets()
+    runtime = verify_assets(full=True)
     if runtime != os.environ['JUDGE_RUNTIME_DIGEST']:
         raise ValueError('configured runtime does not match assets')
     cgroup = prepare_cgroup()
     config = Config(connect_timeout=5, read_timeout=30, retries={'max_attempts': 3}, use_dualstack_endpoint=True)
     sqs = boto3.client('sqs', config=config)
+    progress_client = boto3.client('sqs', config=Config(connect_timeout=1, read_timeout=1,
+                                   retries={'total_max_attempts': 1}, use_dualstack_endpoint=True))
     s3 = boto3.client('s3', config=config)
     requests = os.environ['JUDGE_REQUEST_QUEUE_URL']
     results = os.environ['JUDGE_RESULT_QUEUE_URL']
@@ -55,7 +79,8 @@ def main():
                 if any(job[name] != item[name] for name in ('submissionId', 'attemptId')):
                     raise ValueError('job identity')
                 try:
-                    result = judge(job, runtime, lambda item: read_test_file(s3, test_bucket, item))
+                    result = judge(job, runtime, lambda item: read_test_file(s3, test_bucket, item),
+                                   progress_reporter(progress_client, results, item))
                 except Exception:
                     # Avoid logging source, test data, credentials, or sandbox diagnostics.
                     logging.error('judge failed')

@@ -7,6 +7,10 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
+import io
+import zipfile
+
+from runtimes import RUNTIMES, ROOT, ENVIRONMENT
 
 
 ISOLATE = '/usr/local/bin/isolate'
@@ -53,6 +57,7 @@ def regular_read(path, limit):
 
 
 def execute(request, compile_phase=False):
+    runtime = RUNTIMES[request.get('runtime', 'cpp17-isolate')]
     if compile_phase:
         source = request.get('source')
         if not isinstance(source, str) or not 0 < len(source.encode()) <= 65536 or '\0' in source:
@@ -72,8 +77,8 @@ def execute(request, compile_phase=False):
     try:
         META.unlink(missing_ok=True)
         if compile_phase:
-            (box / 'main.cpp').write_text(source)
-            command = ['/usr/bin/g++', '-std=c++17', '-O2', '-pipe', '/box/main.cpp', '-o', '/box/main']
+            (box / runtime['source']).write_text(source)
+            command = runtime['compile']
         else:
             shutil.copyfile(ARTIFACT, box / 'main')
             (box / 'main').chmod(0o555)
@@ -81,13 +86,15 @@ def execute(request, compile_phase=False):
             if len(data) > 16 * 1024 * 1024:
                 raise ValueError('input limit')
             (box / 'input').write_bytes(data)
-            command = ['/box/main']
+            command = runtime['run']
         # Metadata and saved artifact are outside /box and never mapped into it.
         args = [f'--meta={META}', f'--time={cpu}', f'--wall-time={wall}',
                 f'--cg-mem={memory * 1024}', '--processes=64', '--open-files=64',
                 '--fsize=32768' if compile_phase else '--fsize=16384',
                 '--stdout=stdout', '--stderr=stderr', '--env=PATH=/usr/bin:/bin',
-                '--dir=/etc=/opt/judge/sandbox-etc', '--run']
+                '--dir=/etc=/opt/judge/sandbox-etc',
+                *(['--dir=' + ROOT] if request.get('runtime', 'cpp17-isolate') != 'cpp17-isolate' else []),
+                *['--env=' + value for value in ENVIRONMENT], '--run']
         if not compile_phase:
             args.insert(-1, '--stdin=input')
         result = invoke([*args, '--', *command], timeout=wall + 10)
@@ -100,7 +107,7 @@ def execute(request, compile_phase=False):
         if compile_phase:
             success = not (result.returncode or overflow or metrics['oom'] or metrics['status'])
             if success:
-                artifact = regular_read(box / 'main', 32 * 1024 * 1024)
+                artifact = collect_artifact(box, runtime)
                 if not artifact or len(artifact) > 32 * 1024 * 1024:
                     success = False
                 else:
@@ -113,3 +120,33 @@ def execute(request, compile_phase=False):
         # isolate cleanup destroys the box and its cgroup, including descendants.
         if invoke(['--cleanup']).returncode:
             raise SystemExit('isolate cleanup failed; refusing another job')
+
+
+def collect_artifact(box, runtime):
+    if runtime['artifact'] == 'source':
+        return regular_read(box / runtime['source'], 65536)
+    if runtime['artifact'] != 'java':
+        return regular_read(box / 'main', 32 * 1024 * 1024)
+    # Build a jar ourselves; never execute a submission-supplied packager or
+    # traverse symlinked directories while reading javac output as root.
+    output = io.BytesIO()
+    count, size = 0, 0
+    root = box / 'classes'
+    if not stat.S_ISDIR(root.lstat().st_mode):
+        raise ValueError('invalid class directory')
+    with zipfile.ZipFile(output, 'w') as jar:
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            for name in dirs:
+                if not stat.S_ISDIR((Path(directory) / name).lstat().st_mode):
+                    raise ValueError('invalid class directory')
+            for name in files:
+                if not name.endswith('.class'):
+                    raise ValueError('unexpected compiler output')
+                path = Path(directory) / name
+                data = regular_read(path, 32 * 1024 * 1024)
+                count += 1
+                size += len(data)
+                if count > 4096 or size > 32 * 1024 * 1024:
+                    raise ValueError('artifact limit')
+                jar.writestr(str(path.relative_to(root)), data)
+    return output.getvalue()

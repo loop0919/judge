@@ -15,12 +15,19 @@ resource "aws_lightsail_instance" "worker" {
 }
 resource "aws_lightsail_instance_public_ports" "worker" {
   instance_name = aws_lightsail_instance.worker.name
-  port_info {
-    protocol   = "tcp"
-    from_port  = 22
-    to_port    = 22
-    cidrs      = []
-    ipv6_cidrs = [var.admin_ipv6_cidr]
+  lifecycle {
+    # A same-name replacement resets Lightsail's firewall to blueprint defaults.
+    replace_triggered_by = [aws_lightsail_instance.worker]
+  }
+  dynamic "port_info" {
+    for_each = var.ssh_enabled ? [1] : []
+    content {
+      protocol   = "tcp"
+      from_port  = 22
+      to_port    = 22
+      cidrs      = []
+      ipv6_cidrs = [var.admin_ipv6_cidr]
+    }
   }
   port_info {
     protocol   = "icmpv6"
@@ -29,6 +36,20 @@ resource "aws_lightsail_instance_public_ports" "worker" {
     cidrs      = []
     ipv6_cidrs = ["::/0"]
   }
+}
+
+# Lightsail is enrolled as a hybrid managed node. Activation credentials are
+# generated once outside Terraform and passed over the verified SSH channel.
+resource "aws_iam_role" "worker_ssm" {
+  name = "${local.name}-judge-ssm"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { Service = "ssm.amazonaws.com" }, Action = "sts:AssumeRole" }]
+  })
+}
+resource "aws_iam_role_policy_attachment" "worker_ssm" {
+  role       = aws_iam_role.worker_ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 # Lightsail has no EC2 instance profile. Create/rotate the restricted access key
 # outside Terraform; install it into /root/.aws/credentials with mode 0600.

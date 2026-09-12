@@ -30,6 +30,11 @@ variable "admin_ipv6_cidr" {
     error_message = "Specify one operator IPv6 address with /128."
   }
 }
+variable "ssh_enabled" {
+  description = "Bootstrap/recovery SSH from admin_ipv6_cidr. Disable after SSM connectivity and reboot verification."
+  type        = bool
+  default     = true
+}
 variable "bridge_package_path" {
   type    = string
   default = "../../api/.build/judge-bridge.zip"

@@ -9,10 +9,15 @@ test -f /sys/fs/cgroup/cgroup.controllers
 test "$ID" = ubuntu
 test "$VERSION_ID" = 24.04
 systemctl stop judge-worker.service 2>/dev/null || true
+# Apply security updates during planned maintenance, then fingerprint and smoke.
+# Unattended upgrades change the platform digest and stop the verified worker.
+printf 'APT::Periodic::Unattended-Upgrade "0";\n' > /etc/apt/apt.conf.d/99judge-maintenance
+systemctl disable --now apt-daily-upgrade.timer
 swapoff -a
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  build-essential pkg-config libcap-dev libseccomp-dev libsystemd-dev python3 python3-boto3
+  build-essential pkg-config libcap-dev libseccomp-dev libsystemd-dev python3 python3-boto3 \
+  libssl3t64 libffi8 libbz2-1.0 liblzma5 libsqlite3-0 libreadline8t64 libzstd1 libncursesw6 libxml2 libedit2 zlib1g-dev
 # UID/GID belongs exclusively to the sandbox, never to an operator/service.
 if getent passwd 60000 >/dev/null || getent group 60000 >/dev/null; then
   echo 'UID/GID 60000 must remain unassigned' >&2
@@ -29,7 +34,15 @@ install -d -m 755 /opt/judge/sandbox-etc /var/local/lib/isolate
 printf 'root:x:0:0:root:/:/usr/sbin/nologin\nisolate:x:60000:60000::/box:/usr/sbin/nologin\n' > /opt/judge/sandbox-etc/passwd
 printf 'root:x:0:\nisolate:x:60000:\n' > /opt/judge/sandbox-etc/group
 chmod 644 /opt/judge/sandbox-etc/*
-install -m 0644 host.py sandbox.py worker.py smoke.py fingerprint.py /opt/judge/
+install -m 0644 host.py sandbox.py worker.py smoke.py fingerprint.py runtimes.py language-smoke.json /opt/judge/
+test -f runtime.tar.gz
+runtime_archive_sha=$(sha256sum runtime.tar.gz | cut -d ' ' -f1)
+if [ -e /opt/judge-runtimes ]; then
+  test "$(cat /opt/judge/assets/runtime-archive.sha256)" = "$runtime_archive_sha"
+else
+  tar -xzf runtime.tar.gz -C /opt
+  printf '%s\n' "$runtime_archive_sha" > /opt/judge/assets/runtime-archive.sha256
+fi
 install -m 0755 smoke.sh /opt/judge/
 install -m 0644 isolate-commit /opt/judge/assets/
 install -d /usr/local/etc

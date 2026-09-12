@@ -2,14 +2,64 @@ import base64
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import sandbox
 import host
+import worker
+from runtimes import RUNTIMES
 
 
 class RunnerTests(unittest.TestCase):
+    def test_progress_is_rate_limited_and_failure_does_not_fail_judging(self):
+        import json
+        client = Mock()
+        report = worker.progress_reporter(client, 'queue', dict(submissionId='id', attemptId='attempt'))
+        with patch.object(worker.time, 'monotonic', side_effect=[0, .1, .2, .3, 1.2, 2.3, 3.4]):
+            report('PREPARING', 0, 4)
+            report('JUDGING', 0, 4)
+            report('JUDGING', 1, 4)
+            report('JUDGING', 2, 4)
+            report('JUDGING', 3, 4)
+            self.assertEqual(client.send_message.call_count, 3)
+            payload = json.loads(client.send_message.call_args.kwargs['MessageBody'])
+            self.assertEqual(payload['progress'], dict(phase='JUDGING', completed=3, total=4))
+            client.send_message.side_effect = RuntimeError('network down')
+            report('JUDGING', 4, 4)
+            report('JUDGING', 4, 4)
+            self.assertEqual(client.send_message.call_count, 4)
+
+    def test_all_runtime_commands_are_operator_owned_and_have_smoke_fixtures(self):
+        import json
+        fixtures = json.loads((Path(__file__).resolve().parents[1] / 'language-smoke.json').read_text())
+        self.assertEqual(set(fixtures), set(RUNTIMES))
+        for name, runtime in RUNTIMES.items():
+            self.assertTrue(runtime['compile'][0].startswith(('/opt/judge-runtimes/', '/usr/bin/')))
+            self.assertTrue(runtime['run'][0].startswith(('/opt/judge-runtimes/', '/box/')))
+            self.assertTrue({'AC', 'WA', 'CE', 'TLE'} <= {case['verdict'] for case in fixtures[name]})
+
+    def test_java_artifact_rejects_symlink_directory(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            box = Path(tmp)
+            (box / 'classes').mkdir()
+            (box / 'classes' / 'escape').symlink_to('/etc', target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'class directory'):
+                sandbox.collect_artifact(box, RUNTIMES['java24-isolate'])
+
+    def test_java_artifact_preserves_nested_classes(self):
+        import tempfile
+        import zipfile
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            box = Path(tmp)
+            (box / 'classes' / 'nested').mkdir(parents=True)
+            (box / 'classes' / 'Main.class').write_bytes(b'main')
+            (box / 'classes' / 'nested' / 'Helper.class').write_bytes(b'helper')
+            with zipfile.ZipFile(io.BytesIO(sandbox.collect_artifact(box, RUNTIMES['java24-isolate']))) as jar:
+                self.assertEqual(set(jar.namelist()), {'Main.class', 'nested/Helper.class'})
+
     def test_missing_and_nonfinite_measurements_fail_closed(self):
         for text in ['time:0\ntime-wall:0', 'time:nan\ntime-wall:0\ncg-mem:1',
                      'status:XX\ntime:0\ntime-wall:0\ncg-mem:1']:
@@ -33,6 +83,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_judge_keeps_expected_output_private_and_compiles_once(self):
         calls = []
+        progress = []
         def execute(request, compile_phase=False):
             calls.append((request, compile_phase))
             if compile_phase:
@@ -47,12 +98,24 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
                 patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
                 patch.object(sandbox, 'META', Path(tmp) / 'meta'):
-            result = host.judge(job, 'sha256:test')
+            result = host.judge(job, 'sha256:test', progress=lambda *args: progress.append(args))
         self.assertEqual(result['verdict'], 'WA')
         self.assertEqual(result['passed'], 1)
         self.assertEqual([compile_phase for _, compile_phase in calls], [True, False, False])
         self.assertNotIn('secret', str(calls))
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
+        self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2), ('JUDGING', 2, 2)])
+
+    def test_compile_error_never_reports_judging(self):
+        import tempfile
+        progress = []
+        job = dict(runtime='python314-isolate', runtimeDigest='sha256:test', source='bad syntax',
+                   memoryLimitMb=512, timeLimitMs=1000, cases=[dict(input='', output='')])
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', return_value={'compiled': False, 'compileLog': 'syntax error'}), \
+                patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+            result = host.judge(job, 'sha256:test', progress=lambda *args: progress.append(args))
+        self.assertEqual(result['verdict'], 'CE')
+        self.assertEqual(progress, [('PREPARING', 0, 1)])
 
     def test_large_test_file_is_loaded_by_immutable_reference(self):
         calls = []

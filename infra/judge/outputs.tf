@@ -1,6 +1,7 @@
 output "worker_instance_name" { value = aws_lightsail_instance.worker.name }
 output "worker_ipv6_addresses" { value = aws_lightsail_instance.worker.ipv6_addresses }
 output "worker_iam_user" { value = aws_iam_user.worker.name }
+output "worker_ssm_role" { value = aws_iam_role.worker_ssm.name }
 output "worker_environment" {
   value = join("\n", [
     "AWS_DEFAULT_REGION=${var.aws_region}",

@@ -1,6 +1,8 @@
 # Lightsail上のisolateジャッジ
 
-Ubuntu 24.04のLightsail（IPv6のみ、2 GB、2 vCPU）で、C++17の提出を1件ずつ採点する。
+Ubuntu 24.04のLightsail（IPv6のみ、2 GB、2 vCPU）で、提出を1件ずつ採点する。
+C、C++、Python、RustとJavaを構築し、実機検証済みのランタイムを段階的に公開する。
+再構築・SSM接続・段階公開の操作は[ランタイムの再構築と公開](../docs/judge/runtime-rollout.md)に従う。
 APIとDBは既存のAWS環境を使い、専用の管理ワーカーがSQSとS3を介して処理する。
 Terraformは[infra/judge](../infra/judge/)に置く。
 
@@ -34,7 +36,7 @@ Lightsailはバースト可能なCPUなので、CPU残高や共有ホストの�
 
 現在はソース64 KiB、100ケース以下、各入出力16 MiB、全入出力512 MiB以下が対象である。
 64 KiBを超える入出力は、実行直前にS3から取得する。
-大きなS3バンドルと他言語は未実装である。
+入力ファイルは不変のS3 VersionIdとSHA-256で検証する。
 
 ## AWS環境の作成
 
@@ -47,6 +49,7 @@ aws lightsail get-bundles --region ap-northeast-1 \
 aws lightsail get-blueprints --region ap-northeast-1 \
   --query "blueprints[?blueprintId=='ubuntu_24_04'].{id:blueprintId,active:isActive}"
 make -C api package package-judge
+# 先に「ランタイムの再構築と公開」に従って .build/runtime.tar.gz を構築する。
 bash judge/build-assets.sh
 cp infra/judge/terraform.tfvars.example infra/judge/terraform.tfvars
 ```
@@ -106,7 +109,7 @@ ssh -6 "ubuntu@$JUDGE_IPV6" 'sudo /opt/judge/smoke.sh'
 ```
 
 smokeは本番と同じsystemdのメモリ上限とマウント設定で、AC、WA、CE、TLE、MLE、OLE、秘密ファイルへのアクセス拒否、ネットワーク遮断、ケース間のファイル破棄を確認する。
-続いて[APIのマイグレーション手順](../infra/README.md)で`006_test_files.sql`まで適用する。
+続いて[APIのマイグレーション手順](../infra/README.md)で`007_multilanguage_dispatch.sql`まで適用する。
 
 ```sh
 ssh -6 "ubuntu@$JUDGE_IPV6" 'sudo systemctl enable --now judge-worker'
@@ -115,7 +118,9 @@ ssh -6 "ubuntu@$JUDGE_IPV6" 'sudo systemctl enable --now judge-worker'
 ワーカーのログを確認してから`infra/judge`の`enabled=true`を適用する。
 API側の`judge_runtime_digest`にも同じdigestを設定し、APIをデプロイする。
 GitHub ActionsでAPIをデプロイする場合はリポジトリ変数`JUDGE_RUNTIME_DIGEST`にも設定する。
-APIは`cpp17`を受け取り、保存時に`cpp17-isolate`とdigestを固定する。
+APIは公開リストに含まれる言語だけを受け取り、保存時に`-isolate`識別子とdigestを固定する。
+公開リストの既定値は`cpp17`だけである。
+`GET /runtimes`と提出受付は同じ公開設定を参照する。
 最後に実際のAPIから1提出してDBへの結果反映まで確認する。
 
 ## 更新と障害対応

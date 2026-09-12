@@ -13,6 +13,7 @@ import time
 import uuid
 
 import sandbox
+from runtimes import RUNTIMES, ROOT
 
 ASSETS = Path('/opt/judge/assets')
 TEST_FILE_LIMIT = 16 * 1024 * 1024
@@ -35,7 +36,7 @@ def pointer(body):
 
 
 def validate_job(job, runtime):
-    if job.get('runtimeDigest') != runtime or job.get('runtime') != 'cpp17-isolate':
+    if job.get('runtimeDigest') != runtime or job.get('runtime') not in RUNTIMES:
         raise ValueError('runtime mismatch')
     source = job.get('source')
     if not isinstance(source, str) or not 0 < len(source.encode()) <= 65536 or '\0' in source:
@@ -138,14 +139,18 @@ def slot():
         yield
 
 
-def judge(job, runtime, load_file=None):
+def judge(job, runtime, load_file=None, progress=None):
     validate_job(job, runtime)
     deadline = time.monotonic() + 1800
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
     try:
-        compiled = sandbox.execute(dict(source=job['source']), True)
+        if progress:
+            progress('PREPARING', 0, result['total'])
+        compiled = sandbox.execute(dict(source=job['source'], runtime=job['runtime']), True)
         if not compiled['compiled']:
             return dict(verdict='CE', passed=0, total=len(job['cases']), compileLog=compiled['compileLog'])
+        if progress:
+            progress('JUDGING', 0, result['total'])
         for index, case in enumerate(job['cases']):
             if time.monotonic() >= deadline:
                 raise TimeoutError('job deadline')
@@ -155,7 +160,7 @@ def judge(job, runtime, load_file=None):
                     if load_file is None:
                         raise ValueError('test file loader unavailable')
                     case[key] = load_file(case[key + 'File'])
-            reply = sandbox.execute(dict(input=base64.b64encode(case['input'].encode()).decode(),
+            reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
                                          timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
             reply['index'] = index
             item = case_result(reply, index, case)
@@ -164,6 +169,8 @@ def judge(job, runtime, load_file=None):
                 result['passed'] += 1
             elif result['verdict'] == 'AC':
                 result['verdict'] = item['verdict']
+            if progress:
+                progress('JUDGING', index + 1, result['total'])
     finally:
         sandbox.ARTIFACT.unlink(missing_ok=True)
         sandbox.META.unlink(missing_ok=True)
@@ -176,7 +183,21 @@ def platform_fingerprint():
     return dict(kernel=os.uname().release, packages=hashlib.sha256(packages).hexdigest())
 
 
-def verify_assets():
+def runtime_inventory():
+    tree = {}
+    root = Path(ROOT)
+    if not root.is_dir():
+        raise ValueError('runtime bundle missing')
+    for path in sorted(root.rglob('*')):
+        if path.is_symlink():
+            tree[str(path.relative_to(root))] = {'link': os.readlink(path)}
+        elif path.is_file():
+            with path.open('rb') as file:
+                tree[str(path.relative_to(root))] = {'sha256': hashlib.file_digest(file, 'sha256').hexdigest(), 'mode': path.stat().st_mode & 0o777}
+    return tree
+
+
+def verify_assets(full=False):
     manifest_data = (ASSETS / 'manifest.json').read_bytes()
     manifest = json.loads(manifest_data)
     if manifest['platform'] != platform_fingerprint():
@@ -185,4 +206,6 @@ def verify_assets():
         with open(name, 'rb') as file:
             if hashlib.file_digest(file, 'sha256').hexdigest() != digest:
                 raise ValueError('runtime checksum mismatch')
+    if full and json.loads((ASSETS / 'runtime-tree.json').read_text()) != runtime_inventory():
+        raise ValueError('runtime bundle changed')
     return 'sha256:' + hashlib.sha256(manifest_data).hexdigest()

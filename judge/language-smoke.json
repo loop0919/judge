@@ -1,0 +1,300 @@
+{
+  "cpp17-isolate": [
+    {
+      "name": "AC",
+      "source": "#include <cstdio>\nint main(){puts(\"3\");}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "#include <cstdio>\nint main(){puts(\"3\");}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not c++",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "int main(){for(;;){}}",
+      "verdict": "TLE"
+    }
+  ],
+  "c23-gcc-isolate": [
+    {
+      "name": "AC",
+      "source": "#include <stdio.h>\nint main(){constexpr int x=3; static_assert(x==3); printf(\"%d\\n\",x);}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "#include <stdio.h>\nint main(){constexpr int x=3; static_assert(x==3); printf(\"%d\\n\",x);}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not c",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "int main(){for(;;){}}",
+      "verdict": "TLE"
+    }
+  ],
+  "c23-clang-isolate": [
+    {
+      "name": "AC",
+      "source": "#include <stdio.h>\nint main(){constexpr int x=3; static_assert(x==3); printf(\"%d\\n\",x);}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "#include <stdio.h>\nint main(){constexpr int x=3; static_assert(x==3); printf(\"%d\\n\",x);}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not c",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "int main(){for(;;){}}",
+      "verdict": "TLE"
+    }
+  ],
+  "cpp23-gcc-isolate": [
+    {
+      "name": "AC",
+      "source": "#include <cstdio>\n#include <boost/multiprecision/cpp_int.hpp>\n#include <atcoder/all>\nint main(){atcoder::dsu d(3);d.merge(0,1); boost::multiprecision::cpp_int x=3; if(d.size(0)!=2||x!=3)return 1; puts(\"3\");}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "#include <cstdio>\n#include <boost/multiprecision/cpp_int.hpp>\n#include <atcoder/all>\nint main(){atcoder::dsu d(3);d.merge(0,1); boost::multiprecision::cpp_int x=3; if(d.size(0)!=2||x!=3)return 1; puts(\"3\");}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not c++",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "int main(){for(;;){}}",
+      "verdict": "TLE"
+    }
+  ],
+  "python314-isolate": [
+    {
+      "name": "AC",
+      "source": "print(sum(map(int,input().split())))",
+      "input": "1 2\n",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "print(sum(map(int,input().split())))",
+      "input": "1 2\n",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "def :",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "while True: pass",
+      "verdict": "TLE"
+    },
+    {
+      "name": "libraries",
+      "source": "import numpy as np\nfrom scipy.fft import fft\nfrom more_itertools import chunked\nfrom sortedcontainers import SortedList\nfrom atcoder.dsu import DSU\nd=DSU(3);d.merge(0,1)\nassert d.size(0)==2 and list(chunked([1,2,3],2))==[[1,2],[3]] and SortedList([2,1])[0]==1\nassert abs(fft(np.array([1.,2.]))[0]-3)<1e-9\nprint(3)",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    }
+  ],
+  "pypy311-isolate": [
+    {
+      "name": "AC",
+      "source": "print(sum(map(int,input().split())))",
+      "input": "1 2\n",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "print(sum(map(int,input().split())))",
+      "input": "1 2\n",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "def :",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "while True: pass",
+      "verdict": "TLE"
+    },
+    {
+      "name": "libraries",
+      "source": "from more_itertools import chunked\nfrom sortedcontainers import SortedList\nfrom atcoder.dsu import DSU\nd=DSU(3);d.merge(0,1)\nassert d.size(0)==2 and list(chunked([1,2,3],2))==[[1,2],[3]] and SortedList([2,1])[0]==1\nprint(3)",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    }
+  ],
+  "codon020-isolate": [
+    {
+      "name": "AC",
+      "source": "values=[int(x) for x in input().split()]\nprint(values[0]+values[1])",
+      "input": "1 2\n",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "values=[int(x) for x in input().split()]\nprint(values[0]+values[1])",
+      "input": "1 2\n",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "def :",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "from C import getpid() -> int\nwhile True:\n    getpid()",
+      "verdict": "TLE"
+    }
+  ],
+  "rust2024-isolate": [
+    {
+      "name": "AC",
+      "source": "use ac_library::Dsu; use fixedbitset::FixedBitSet; use itertools::Itertools; use num::BigInt; use proconio::fastout; use rand::RngExt; use rustc_hash::FxHashMap;\n#[fastout] fn main(){let mut d=Dsu::new(3);d.merge(0,1);assert_eq!(d.size(0),2);let mut b=FixedBitSet::with_capacity(3);b.insert(1);assert!(b.contains(1));assert_eq!([1,2].into_iter().join(\",\"),\"1,2\");assert_eq!(BigInt::from(1)+BigInt::from(2),BigInt::from(3));let mut h=FxHashMap::default();h.insert(1,2);let _:u32=rand::rng().random();println!(\"3\");}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "use ac_library::Dsu; use fixedbitset::FixedBitSet; use itertools::Itertools; use num::BigInt; use proconio::fastout; use rand::RngExt; use rustc_hash::FxHashMap;\n#[fastout] fn main(){let mut d=Dsu::new(3);d.merge(0,1);assert_eq!(d.size(0),2);let mut b=FixedBitSet::with_capacity(3);b.insert(1);assert!(b.contains(1));assert_eq!([1,2].into_iter().join(\",\"),\"1,2\");assert_eq!(BigInt::from(1)+BigInt::from(2),BigInt::from(3));let mut h=FxHashMap::default();h.insert(1,2);let _:u32=rand::rng().random();println!(\"3\");}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not rust",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "fn main(){loop{std::hint::black_box(0);}}",
+      "verdict": "TLE"
+    }
+  ],
+  "java24-isolate": [
+    {
+      "name": "libraries-and-nested-class",
+      "source": "import ac_library.DSU; import io.lacuna.bifurcan.Set; public class Main { static class Helper { static int value(){return 3;} } public static void main(String[] args){ DSU d=new DSU(3); d.merge(0,1); Set<Integer> s=new Set<Integer>().add(1).add(2); if(d.size(0)!=2 || s.size()!=2)throw new AssertionError(); System.out.println(Helper.value()); } }",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "AC",
+      "source": "public class Main { public static void main(String[] args){System.out.println(3);} }",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "public class Main { public static void main(String[] args){System.out.println(3);} }",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not java",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "public class Main { public static void main(String[] args){for(;;){}} }",
+      "verdict": "TLE"
+    }
+  ],
+  "cpp23-clang-isolate": [
+    {
+      "name": "AC",
+      "source": "#include <cstdio>\n#include <boost/multiprecision/cpp_int.hpp>\n#include <atcoder/all>\nint main(){atcoder::dsu d(3);d.merge(0,1); boost::multiprecision::cpp_int x=3; if(d.size(0)!=2||x!=3)return 1; puts(\"3\");}",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "#include <cstdio>\n#include <boost/multiprecision/cpp_int.hpp>\n#include <atcoder/all>\nint main(){atcoder::dsu d(3);d.merge(0,1); boost::multiprecision::cpp_int x=3; if(d.size(0)!=2||x!=3)return 1; puts(\"3\");}",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not c++",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "int main(){for(;;){}}",
+      "verdict": "TLE"
+    }
+  ]
+}

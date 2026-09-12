@@ -1,0 +1,58 @@
+{
+  "files": {
+    "ac_library.jar": {
+      "sha256": "9ce491118534973dfcab5f4573f12839d4f3a9cf678218d6a3f304a3b25d2ed5",
+      "url": "https://github.com/ocha98/ac-library-java/releases/download/v2.0.0/ac_library23.jar"
+    },
+    "acl-python.tar.gz": {
+      "sha256": "ddea485c4dff090a0d61c9b90a742259948fc93061f8167317a35c547afb1a45",
+      "url": "https://codeload.github.com/not522/ac-library-python/tar.gz/27fdbb71cd0d566bdeb12746db59c9d908c6b5d5"
+    },
+    "acl.tar.gz": {
+      "sha256": "3316dc04ae0d71701dd578e0f9e3c492a509fe0a1ba50ec154844350b4170b9d",
+      "url": "https://codeload.github.com/atcoder/ac-library/tar.gz/refs/tags/v1.6"
+    },
+    "bifurcan.jar": {
+      "sha256": "a9e0c30873543574a9dced0589e11999b8c611c83f44735fa6dd9fc8406c9a2a",
+      "url": "https://repo.maven.apache.org/maven2/io/lacuna/bifurcan/0.2.0-rc1/bifurcan-0.2.0-rc1.jar"
+    },
+    "boost.tar.bz2": {
+      "sha256": "5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c",
+      "url": "https://archives.boost.io/release/1.92.0/source/boost_1_92_0.tar.bz2"
+    },
+    "codon.tar.gz": {
+      "sha256": "3699b803e65e3faf3321f114ae111a8981e11ac603a0d2b8447877063496c23b",
+      "url": "https://github.com/exaloop/codon/releases/download/v0.20.0/codon-linux-x86_64.tar.gz"
+    },
+    "gcc.tar.xz": {
+      "sha256": "e6738e29597f733270731aa90600f37ffdc045079dfc27ec7e8192cc81085c3e",
+      "url": "https://gcc.gnu.org/pub/gcc/releases/gcc-16.2.0/gcc-16.2.0.tar.xz"
+    },
+    "java.tar.gz": {
+      "sha256": "635050717feab0e4c283c8e90e79e944a2b65a3b6b21f1d37dcaadad4cc29548",
+      "url": "https://download.java.net/java/GA/jdk24.0.2/fdc5d0102fe0414db21410ad5834341f/12/GPL/openjdk-24.0.2_linux-x64_bin.tar.gz"
+    },
+    "llvm.tar.xz": {
+      "sha256": "832aeb58d105de1cabc7b982dd2c65de0610f7377df48ae8fc2dd8e97420a15c",
+      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.1/LLVM-23.1.1-Linux-X64.tar.xz"
+    },
+    "pypy.tar.bz2": {
+      "sha256": "16f9f56e82d1f4ec95a324c1a8cacfd78afc7f0656c0a809a18725ef4391453a",
+      "url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux64.tar.bz2"
+    },
+    "python.tar.xz": {
+      "sha256": "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81",
+      "url": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz"
+    },
+    "rust.tar.xz": {
+      "sha256": "5326b36c53de11d148c8f8dab6553a3d1006c2cfd32123683073fad3c302605b",
+      "url": "https://static.rust-lang.org/dist/rust-1.98.1-x86_64-unknown-linux-gnu.tar.xz"
+    }
+  },
+  "python_packages": {
+    "more-itertools": "11.1.0",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "sortedcontainers": "2.4.0"
+  }
+}

@@ -1,9 +1,13 @@
 #!/usr/bin/python3
 """Run on the target Lightsail host, with the queue worker stopped. No AWS access."""
 from host import judge, prepare_cgroup, verify_assets, slot
+import json
+import os
+from pathlib import Path
+from runtimes import RUNTIMES
 
 with slot():
-    runtime = verify_assets()
+    runtime = verify_assets(full=True)
     prepare_cgroup()
     programs = [
         ('AC', '#include <cstdio>\nint main(){puts("3");}'),
@@ -26,3 +30,25 @@ with slot():
         result = judge(job, runtime)
         assert result['verdict'] == expected, (expected, result)
         print(expected, 'OK', flush=True)
+    fixtures = json.loads(Path('/opt/judge/language-smoke.json').read_text())
+    requested = os.environ.get('JUDGE_SMOKE_RUNTIMES', ','.join(RUNTIMES)).split(',')
+    if not requested or any(name not in RUNTIMES for name in requested):
+        raise ValueError('invalid smoke runtime selection')
+    passed, failed = [], []
+    for name in requested:
+        for fixture in fixtures[name]:
+            job = dict(runtime=name, runtimeDigest=runtime, source=fixture['source'],
+                       timeLimitMs=fixture.get('timeLimitMs', 1000), memoryLimitMb=512,
+                       cases=[dict(name='first', input=fixture.get('input', ''), output=fixture.get('output', '3')),
+                              dict(name='fresh', input=fixture.get('input', ''), output=fixture.get('output', '3'))])
+            result = judge(job, runtime)
+            if result['verdict'] != fixture['verdict']:
+                print(name, fixture['name'], 'FAILED', result, flush=True)
+                failed.append(name)
+                break
+            print(name, fixture['name'], result['verdict'], 'OK', flush=True)
+        else:
+            passed.append(name)
+    print(json.dumps({'runtimeDigest': runtime, 'passedRuntimes': passed, 'failedRuntimes': failed}), flush=True)
+    if failed:
+        raise SystemExit(1)

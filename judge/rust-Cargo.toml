@@ -1,0 +1,13 @@
+[package]
+name = "openoj-dependencies"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ac-library-rs = "=0.2.0"
+fixedbitset = "=0.5.7"
+itertools = "=0.15.0"
+num = "=0.4.3"
+proconio = { version = "=0.6.0", features = ["derive"] }
+rand = "=0.10.2"
+rustc-hash = "=2.1.3"

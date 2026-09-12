@@ -30,6 +30,9 @@ table inet judge {
     meta l4proto ipv6-icmp accept
     udp dport 53 accept
     tcp dport 53 accept
+    # cloud-init needs IMDS at every boot, even on IPv6-only Lightsail.
+    # Submissions have a separate network namespace and cannot reach IMDS.
+    ip daddr 169.254.169.254 tcp dport 80 accept
     ip6 daddr ::/0 tcp dport 443 accept
     udp dport 123 accept
     # DHCP renewal, when used by the blueprint.

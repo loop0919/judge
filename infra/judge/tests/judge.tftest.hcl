@@ -8,6 +8,7 @@ mock_provider "aws" {
   mock_resource "aws_cloudwatch_event_rule" { defaults = { arn = "arn:aws:events:ap-northeast-1:123456789012:rule/judge-test" } }
 }
 variables {
+  enabled             = false
   ssh_public_key      = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJbU10sbvSiPykk/v/mzxDSkNPF1hvszNuRt/RLGKd5L"
   admin_ipv6_cidr     = "2001:db8::1/128"
   runtime_digest      = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -26,6 +27,10 @@ variables {
 }
 run "isolated_worker" {
   command = apply
+  assert {
+    condition     = strcontains(file("${path.module}/user-data.sh.tftpl"), "ip daddr 169.254.169.254 tcp dport 80 accept")
+    error_message = "Host cloud-init must retain access to IMDS across reboot."
+  }
   assert {
     condition     = aws_lightsail_instance.worker.bundle_id == "small_ipv6_3_0" && aws_lightsail_instance.worker.ip_address_type == "ipv6"
     error_message = "Worker must use the 2 GB IPv6-only bundle."
@@ -78,4 +83,12 @@ run "reject_public_ssh" {
   command = plan
   variables { admin_ipv6_cidr = "::/0" }
   expect_failures = [var.admin_ipv6_cidr]
+}
+run "ssm_only" {
+  command = plan
+  variables { ssh_enabled = false }
+  assert {
+    condition     = alltrue([for port in aws_lightsail_instance_public_ports.worker.port_info : port.protocol == "icmpv6"])
+    error_message = "SSM-only mode must expose no TCP ports."
+  }
 }
