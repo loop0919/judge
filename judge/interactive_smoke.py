@@ -62,6 +62,7 @@ print(int(input())*2,flush=True)
     # The 768 MiB allocation stays live on both sides, plus files and relay buffers.
     stress = '''import sys
 memory=bytearray(MEMORY*1024*1024)
+for offset in range(0,len(memory),4096): memory[offset]=1
 with open('working-file','wb') as f: f.write(b'x'*(16*1024*1024))
 '''
     check('python314-isolate', stress.replace('MEMORY', '420') + 'print(int(input())*2,flush=True)',

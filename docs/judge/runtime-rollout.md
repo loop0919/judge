@@ -364,3 +364,72 @@ workerは再起動0回で稼働し、manifestと設定のdigestも一致した�
 JUDGE_RUNTIME_DIGEST=sha256:7c71bb6883d092fa7a109f88082ec2e8e91447c3de4d8379b5cb0d0497e8156f
 JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","python314","pypy311","codon020","rust2024","cpp23-gcc","cpp23-clang"]
 ```
+
+## 2026年9月13日のインタラクティブジャッジ対応
+
+[ADR 0009](../adr/0009-support-interactive-judge.md)の実装を既存のLightsail workerへ配置した。
+新規受付を停止し、通常キューと失敗キューが空であることを確認してから、定期dispatchと結果受信を停止した。
+ワーカーのプログラムを更新し、isolateのbox数を2に増やしてUID/GID 60001を追加した。
+OS、コンパイラ、ライブラリ、インスタンス構成は変更していない。
+
+| 項目 | 値 |
+| --- | --- |
+| worker | `judge-dev-judge-worker` |
+| SSM管理対象 | `mi-08a9ccbdc9116b369` |
+| 実装コミット | `253ffe9` |
+| runtime digest | `sha256:065f76fb60572a1612463fc4705a62a8484a3990109a759bc106b53e7ee5d584` |
+| 初回コード配布物SHA-256 | `096d08b7992d0073bc1772adfb2c6c0b9071b6042ca107db74f6069e2440d5ff` |
+| コード配置のSSMコマンドID | `e534aaba-d57a-46ac-9765-018adffb39ec` |
+| 全体smokeのSSMコマンドID | `2446dcc8-4829-4aa1-9d58-9905fdb8b2d7` |
+
+コード配布物は専用ジョブバケットの`releases/<SHA-256>/interactive-code.tar.gz`に保存した。
+旧コードと設定はworkerの`/opt/judge-release/interactive/before.tar.gz`へ退避した。
+API、bridge、WebのLambdaコードも更新した。
+
+全10ランタイムで通常判定、スペシャルジャッジ、対話のACとassertによるWA、採用ライブラリの検証が通った。
+対話用ジャッジは256 MiB、提出側は512 MiB、各32タスクで実行した。
+非公開ファイルの分離、異なるUID、ケース間の作業領域の破棄、コンパイル失敗、CPU超過、経過時間超過、両方向の大量出力、標準エラー超過、両側のOOM、子孫プロセスの回収も確認した。
+
+メモリ負荷では、確保した各ページに書き込む処理を追加した。
+追加後の配布物SHA-256は`8c46141b3472df9bcf0c29abbdba9a6f7499dab33b10d1f0c6874a657d0ae0df`で、同じバケットの`releases/<SHA-256>/interactive-code.tar.gz`に保存した。
+追加分はテストコードのみで、runtime digestは変わらない。
+追加検証のSSMコマンドIDは`e2cfa5a5-22e6-4ab3-ae6c-c6c221ab4830`である。
+
+02:53 JSTに全10ランタイムのsmokeが成功し、各ページへの実書き込みを追加した検証も02:59 JSTに成功した。
+提出側420 MiBと対話用ジャッジ側180 MiBを同時に確保し、両側で16 MiBの作業ファイルを作るケースがACになった。
+追加smokeのサービス全体の最大メモリはsystemdの記録で約1.0 GiBだった。
+これは一連の検証全体のピークであり、任意のジャッジコードについて空きメモリを保証する値ではない。
+
+### 公開APIからの実提出
+
+一時的な非公開問題の2ケースで、次の7件が期待した判定になった。
+C++とPythonを異なる役割で使い、4つの引数ファイル、flush、EOF、作問者の診断取得と提出一覧での非公開を確認した。
+
+| 検証内容 | 判定 | 提出ID |
+| --- | --- | --- |
+| C++ジャッジとPython提出 | AC | `d7c98989-421a-4e87-af27-45227c7ed4bb` |
+| C++のassert失敗 | WA | `3326b2eb-96d4-4abf-a000-ff117d0f46ad` |
+| PythonジャッジとC++提出 | AC | `83e0c7ae-23a7-4c44-8846-ecf54fbeba00` |
+| Pythonの早期assert失敗 | WA | `45409e51-3714-41f8-a10a-3e827ec0cefd` |
+| ジャッジ側CPU超過 | JE | `63fab910-8b9c-4377-b6d6-74165f90c7f9` |
+| ジャッジ側コンパイル失敗 | JE | `f4224025-377d-4a53-8589-65e2d02b0d6f` |
+| 対話全体の経過時間超過 | TLE | `2e7957f9-e0ef-4718-ac20-627496ec98b2` |
+
+一時問題`455ab6f3-89ee-4cf9-8298-830148d75f65`とメール送信なしの検証アカウントを削除した。
+プロフィールと提出の監査記録は残る。
+
+### 公開後の状態
+
+JavaとC++17の公開保留を維持し、従来の8言語で受付を再開した。
+API、bridge、workerのruntime digestが一致し、定期dispatchと結果受信は有効になっている。
+workerは再起動0回で稼働し、テスト用の言語選択設定も削除済みである。
+要求キュー、結果キュー、両方の失敗キューは可視、処理中、遅延のすべてが0件だった。
+ローカルの`infra/api/runtime.auto.tfvars`と`infra/judge/terraform.tfvars`、GitHub Actionsの`dev`環境変数を同期した。
+
+```ini
+JUDGE_RUNTIME_DIGEST=sha256:065f76fb60572a1612463fc4705a62a8484a3990109a759bc106b53e7ee5d584
+JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","python314","pypy311","codon020","rust2024","cpp23-gcc","cpp23-clang"]
+```
+
+Pythonの34テスト、PostgreSQLを使うGoのrace検出付きテスト、Webの型検査、ブラウザー10テスト、WebのLambdaパッケージテストが成功した。
+公開WebのSSR、API接続、静的ファイル取得も確認した。
