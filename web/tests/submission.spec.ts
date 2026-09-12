@@ -34,7 +34,7 @@ test('C++ submission opens its result and polls until completion', async ({ page
   expect(await keyword.evaluate(element => getComputedStyle(element).color !== getComputedStyle(element.closest('.cm-content')!).color)).toBe(true)
   await page.getByRole('button', { name: '提出する', exact: true }).click()
   await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
-  await expect(page.getByRole('status')).toHaveText('AC：正解')
+  await expect(page.getByRole('status')).toHaveText('完了（AC）：正解')
   await expect(page.getByRole('row', { name: '正解したケース 2 / 2' })).toBeVisible()
   await expect(page.getByRole('row', { name: '問題の版', exact: false })).toHaveCount(0)
   await expect(page.getByRole('table', { name: 'テストケースごとの結果' }).getByRole('row', { name: 'sample AC' })).toBeVisible()
@@ -48,6 +48,41 @@ test('C++ submission opens its result and polls until completion', async ({ page
   await expect(page.getByText('コピーしました。', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('int main(){}')
 })
+
+for (const view of ['detail', 'history']) {
+  test(`${view} displays actual preparation and case progress, then stops polling`, async ({ page }) => {
+    await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+    await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
+    const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'python314-isolate', source: 'print(3)', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
+    const states = [item,
+      { ...item, status: 'RUNNING', progress: { phase: 'PREPARING', completed: 0, total: 4 } },
+      { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 0, total: 4 } },
+      { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 2, total: 4 } },
+      { ...item, status: 'DONE', progress: null, result: { verdict: 'AC', passed: 4, total: 4 } },
+    ]
+    let reads = 0
+    const endpoint = `/api/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`
+    await page.route(`**${endpoint}`, route => {
+      const state = states[Math.min(reads++, states.length - 1)]
+      return route.fulfill({ json: view === 'detail' ? state : { items: [state] } })
+    })
+    await page.goto(`/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`)
+    const badge = page.locator('.verdict-badge').first()
+    await expect(badge).toHaveText('WJ')
+    await expect(badge.locator('.judge-spinner')).toBeVisible()
+    await badge.focus()
+    await expect(page.getByRole('tooltip')).toHaveText('ジャッジ中')
+    await expect(badge).toHaveAccessibleDescription('ジャッジ中')
+    for (const [index, label] of ['WJ', 'WJ', '0/4', '2/4', '完了（AC）'].entries()) {
+      await expect.poll(() => reads).toBeGreaterThanOrEqual(index + 1)
+      await expect(badge).toHaveText(label)
+    }
+    await expect(badge.locator('.judge-spinner')).toHaveCount(0)
+    await page.clock.install()
+    await page.clock.fastForward(6000)
+    expect(reads).toBe(5)
+  })
+}
 
 test('unregistered tests explain why submission was rejected', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))

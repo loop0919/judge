@@ -2,16 +2,26 @@
 import type { Submission } from '../../../../shared/types/submission'
 useSeoMeta({ title: '提出履歴 | OpenOJ', robots: 'noindex, nofollow' })
 const items = ref<Submission[]>([])
-const loading = ref(true)
+const loading = ref(false)
 const message = ref('')
+let timer: ReturnType<typeof setTimeout> | undefined
+let disposed = false
 async function load() {
+  if (loading.value || disposed) return
+  clearTimeout(timer)
   loading.value = true
   message.value = ''
-  try { items.value = (await $fetch<{ items: Submission[] }>('/api/my/submissions')).items }
-  catch { message.value = '提出履歴を取得できませんでした。ログイン状態を確認してください。' }
+  try {
+    const result = await $fetch<{ items: Submission[] }>('/api/my/submissions')
+    if (disposed) return
+    items.value = result.items
+    if (items.value.some(item => item.status !== 'DONE')) timer = setTimeout(load, 2000)
+  }
+  catch { if (!disposed) message.value = '提出履歴を取得できませんでした。ログイン状態を確認してください。' }
   finally { loading.value = false }
 }
 onMounted(load)
+onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
 </script>
 
 <template>
@@ -21,7 +31,7 @@ onMounted(load)
       <button class="editor-button" :disabled="loading" @click="load">{{ loading ? '更新中…' : '更新' }}</button>
     </div>
     <p v-if="message" role="alert">{{ message }}</p>
-    <p v-if="loading" role="status">読み込み中…</p>
+    <p v-if="loading && !items.length" role="status">読み込み中…</p>
     <p v-else-if="!items.length && !message">提出はまだありません。</p>
     <div v-if="items.length" class="submission-table-scroll" role="region" aria-labelledby="submission-history-title" tabindex="0">
       <table aria-label="提出履歴">
@@ -31,7 +41,7 @@ onMounted(load)
             <td class="submission-date"><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td>
             <td class="submission-problem"><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
             <td class="submission-language">{{ item.runtime.startsWith('cpp17') ? 'C++17' : item.runtime }}</td>
-            <td class="submission-result"><span class="verdict-badge" :data-verdict="item.result?.verdict">{{ item.result?.verdict ?? (item.status === 'QUEUED' ? '待機中' : '採点中') }}</span></td>
+            <td class="submission-result"><span role="status"><SubmissionStatus :item="item" /></span></td>
             <td><NuxtLink :to="`/my/submissions/${item.id}`" :aria-label="`${item.problemTitle}の提出詳細`">詳細</NuxtLink></td>
           </tr>
         </tbody>

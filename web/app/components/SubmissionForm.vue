@@ -5,10 +5,15 @@ const props = defineProps<{ problemId: string }>()
 const { user } = useAccount()
 const source = ref('')
 const runtime = ref('cpp17')
+const { data: catalog, error: catalogError } = await useFetch('/api/runtimes')
+const available = computed(() => catalog.value?.items ?? [])
+watch(available, items => {
+  if (!items.some(item => item.id === runtime.value)) runtime.value = items[0]?.id ?? ''
+}, { immediate: true })
 const sending = ref(false)
 const message = ref('')
 async function submit() {
-  if (sending.value) return
+  if (sending.value || !available.value.some(item => item.id === runtime.value)) return
   if (!source.value.trim() || new TextEncoder().encode(source.value).length > 65536) {
     message.value = 'ソースコードを1〜65,536バイトで入力してください。'
     return
@@ -42,12 +47,13 @@ async function submit() {
     <form @submit.prevent="submit">
       <label for="submission-language">言語</label>
       <select id="submission-language" v-model="runtime" :disabled="sending">
-        <option value="cpp17">C++17</option>
+        <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
       </select>
+      <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>
       <div class="submission-actions">
-        <button class="editor-button primary" type="submit" :disabled="sending || !source.trim()" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
+        <button class="editor-button primary" type="submit" :disabled="sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
   </section>

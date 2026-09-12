@@ -8,6 +8,7 @@ createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json')
   const path = new URL(req.url, 'http://localhost').pathname
   if (path === '/health') res.end('{}')
+  else if (path === '/runtimes') res.end(JSON.stringify({ items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] }))
   else if (path === '/problems') res.end(JSON.stringify({ items: [problem], nextCursor: '' }))
   else if (path === `/problems/${problem.id}`) res.end(JSON.stringify(problem))
   else if (path === '/posts') res.end('{"items":[],"nextCursor":""}')

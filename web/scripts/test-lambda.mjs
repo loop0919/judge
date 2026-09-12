@@ -14,6 +14,9 @@ process.env.NODE_ENV = 'production'
 
 const api = createServer(async (req, res) => {
   res.setHeader('content-type', 'application/json')
+  if (req.url === '/runtimes') {
+    res.end(JSON.stringify({ items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] })); return
+  }
   if (['/auth/signup', '/auth/confirm-signup', '/auth/resend-confirmation'].includes(req.url)) {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
@@ -70,6 +73,10 @@ async function invoke(path, { method = 'GET', body, cookies, origin = 'https://f
   return handler({ version: '2.0', rawPath: pathname, rawQueryString: query, queryStringParameters: Object.fromEntries(new URLSearchParams(query)), headers: { host: 'frontend.example', 'x-forwarded-proto': 'https', origin, 'content-type': 'application/json' }, requestContext: { http: { method, path: pathname, sourceIp: '127.0.0.1' } }, body: body ? JSON.stringify(body) : undefined, cookies, isBase64Encoded: false }, {})
 }
 try {
+  const runtimes = await invoke('/api/runtimes')
+  assert.equal(runtimes.statusCode, 200)
+  assert.deepEqual(JSON.parse(runtimes.body), { items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] })
+  assert.equal(runtimes.headers['cache-control'], 'no-store')
   for (const code of ['valid', 'invalid']) {
     const start = await invoke('/auth/google')
     assert.equal(start.statusCode, 302)

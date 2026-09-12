@@ -8,6 +8,7 @@ const message = ref('')
 const expanded = ref(false)
 const copyMessage = ref('')
 const copying = ref(false)
+const loading = ref(false)
 const codeBytes = computed(() => item.value?.source === undefined ? null : new TextEncoder().encode(item.value.source).length)
 async function copySource() {
   if (copying.value || item.value?.source === undefined) return
@@ -21,6 +22,8 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let disposed = false
 const verdicts: Record<string, string> = { AC: '正解', WA: '不正解', CE: 'コンパイルエラー', RE: '実行時エラー', TLE: '実行時間超過', MLE: 'メモリ超過', OLE: '出力超過', JE: '採点できませんでした' }
 async function load() {
+  if (loading.value || disposed) return
+  loading.value = true
   clearTimeout(timer)
   message.value = ''
   try {
@@ -30,7 +33,7 @@ async function load() {
     if (result.status !== 'DONE') timer = setTimeout(load, 2000)
   } catch {
     if (!disposed) message.value = '提出結果を取得できませんでした。ログイン状態を確認して、再取得してください。'
-  }
+  } finally { loading.value = false }
 }
 onMounted(load)
 onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
@@ -63,7 +66,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
               <tr><th scope="row">問題</th><td><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td></tr>
               <tr><th scope="row">言語</th><td>{{ item.runtime.startsWith('cpp17') ? 'C++17' : item.runtime }}</td></tr>
               <tr><th scope="row">コード長</th><td>{{ codeBytes === null ? '—' : `${codeBytes.toLocaleString('en-US')} bytes` }}</td></tr>
-              <tr><th scope="row">結果</th><td><span role="status" aria-live="polite"><span class="verdict-badge" :data-verdict="item.result?.verdict">{{ item.result?.verdict ?? (item.status === 'QUEUED' ? '待機中' : '採点中') }}</span><template v-if="item.result">：{{ verdicts[item.result.verdict] ?? '' }}</template></span></td></tr>
+              <tr><th scope="row">結果</th><td><span role="status" aria-live="polite"><SubmissionStatus :item="item" /><template v-if="item.result">：{{ verdicts[item.result.verdict] ?? '' }}</template></span></td></tr>
               <tr><th scope="row">正解したケース</th><td>{{ item.result ? `${item.result.passed} / ${item.result.total}` : '—' }}</td></tr>
             </tbody>
           </table>
