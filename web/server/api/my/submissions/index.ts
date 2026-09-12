@@ -1,9 +1,9 @@
-import { limitedJSON, privateAPI, privateHeaders, requireSameOrigin, sessionCookie } from '../../../utils/private-api'
+import { limitedJSON, privateAPI, privateHeaders, requireSameOrigin, hasSession } from '../../../utils/private-api'
 import type { Submission } from '../../../../shared/types/submission'
 
 export default defineEventHandler(async event => {
   privateHeaders(event)
-  if (!getCookie(event, sessionCookie)) throw createError({ statusCode: 401 })
+  if (!hasSession(event)) throw createError({ statusCode: 401 })
   if (event.method === 'GET') return privateAPI<{ items: Submission[] }>(event, '/my/submissions')
   if (event.method !== 'POST') throw createError({ statusCode: 405 })
   requireSameOrigin(event)

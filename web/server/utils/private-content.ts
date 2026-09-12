@@ -1,8 +1,8 @@
-import { privateHeaders, sessionCookie, requireSameOrigin, limitedJSON, privateAPI } from './private-api'
+import { privateHeaders, hasSession, requireSameOrigin, limitedJSON, privateAPI } from './private-api'
 export function privateContent(kind: 'posts' | 'problems', publication = false) {
   return defineEventHandler(async event => {
     privateHeaders(event)
-    if (!getCookie(event, sessionCookie)) throw createError({ statusCode: 401 })
+    if (!hasSession(event)) throw createError({ statusCode: 401 })
     const id = getRouterParam(event, 'id')
     if (id && !/^[a-f0-9-]{36}$/.test(id)) throw createError({ statusCode: 404 })
     const method = event.method

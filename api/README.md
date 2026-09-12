@@ -175,7 +175,8 @@ AWSの内部エラーメッセージやパスワードは応答やログへ出�
 | `503` | Cognitoの接続設定がない |
 
 ユーザー未登録、パスワード不一致、登録未確認、パスワードリセット必須は同じ`invalid_credentials`を返す。
-Go APIにはパスワード再設定とトークン更新は含まれない。
+`POST /auth/refresh`は`refresh_token`を受け取り、Cognitoの`GetTokensFromRefreshToken`でトークンを更新する。
+Go APIにはパスワード再設定は含まれない。
 ブラウザー向けのCookie管理とログアウトはNuxtの`/api/auth/*`が担当する。
 本番のログイン通信はHTTPSを使う。
 `/auth/me`と`/my/problems`はアクセストークンの署名、有効期限、発行元、`client_id`と`token_use=access`を検証する。

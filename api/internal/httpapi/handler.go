@@ -26,6 +26,7 @@ func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 	mux.HandleFunc("GET /posts", private.publicContent)
 	mux.HandleFunc("GET /posts/{id}", private.publicContent)
 	mux.HandleFunc("POST /auth/login", config.login)
+	mux.HandleFunc("POST /auth/refresh", config.refresh)
 	mux.HandleFunc("POST /auth/challenge", config.challenge)
 	mux.HandleFunc("POST /auth/signup", config.registration)
 	mux.HandleFunc("POST /auth/confirm-signup", config.registration)
