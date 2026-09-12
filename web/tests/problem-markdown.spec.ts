@@ -2,6 +2,23 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('details render Markdown while preserving code fences and escaping titles', () => {
+  expect(renderProblemMarkdown(':::details タイトル\n内容\n:::')).toBe('<details><summary>タイトル</summary>\n<p>内容</p>\n</details>\n')
+  const html = renderProblemMarkdown([
+    '::::details <img src=x onerror=alert(1)>', '**内容** $A$', '',
+    '```text', ':::', '```', '::::', '', '後続の本文',
+  ].join('\n'))
+  expect(html).toContain('<details><summary>&lt;img src=x onerror=alert(1)&gt;</summary>')
+  expect(html).toContain('<strong>内容</strong>')
+  expect(html).toContain('class="katex"')
+  expect(html).toContain('<code class="language-text">:::\n</code>')
+  expect(html).toContain('</details>\n<p>後続の本文</p>')
+  expect(html).not.toContain('<img')
+  expect(html).not.toContain('<details open')
+  expect(renderProblemMarkdown('```makefile\n:::details タイトル\n内容\n:::\n```')).not.toContain('<details>')
+  expect(renderProblemMarkdown(':::details\n内容')).toContain('<summary>詳細</summary>\n<p>内容</p>\n</details>')
+})
+
 test('Markdown supports flexible structure and dedicated input / math fences', () => {
   const html = renderProblemMarkdown([
     '## 自由な見出し', '', '**太字**と $a_i$', '',

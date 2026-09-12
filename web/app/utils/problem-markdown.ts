@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it'
+import container from 'markdown-it-container'
 import { katex } from '@mdit/plugin-katex'
 import { renderMathText } from './math-text'
 
@@ -12,6 +13,13 @@ const markdown = new MarkdownIt({ html: false, linkify: false, typographer: fals
     maxExpand: 1000,
     maxSize: 20,
   })
+  .use(container, 'details')
+
+markdown.renderer.rules.container_details_open = (tokens, index) => {
+  const title = tokens[index]!.info.trim().slice('details'.length).trim() || '詳細'
+  return `<details><summary>${markdown.utils.escapeHtml(title)}</summary>\n`
+}
+markdown.renderer.rules.container_details_close = () => '</details>\n'
 
 const defaultFence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
