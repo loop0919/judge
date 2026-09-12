@@ -57,15 +57,17 @@ func (v *cognitoVerifier) Verify(ctx context.Context, raw string) (string, error
 }
 
 type PrivateProblems struct {
-	JudgeRuntime string
-	Submissions  *submissions.Store
-	JudgeImage   string
-	Posts        *posts.Store
-	Operators    map[string]bool
-	Store        problems.Repository
-	Profiles     profiles.Repository
-	Verifier     TokenVerifier
-	Files        interface {
+	DispatchJudge        func(context.Context) error
+	JudgeRuntime         string
+	JudgeEnabledRuntimes string
+	Submissions          *submissions.Store
+	JudgeImage           string
+	Posts                *posts.Store
+	Operators            map[string]bool
+	Store                problems.Repository
+	Profiles             profiles.Repository
+	Verifier             TokenVerifier
+	Files                interface {
 		Begin(context.Context, string, string, string, int64, string) (testfiles.Upload, error)
 		Complete(context.Context, string, string, string) (problems.TestFile, error)
 		Download(context.Context, string, string, string) (testfiles.Download, error)

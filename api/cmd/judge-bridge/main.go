@@ -32,9 +32,15 @@ type bridge struct {
 }
 
 type envelope struct {
-	ID      string             `json:"submissionId"`
-	Attempt string             `json:"attemptId"`
-	Result  submissions.Result `json:"result"`
+	ID       string                `json:"submissionId"`
+	Attempt  string                `json:"attemptId"`
+	Result   *submissions.Result   `json:"result,omitempty"`
+	Progress *submissions.Progress `json:"progress,omitempty"`
+}
+
+func validProgress(p submissions.Progress) bool {
+	return p.Total >= 1 && p.Total <= 100 && p.Completed >= 0 && p.Completed <= p.Total &&
+		(p.Phase == "JUDGING" || (p.Phase == "PREPARING" && p.Completed == 0))
 }
 
 func validResult(r submissions.Result) bool {
@@ -70,15 +76,30 @@ func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEv
 	response := events.SQSEventResponse{}
 	for _, record := range event.Records {
 		var e envelope
-		if len(record.Body) > 256<<10 || json.Unmarshal([]byte(record.Body), &e) != nil || !validResult(e.Result) {
+		if len(record.Body) > 256<<10 || json.Unmarshal([]byte(record.Body), &e) != nil ||
+			(e.Result == nil) == (e.Progress == nil) ||
+			(e.Result != nil && !validResult(*e.Result)) || (e.Progress != nil && !validProgress(*e.Progress)) {
 			response.BatchItemFailures = append(response.BatchItemFailures, events.SQSBatchItemFailure{ItemIdentifier: record.MessageId})
 			continue
 		}
-		raw, err := json.Marshal(e.Result)
-		if err == nil {
+		var err error
+		if e.Progress != nil {
+			p := e.Progress
+			raw, _ := json.Marshal(p)
+			// Standard SQS may reorder or duplicate events, including across worker retries.
+			// Only the current attempt may advance; a final result always wins.
+			_, err = b.db.Exec(ctx, `UPDATE submissions SET status='RUNNING',progress=$3,
+    started_at=COALESCE(started_at,clock_timestamp())
+    WHERE id::text=$1 AND judge_attempt::text=$2 AND runtime=ANY($4::text[]) AND status <> 'DONE'
+    AND jsonb_array_length(job->'cases')=$5
+    AND (progress IS NULL OR ($6='JUDGING' AND
+      (progress->>'phase'='PREPARING' OR (progress->>'completed')::int < $7)))`,
+				e.ID, e.Attempt, raw, submissions.IsolateRuntimeIDs(), p.Total, p.Phase, p.Completed)
+		} else {
+			raw, _ := json.Marshal(e.Result)
 			// UUID parameters are compared as text so poison IDs cannot abort unrelated records.
-			_, err = b.db.Exec(ctx, `UPDATE submissions SET status='DONE',result=$3,finished_at=clock_timestamp()
-    WHERE id::text=$1 AND judge_attempt::text=$2 AND runtime='cpp17-isolate' AND status <> 'DONE'`, e.ID, e.Attempt, raw)
+			_, err = b.db.Exec(ctx, `UPDATE submissions SET status='DONE',result=$3,progress=NULL,finished_at=clock_timestamp()
+    WHERE id::text=$1 AND judge_attempt::text=$2 AND runtime=ANY($4::text[]) AND status <> 'DONE'`, e.ID, e.Attempt, raw, submissions.IsolateRuntimeIDs())
 		}
 		if err != nil {
 			response.BatchItemFailures = append(response.BatchItemFailures, events.SQSBatchItemFailure{ItemIdentifier: record.MessageId})
@@ -90,7 +111,7 @@ func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEv
 func (b bridge) dispatch(ctx context.Context) error {
 	// Bounded expiry covers queue retries too; it does not rejudge a finalized submission.
 	_, err := b.db.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}'
-  WHERE runtime='cpp17-isolate' AND status <> 'DONE' AND created_at < clock_timestamp()-interval '6 hours'`)
+  WHERE runtime=ANY($1::text[]) AND status <> 'DONE' AND created_at < clock_timestamp()-interval '6 hours'`, submissions.IsolateRuntimeIDs())
 	if err != nil {
 		return err
 	}
@@ -115,11 +136,11 @@ func (b bridge) dispatch(ctx context.Context) error {
 }
 
 func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
-	var id, attempt, source string
+	var id, attempt, source, runtime string
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT id::text,judge_attempt::text,source,job FROM submissions
-  WHERE runtime='cpp17-isolate' AND dispatched_at IS NULL AND status <> 'DONE'
-  ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&id, &attempt, &source, &raw)
+	err := tx.QueryRow(ctx, `SELECT id::text,judge_attempt::text,source,job,runtime FROM submissions
+  WHERE runtime=ANY($1::text[]) AND dispatched_at IS NULL AND status <> 'DONE'
+  ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`, submissions.IsolateRuntimeIDs()).Scan(&id, &attempt, &source, &raw, &runtime)
 	if err != nil {
 		return err
 	}
@@ -134,7 +155,7 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 		_, err = tx.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE id=$1`, id)
 		return err
 	}
-	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": "cpp17-isolate", "runtimeDigest": job.Image, "source": source, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
+	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": runtime, "runtimeDigest": job.Image, "source": source, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
 	if err != nil {
 		return err
 	}
@@ -153,7 +174,7 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 		return err
 	}
 	// If commit fails after SendMessage, the same stable attempt is sent again.
-	_, err = tx.Exec(ctx, `UPDATE submissions SET status='RUNNING',started_at=clock_timestamp(),dispatched_at=clock_timestamp() WHERE id=$1`, id)
+	_, err = tx.Exec(ctx, `UPDATE submissions SET dispatched_at=clock_timestamp() WHERE id=$1`, id)
 	return err
 }
 

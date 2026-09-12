@@ -111,3 +111,14 @@ variable "judge_runtime_digest" {
     error_message = "Use the sha256 runtime manifest digest or an empty string."
   }
 }
+variable "judge_enabled_runtimes" {
+  description = "Publish only runtimes that passed target-host smoke tests for judge_runtime_digest. Empty list stops admission."
+  type        = list(string)
+  default     = ["cpp17"]
+  validation {
+    condition = alltrue([for id in var.judge_enabled_runtimes : contains([
+      "cpp17", "c23-gcc", "c23-clang", "cpp23-gcc", "cpp23-clang", "python314", "pypy311", "codon020", "rust2024", "java24"
+    ], id)])
+    error_message = "Unknown judge runtime."
+  }
+}

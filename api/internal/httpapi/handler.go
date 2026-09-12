@@ -20,6 +20,7 @@ func NewHandler(auth ...AuthConfig) http.Handler {
 func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health)
+	mux.HandleFunc("GET /runtimes", private.runtimes)
 	mux.HandleFunc("GET /problems", private.publicContent)
 	mux.HandleFunc("GET /problems/{id}", private.publicContent)
 	mux.HandleFunc("GET /posts", private.publicContent)

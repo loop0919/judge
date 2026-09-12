@@ -48,6 +48,12 @@ func TestResultValidation(t *testing.T) {
 }
 
 func TestOutboxAndResultIdempotency(t *testing.T) {
+	for _, runtime := range []string{"cpp17-isolate", "rust2024-isolate"} {
+		t.Run(runtime, func(t *testing.T) { checkOutboxAndResultIdempotency(t, runtime) })
+	}
+}
+
+func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL required")
@@ -90,7 +96,7 @@ func TestOutboxAndResultIdempotency(t *testing.T) {
 	}
 	raw, _ := json.Marshal(submissions.Job{Image: digest, TimeLimitMS: 1000, MemoryLimitMB: 512, Cases: []submissions.Case{{Input: "input-secret", Output: "", OutputFile: &problems.TestFile{ID: fileID, Size: 12, SHA256: fileDigest}}}})
 	_, err = db.Exec(ctx, `INSERT INTO submissions(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,judge_attempt)
- VALUES ($1,'alice',$1,1,'test','cpp17-isolate','source-secret',$2,$3)`, id, raw, attempt)
+ VALUES ($1,'alice',$1,1,'test',$4,'source-secret',$2,$3)`, id, raw, attempt, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,11 +139,14 @@ func TestOutboxAndResultIdempotency(t *testing.T) {
 	if len(jobs) != 2 || !bytes.Contains(jobs[0], []byte(`"versionId":"test-version"`)) || !bytes.Contains(jobs[0], []byte(`"key":"test-files/`)) {
 		t.Fatalf("test file locator missing from immutable job: %s", jobs[0])
 	}
+	if !bytes.Contains(jobs[0], []byte(`"runtime":"`+runtime+`"`)) {
+		t.Fatal("submitted runtime was not preserved in dispatch")
+	}
 	if _, _, err = (&submissions.Store{Pool: db}).Claim(ctx); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal("local worker claimed a cloud job", err)
 	}
 	final := func(a string, r submissions.Result) {
-		body, _ := json.Marshal(envelope{ID: id, Attempt: a, Result: r})
+		body, _ := json.Marshal(envelope{ID: id, Attempt: a, Result: &r})
 		response := b.results(ctx, events.SQSEvent{Records: []events.SQSMessage{{MessageId: "one", Body: string(body)}}})
 		if len(response.BatchItemFailures) > 0 {
 			t.Fatal(response)
@@ -145,13 +154,56 @@ func TestOutboxAndResultIdempotency(t *testing.T) {
 	}
 	final("wrong-attempt", submissions.Result{Verdict: "JE"})
 	var status string
-	if err = db.QueryRow(ctx, `SELECT status FROM submissions WHERE id=$1`, id).Scan(&status); err != nil || status != "RUNNING" {
+	if err = db.QueryRow(ctx, `SELECT status FROM submissions WHERE id=$1`, id).Scan(&status); err != nil || status != "QUEUED" {
 		t.Fatal(status, err)
 	}
+	progress := func(a, phase string, completed, total int) {
+		body, _ := json.Marshal(envelope{ID: id, Attempt: a, Progress: &submissions.Progress{Phase: phase, Completed: completed, Total: total}})
+		if response := b.results(ctx, events.SQSEvent{Records: []events.SQSMessage{{MessageId: "progress", Body: string(body)}}}); len(response.BatchItemFailures) != 0 {
+			t.Fatal(response)
+		}
+	}
+	check := func(wantPhase string, wantCompleted int) {
+		s, err := (&submissions.Store{Pool: db}).Get(ctx, "alice", id)
+		if err != nil || s.Status != "RUNNING" || s.Progress == nil || s.Progress.Phase != wantPhase || s.Progress.Completed != wantCompleted {
+			t.Fatalf("unexpected progress: %+v %v", s, err)
+		}
+	}
+	progress("wrong-attempt", "JUDGING", 1, 1)
+	progress(attempt, "PREPARING", 0, 1)
+	check("PREPARING", 0)
+	progress(attempt, "JUDGING", 0, 1)
+	check("JUDGING", 0)
+	progress(attempt, "JUDGING", 1, 1)
+	progress(attempt, "JUDGING", 0, 1)
+	progress(attempt, "PREPARING", 0, 1)
+	progress(attempt, "JUDGING", 2, 2) // Valid envelope, but not this job's total.
+	check("JUDGING", 1)
 	final(attempt, submissions.Result{Verdict: "CE", Total: 1, CompileLog: "compiler diagnostic"})
+	progress(attempt, "JUDGING", 1, 1)
 	final(attempt, submissions.Result{Verdict: "JE"})
 	var verdict string
 	if err = db.QueryRow(ctx, `SELECT result->>'verdict' FROM submissions WHERE id=$1`, id).Scan(&verdict); err != nil || verdict != "CE" {
 		t.Fatal("final result overwritten", verdict, err)
+	}
+}
+
+func TestProgressValidation(t *testing.T) {
+	for _, p := range []submissions.Progress{{Phase: "PREPARING", Total: 4}, {Phase: "JUDGING", Completed: 2, Total: 4}} {
+		if !validProgress(p) {
+			t.Fatal(p)
+		}
+	}
+	for _, p := range []submissions.Progress{{Phase: "DONE", Total: 4}, {Phase: "PREPARING", Completed: 1, Total: 4}, {Phase: "JUDGING", Completed: 5, Total: 4}, {Phase: "JUDGING", Total: 101}, {Phase: "JUDGING"}, {Phase: "JUDGING", Completed: -1, Total: 4}} {
+		if validProgress(p) {
+			t.Fatal(p)
+		}
+	}
+	// Ambiguous or empty envelopes must not be applied as either a result or progress.
+	for _, body := range []string{`{}`, `{"result":{"verdict":"JE"},"progress":{"phase":"PREPARING","total":4}}`, `{"progress":{"phase":"UNKNOWN","total":4}}`} {
+		response := (bridge{}).results(context.Background(), events.SQSEvent{Records: []events.SQSMessage{{MessageId: "bad", Body: body}}})
+		if len(response.BatchItemFailures) != 1 {
+			t.Fatal(response)
+		}
 	}
 }

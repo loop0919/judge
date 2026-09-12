@@ -1,4 +1,10 @@
 mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = { account_id = "123456789012" }
+  }
+  mock_data "aws_partition" {
+    defaults = { partition = "aws" }
+  }
   mock_resource "aws_vpc" {
     defaults = { ipv6_cidr_block = "2001:db8:1234:5600::/56" }
   }
@@ -35,6 +41,14 @@ run "api_contract" {
   variables {
     google_client_id     = ""
     google_client_secret = ""
+  }
+  assert {
+    condition = (
+      aws_lambda_function.api.environment[0].variables["JUDGE_DISPATCH_FUNCTION"] == "judge-dev-judge-bridge" &&
+      jsondecode(aws_iam_role_policy.judge_dispatch.policy).Statement[0].Action == ["lambda:InvokeFunction"] &&
+      jsondecode(aws_iam_role_policy.judge_dispatch.policy).Statement[0].Resource == "arn:aws:lambda:ap-northeast-1:123456789012:function:judge-dev-judge-bridge"
+    )
+    error_message = "Immediate dispatch must invoke only this environment's existing judge bridge."
   }
   assert {
     condition     = !aws_cognito_user_pool_client.api.allowed_oauth_flows_user_pool_client && aws_cognito_user_pool_client.api.default_redirect_uri == "https://disabled.invalid/auth/google/callback" && contains(aws_cognito_user_pool_client.api.callback_urls, aws_cognito_user_pool_client.api.default_redirect_uri)

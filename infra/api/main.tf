@@ -2,6 +2,22 @@ locals {
   lambda_package_path = coalesce(var.lambda_package_path, "${path.module}/../../api/.build/api.zip")
 }
 
+data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+resource "aws_iam_role_policy" "judge_dispatch" {
+  name = "judge-dispatch"
+  role = aws_iam_role.api.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["lambda:InvokeFunction"]
+      Resource = "arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name}-judge-bridge"
+    }]
+  })
+}
+
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${local.name}-api"
   retention_in_days = var.log_retention_days
@@ -46,7 +62,7 @@ resource "aws_lambda_function" "api" {
   s3_key                         = aws_s3_object.api_package.key
   s3_object_version              = aws_s3_object.api_package.version_id
   source_code_hash               = filebase64sha256(local.lambda_package_path)
-  depends_on                     = [aws_iam_role_policy.logs, aws_iam_role_policy.database, aws_iam_role_policy.test_data, aws_iam_role_policy.vpc, aws_route_table_association.private]
+  depends_on                     = [aws_iam_role_policy.logs, aws_iam_role_policy.database, aws_iam_role_policy.test_data, aws_iam_role_policy.judge_dispatch, aws_iam_role_policy.vpc, aws_route_table_association.private]
   reserved_concurrent_executions = var.environment == "dev" ? -1 : 10
 
   vpc_config {
@@ -63,6 +79,8 @@ resource "aws_lambda_function" "api" {
       OPERATOR_SUBJECTS          = var.operator_subjects
       JUDGE_CPP_IMAGE            = var.judge_runtime_digest
       JUDGE_RUNTIME              = "cpp17-isolate"
+      JUDGE_DISPATCH_FUNCTION    = "${local.name}-judge-bridge"
+      JUDGE_ENABLED_RUNTIMES     = length(var.judge_enabled_runtimes) == 0 ? "none" : join(",", var.judge_enabled_runtimes)
       TEST_DATA_BUCKET           = aws_s3_bucket.test_data.id
       AWS_USE_DUALSTACK_ENDPOINT = "true"
     })

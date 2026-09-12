@@ -168,12 +168,32 @@ func TestSubmissionsPostgres(t *testing.T) {
 	}
 	// The same UI language selects a pinned cloud runtime, never the local worker.
 	localHandler := h
-	h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Profiles: profiles.New(store.Pool()), Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", Verifier: newCognitoVerifier(f.server.URL, "client")})
+	dispatches := 0
+	h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Profiles: profiles.New(store.Pool()), Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", Verifier: newCognitoVerifier(f.server.URL, "client"), DispatchJudge: func(ctx context.Context) error {
+		dispatches++
+		var count int
+		if err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM submissions WHERE runtime='cpp17-isolate' AND status='QUEUED'`).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("wake-up before durable commit: %d %v", count, err)
+		}
+		if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > 2*time.Second {
+			t.Fatal("unbounded dispatch")
+		}
+		return fmt.Errorf("simulated dispatch outage")
+	}})
 	request("POST", "/my/submissions", "alice", body, 400)
 	var cloud submissions.Submission
 	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "cpp17", 1), 202)), &cloud); err != nil || cloud.Runtime != "cpp17-isolate" {
 		t.Fatalf("cloud runtime not pinned: %+v %v", cloud, err)
 	}
+	request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "c23-gcc-isolate", 1), 400)
+	if dispatches != 1 {
+		t.Fatalf("dispatches=%d; accepted submission must wake once, rejected ones never", dispatches)
+	}
+	h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Profiles: profiles.New(store.Pool()), Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", JudgeEnabledRuntimes: "cpp17,c23-gcc", Verifier: newCognitoVerifier(f.server.URL, "client")})
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "c23-gcc", 1), 202)), &cloud); err != nil || cloud.Runtime != "c23-gcc-isolate" {
+		t.Fatalf("C runtime not pinned: %+v %v", cloud, err)
+	}
+	request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "java24", 1), 400)
 	h = localHandler
 	// Draft changes must not affect published tests or accepted submissions.
 	changed := published.Draft

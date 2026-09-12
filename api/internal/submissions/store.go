@@ -39,6 +39,12 @@ type Result struct {
 	CompileLog string       `json:"compileLog,omitempty"`
 }
 
+type Progress struct {
+	Phase     string `json:"phase"`
+	Completed int    `json:"completed"`
+	Total     int    `json:"total"`
+}
+
 type Submission struct {
 	ID             string    `json:"id"`
 	ProblemID      string    `json:"problemId"`
@@ -48,19 +54,23 @@ type Submission struct {
 	Source         string    `json:"source,omitempty"`
 	Status         string    `json:"status"`
 	Result         *Result   `json:"result"`
+	Progress       *Progress `json:"progress"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type Store struct{ Pool *pgxpool.Pool }
 
-const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at`
+const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at,progress`
 
 func scan(row pgx.Row) (Submission, error) {
 	var s Submission
-	var result []byte
-	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt)
+	var result, progress []byte
+	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress)
 	if err == nil && result != nil {
 		err = json.Unmarshal(result, &s.Result)
+	}
+	if err == nil && progress != nil {
+		err = json.Unmarshal(progress, &s.Progress)
 	}
 	return s, err
 }
@@ -80,7 +90,7 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
   FROM problem_drafts WHERE id=$3 AND published_draft IS NOT NULL
   AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) > 0
   AND jsonb_array_length(COALESCE(published_draft->'testCases','[]'::jsonb)) <= 100
-  AND ($6 <> 'cpp17-isolate' OR (published_draft->>'memoryLimitMb')::int = 512)
+  AND ($6 = 'cpp17-local' OR (published_draft->>'memoryLimitMb')::int = 512)
   RETURNING `+columns, id, owner, problemID, source, image, runtime))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady

@@ -1,12 +1,15 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -70,12 +73,22 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 	if !readJSONBody(w, r, &input, 400<<10) {
 		return
 	}
-	if !problemID.MatchString(input.ProblemID) || (input.Runtime != "cpp17" && input.Runtime != runtime) ||
+	selected := ""
+	for _, available := range p.availableRuntimes() {
+		if input.Runtime == available.ID || input.Runtime == available.ID+"-isolate" || (runtime == "cpp17-local" && input.Runtime == runtime) {
+			selected = available.ID + "-isolate"
+			if runtime == "cpp17-local" {
+				selected = runtime
+			}
+			break
+		}
+	}
+	if !problemID.MatchString(input.ProblemID) || selected == "" ||
 		strings.TrimSpace(input.Source) == "" || len(input.Source) > 64<<10 || !utf8.ValidString(input.Source) || strings.ContainsRune(input.Source, 0) {
 		authError(w, 400, "invalid_submission")
 		return
 	}
-	item, err := p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, runtime)
+	item, err := p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected)
 	if errors.Is(err, submissions.ErrNotReady) {
 		authError(w, 409, "tests_not_ready")
 		return
@@ -84,7 +97,35 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		authError(w, 503, "database_unavailable")
 		return
 	}
+	if selected != "cpp17-local" && p.DispatchJudge != nil {
+		// Await only the asynchronous invocation's acceptance, never the judging itself.
+		// The committed DB outbox and periodic dispatcher recover a failed wake-up.
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		err := p.DispatchJudge(ctx)
+		cancel()
+		if err != nil {
+			slog.Warn("immediate judge dispatch unavailable; periodic recovery retained", "submissionId", item.ID)
+		}
+	}
 	writeAuthJSON(w, 202, item)
+}
+
+func (p PrivateProblems) availableRuntimes() []submissions.Runtime {
+	if !strings.HasPrefix(p.JudgeImage, "sha256:") || len(p.JudgeImage) != 71 {
+		return []submissions.Runtime{}
+	}
+	if p.JudgeRuntime == "" || p.JudgeRuntime == "cpp17-local" {
+		return submissions.PublishedRuntimes("cpp17")
+	}
+	if p.JudgeRuntime != "cpp17-isolate" {
+		return []submissions.Runtime{}
+	}
+	return submissions.PublishedRuntimes(p.JudgeEnabledRuntimes)
+}
+
+func (p PrivateProblems) runtimes(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	writeAuthJSON(w, 200, map[string]any{"items": p.availableRuntimes()})
 }
 
 func newSubmissionID() string {

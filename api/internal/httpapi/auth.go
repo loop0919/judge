@@ -26,6 +26,8 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider/types"
+	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	lambdatypes "github.com/aws/aws-sdk-go-v2/service/lambda/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
 )
@@ -110,6 +112,21 @@ func configuredStorage(getenv func(string) string, auth AuthConfig, region strin
 		private.Submissions = &submissions.Store{Pool: store.Pool()}
 		private.JudgeImage = getenv("JUDGE_CPP_IMAGE")
 		private.JudgeRuntime = getenv("JUDGE_RUNTIME")
+		private.JudgeEnabledRuntimes = getenv("JUDGE_ENABLED_RUNTIMES")
+		if function := getenv("JUDGE_DISPATCH_FUNCTION"); function != "" {
+			sdk, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(region))
+			if err != nil {
+				store.Close()
+				return nil, errors.New("judge dispatch configuration unavailable")
+			}
+			client := lambda.NewFromConfig(sdk, func(o *lambda.Options) { o.RetryMaxAttempts = 1 })
+			private.DispatchJudge = func(ctx context.Context) error {
+				_, err := client.Invoke(ctx, &lambda.InvokeInput{
+					FunctionName: aws.String(function), InvocationType: lambdatypes.InvocationTypeEvent, Payload: []byte(`{}`),
+				})
+				return err
+			}
+		}
 		if bucket := getenv("TEST_DATA_BUCKET"); bucket != "" {
 			sdk, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(region))
 			if err != nil {
