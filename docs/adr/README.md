@@ -18,3 +18,4 @@ Architecture Decision Record（ADR）は、採用した設計だけでなく、�
 | [0006](0006-use-lightsail-and-isolate.md) | Accepted | Lightsailの2 GBインスタンスでisolateを使う |
 | [0007](0007-limit-judge-runtime-libraries.md) | Accepted | 競技プログラミング向けのランタイム構成を限定する |
 | [0008](0008-support-special-judge.md) | Accepted | 作問者の検証コードによるスペシャルジャッジを提供する |
+| [0009](0009-support-interactive-judge.md) | Proposed | 提出と同じ言語群で対話用ジャッジを実行する |
