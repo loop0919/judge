@@ -43,6 +43,7 @@ jobs:
       TF_VAR_public_site_url: ${{ vars.PUBLIC_SITE_URL }}
       TF_VAR_operator_subjects: ${{ vars.OPERATOR_SUBJECTS }}
       TF_VAR_judge_runtime_digest: ${{ vars.JUDGE_RUNTIME_DIGEST }}
+      TF_VAR_judge_enabled_runtimes: ${{ vars.JUDGE_ENABLED_RUNTIMES || '["cpp17"]' }}
 
     steps:
       - name: Check out repository
@@ -136,7 +137,21 @@ jobs:
             -backend-config="allowed_account_ids=[\"${{ vars.AWS_ACCOUNT_ID }}\"]"
 
       - name: Plan API deployment
-        run: terraform -chdir=infra/api plan -lock-timeout=5m -out=deploy.tfplan
+        # Publication is performed only after target-host smoke, by admission.py.
+        # Stale GitHub variables must not revert that tested runtime on a push.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$TF_VAR_judge_runtime_digest" ]]; then
+            current="$(aws lambda get-function-configuration --function-name judge-dev-api \
+              --query '{digest:Environment.Variables.JUDGE_CPP_IMAGE,runtimes:Environment.Variables.JUDGE_ENABLED_RUNTIMES}' --output json)"
+            if ! jq -e --arg digest "$TF_VAR_judge_runtime_digest" --argjson runtimes "$TF_VAR_judge_enabled_runtimes" \
+              '.digest == $digest and (((.runtimes // "cpp17") | split(",") | sort) == ($runtimes | sort))' <<< "$current" > /dev/null; then
+              echo '::error::Judge publication differs from dev variables. Sync JUDGE_RUNTIME_DIGEST and JUDGE_ENABLED_RUNTIMES after verified admission; do not republish via CI.'
+              exit 1
+            fi
+          fi
+          terraform -chdir=infra/api plan -lock-timeout=5m -out=deploy.tfplan
 
       - name: Apply API deployment
         run: terraform -chdir=infra/api apply -lock-timeout=5m deploy.tfplan
