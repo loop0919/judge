@@ -35,14 +35,17 @@ onMounted(() => { void loadAccount() })
     <p v-else-if="!user"><NuxtLink to="/login?next=/my/problems">ログイン</NuxtLink>すると、問題を表示できます。</p>
     <template v-else>
       <p v-if="!accountEntries.length && !accountMessage">保存した問題はまだありません。</p>
-      <ul class="draft-list">
-        <li v-for="entry in accountEntries" :key="entry.id">
-          <NuxtLink :to="{ path: '/problems/new', query: { problem: entry.id } }">
-            <span class="draft-list-title">{{ entry.title.trim() || '無題の問題' }}</span>
-            <span class="draft-list-meta"><span>{{ entry.publishedVersion ? '公開中' : '非公開' }}</span><time :datetime="entry.updatedAt">更新 {{ updatedLabel(entry.updatedAt) }}</time><span aria-hidden="true">→</span></span>
-          </NuxtLink>
-        </li>
-      </ul>
+      <div v-if="accountEntries.length" class="content-table-scroll">
+        <table class="content-table" aria-label="作成した問題">
+          <thead><tr><th scope="col">タイトル</th><th scope="col">公開状態</th><th scope="col">更新日時</th><th scope="col">操作</th></tr></thead>
+          <tbody><tr v-for="entry in accountEntries" :key="entry.id">
+            <th scope="row">{{ entry.title.trim() || '無題の問題' }}</th>
+            <td>{{ entry.publishedVersion ? '公開中' : '非公開' }}</td>
+            <td><time :datetime="entry.updatedAt">{{ updatedLabel(entry.updatedAt) }}</time></td>
+            <td><ContentActions :title="entry.title.trim() || '無題の問題'" :edit-to="{ path: '/problems/new', query: { problem: entry.id } }" :view-to="`/problems/${entry.id}`" :published="!!entry.publishedVersion" /></td>
+          </tr></tbody>
+        </table>
+      </div>
       <button v-if="nextCursor" class="editor-button" :disabled="accountLoading" @click="loadAccount(true)">さらに読み込む</button>
     </template>
     <button v-if="accountMessage" class="editor-button" :disabled="accountLoading" @click="loadAccount()">再試行</button>

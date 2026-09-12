@@ -128,12 +128,13 @@
 .draft-library-heading h1 { font-size: 1.75rem; margin-bottom: 8px; }
 .draft-library-heading p { margin: 0; }
 .draft-library-heading > a { display: inline-flex; align-items: center; text-decoration: none; }
-.draft-list { padding: 0; list-style: none; border-top: 1px solid var(--color-line); }
-.draft-list li { border-bottom: 1px solid var(--color-line); }
-.draft-list a { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 24px; padding: 20px 8px; text-decoration: none; }
-.draft-list a:hover { background: var(--color-surface); }
-.draft-list-title { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
-.draft-list-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .75rem; color: var(--color-muted); }
+.content-table-scroll { overflow-x: auto; }
+.content-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .875rem; }
+.content-table th, .content-table td { padding: 16px 12px; border-bottom: 1px solid var(--color-line); }
+.content-table thead th { color: var(--color-muted); font-weight: 500; white-space: nowrap; }
+.content-table th[scope="row"] { min-width: 10rem; overflow-wrap: anywhere; }
+.content-table td { white-space: nowrap; }
+.content-table tbody tr:hover { background: var(--color-surface); }
 .draft-empty { padding-block: 48px; border-block: 1px solid var(--color-line); }
 .draft-empty h2 { font-size: 1.125rem; }
 .draft-library-note { margin-top: 32px; font-size: .8125rem; }
