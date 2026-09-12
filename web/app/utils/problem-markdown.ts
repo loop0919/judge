@@ -1,7 +1,23 @@
 import MarkdownIt from 'markdown-it'
 import container from 'markdown-it-container'
 import { katex } from '@mdit/plugin-katex'
+import hljs from 'highlight.js/lib/core'
+import c from 'highlight.js/lib/languages/c'
+import cpp from 'highlight.js/lib/languages/cpp'
+import python from 'highlight.js/lib/languages/python'
+import rust from 'highlight.js/lib/languages/rust'
 import { renderMathText } from './math-text'
+
+hljs.registerLanguage('c', c)
+hljs.registerLanguage('cpp', cpp)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('rust', rust)
+
+const codeLanguages = new Map([
+  ['c', 'c'], ['cpp', 'cpp'], ['c++', 'cpp'],
+  ['python', 'python'], ['py', 'python'],
+  ['rust', 'rust'], ['rs', 'rust'],
+])
 
 const markdown = new MarkdownIt({ html: false, linkify: false, typographer: false })
   .use(katex, {
@@ -24,7 +40,15 @@ markdown.renderer.rules.container_details_close = () => '</details>\n'
 const defaultFence = markdown.renderer.rules.fence!
 markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index]!
-  if (token.info.trim() !== 'input') return defaultFence(tokens, index, options, env, renderer)
+  const language = token.info.trim().split(/\s+/, 1)[0]!.toLowerCase()
+  if (language !== 'input') {
+    const registeredLanguage = codeLanguages.get(language)
+    if (!registeredLanguage) return defaultFence(tokens, index, options, env, renderer)
+    const highlighted = hljs.highlight(token.content, { language: registeredLanguage, ignoreIllegals: true }).value
+    const lineCount = token.content.replace(/\n$/, '').split('\n').length
+    const lineNumbers = Array.from({ length: lineCount }, (_, line) => line + 1).join('\n')
+    return `<pre class="highlighted-code"><span class="code-line-numbers" aria-hidden="true">${lineNumbers}</span><code class="language-${registeredLanguage}">${highlighted}</code></pre>\n`
+  }
   const content = renderMathText(token.content.trimEnd()).map(part => {
     if (part.kind === 'text') return markdown.utils.escapeHtml(part.text)
     return `<span class="math-expression${part.display ? ' math-expression--display' : ''}">${part.html}</span>`

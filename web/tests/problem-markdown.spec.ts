@@ -37,6 +37,24 @@ test('Markdown supports flexible structure and dedicated input / math fences', (
   expect(html).not.toContain('$A_1')
 })
 
+test('code fences highlight C++, C, Python, and Rust', () => {
+  for (const [language, source] of [
+    ['cpp', '#include <iostream>\nint main() { return 0; }'],
+    ['c', '#include <stdio.h>\nint main(void) { return 0; }'],
+    ['python', 'def answer():\n    return 42'],
+    ['rust', 'fn main() { let answer = 42; }'],
+  ]) {
+    const html = renderProblemMarkdown(`\`\`\`${language}\n${source}\n\`\`\``)
+    const lineNumbers = source.split('\n').map((_, line) => line + 1).join('\n')
+    expect(html).toContain(`<pre class="highlighted-code"><span class="code-line-numbers" aria-hidden="true">${lineNumbers}</span>`)
+    expect(html).toContain(`class="language-${language}"`)
+    expect(html).toContain('<span class="hljs-')
+    expect(html).not.toContain('<iostream>')
+  }
+  expect(renderProblemMarkdown('```text\nint main() {}\n```')).not.toContain('class="hljs ')
+  expect(renderProblemMarkdown('```text\na\nb\n```')).not.toContain('code-line-numbers')
+})
+
 test('HTML and malicious protocols cannot become executable content', () => {
   const html = renderProblemMarkdown([
     '<script>alert(1)</script>',
