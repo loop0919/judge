@@ -66,6 +66,7 @@ export const problemDraftSchema = z.object({
   generators: generatorsSchema.default(emptyGenerators),
   title: z.string().max(120),
   markdown: z.string().max(100_000),
+  editorial: z.string().max(100_000).default(''),
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
   testCases: z.array(z.object({

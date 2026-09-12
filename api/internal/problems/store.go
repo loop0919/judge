@@ -33,6 +33,7 @@ type Draft struct {
 	Generators    *Generators `json:"generators,omitempty"`
 	Title         string      `json:"title"`
 	Markdown      string      `json:"markdown"`
+	Editorial     string      `json:"editorial,omitempty"`
 	TimeLimitMS   string      `json:"timeLimitMs"`
 	MemoryLimitMB string      `json:"memoryLimitMb"`
 	TestCases     []TestCase  `json:"testCases,omitempty"`

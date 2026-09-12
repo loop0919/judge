@@ -67,6 +67,21 @@ func TestDraftMemoryLimit(t *testing.T) {
 	}
 }
 
+func TestDraftEditorialLimit(t *testing.T) {
+	draft := problems.Draft{TimeLimitMS: "2000", MemoryLimitMB: "512", Editorial: strings.Repeat("あ", 100000)}
+	if !validDraft(draft) {
+		t.Fatal("editorial at character limit should be valid")
+	}
+	draft.Editorial += "あ"
+	if validDraft(draft) {
+		t.Fatal("editorial over character limit should be invalid")
+	}
+	draft.Editorial = "解説\x00"
+	if validDraft(draft) {
+		t.Fatal("editorial containing NUL should be invalid")
+	}
+}
+
 func TestDraftCaseLimitIndependentOfTL(t *testing.T) {
 	for _, tl := range []int{100, 1000, 2000, 2300, 5000} {
 		for _, extra := range []int{0, 1} {

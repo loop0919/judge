@@ -21,7 +21,12 @@ let inFlight: Promise<boolean> | undefined
 const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非公開')
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | ShareOJ', robots: 'noindex, nofollow' })
-const draft = reactive({ title: '', markdown: initialProblemMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const section = ref<'statement' | 'editorial' | 'tests' | 'generators' | 'management'>('statement')
+const draft = reactive({ title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const activeMarkdown = computed({
+  get: () => section.value === 'editorial' ? draft.editorial : draft.markdown,
+  set: value => { if (section.value === 'editorial') draft.editorial = value; else draft.markdown = value },
+})
 const timeLimitOptions = Array.from({ length: 50 }, (_, index) => (index + 1) * 100)
 const memoryLimitPresets = [64, 128, 256, 512]
 // Keep in-range memory limits from older drafts selectable.
@@ -30,7 +35,7 @@ const ready = ref(false)
 const {
   mode, workspace, splitPercent, resizing, setSplit, startResize, moveResize, stopResize, resizeWithKeyboard,
   editor, sourceLines, sourceScrollTop, sourceWidth, syncSource, insertSnippet,
-} = useMarkdownEditor(toRef(draft, 'markdown'))
+} = useMarkdownEditor(activeMarkdown)
 
 const status = ref('問題を読み込んでいます…')
 const storageError = ref('')
@@ -38,7 +43,6 @@ const leaveDialog = ref<HTMLDialogElement>()
 const leaveError = ref('')
 const manageDialog = ref<HTMLDialogElement>()
 const generating = ref(false)
-const section = ref<'statement' | 'tests' | 'generators' | 'management'>('statement')
 const managing = computed(() => section.value === 'management')
 const sidebarExpanded = ref(false)
 const confirmingDelete = ref(false)
@@ -48,7 +52,7 @@ let resolveLeave: ((leave: boolean) => void) | undefined
 const showErrors = ref(false)
 const touched = reactive({ title: false, markdown: false })
 const errors = computed(() => draftErrors(draft))
-const renderedSource = ref(draft.markdown)
+const renderedSource = ref(activeMarkdown.value)
 
 let saved = ''
 let allowAutosave = true
@@ -177,7 +181,7 @@ onMounted(async () => {
       if (!user.value) throw { statusCode: 401 }
       cloudOwner = user.value.id
       const cached = readProblemCache(cloudOwner, cloudId.value)
-      if (cached) { Object.assign(draft, cached.draft); renderedSource.value = draft.markdown }
+      if (cached) { Object.assign(draft, cached.draft); renderedSource.value = activeMarkdown.value }
       const entry = accountProblemSchema.parse(await $fetch(`/api/my/problems/${encodeURIComponent(cloudId.value)}`))
       if (disposed) return
       if (entry.id !== cloudId.value) throw new Error('Mismatched problem')
@@ -189,8 +193,8 @@ onMounted(async () => {
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
-      renderedSource.value = draft.markdown
+      Object.assign(draft, { title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
+      renderedSource.value = activeMarkdown.value
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
       return
@@ -199,7 +203,7 @@ onMounted(async () => {
     status.value = 'サンプルから書き始められます'
   }
   saved = fingerprint()
-  renderedSource.value = draft.markdown
+  renderedSource.value = activeMarkdown.value
   // Flush restoration watchers before enabling automatic writes.
   nextTick(() => { ready.value = true })
   window.addEventListener('beforeunload', flushBeforeLeave)
@@ -209,11 +213,17 @@ onMounted(async () => {
 
 watch(draft, () => {
   clearTimeout(previewTimer)
-  previewTimer = setTimeout(() => { renderedSource.value = draft.markdown }, 150)
+  previewTimer = setTimeout(() => { renderedSource.value = activeMarkdown.value }, 150)
   if (!ready.value) return
   status.value = '未保存の変更があります'
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => saveDraft(), 600)
+})
+
+watch(section, () => {
+  clearTimeout(previewTimer)
+  renderedSource.value = activeMarkdown.value
+  nextTick(syncSource)
 })
 
 onBeforeRouteLeave(() => {
@@ -312,7 +322,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     </dialog>
     <header class="editor-topbar">
       <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
-      <div v-show="section === 'statement'" class="editor-view-switch" aria-label="表示の切り替え">
+      <div v-show="section === 'statement' || section === 'editorial'" class="editor-view-switch" aria-label="表示の切り替え">
         <button type="button" class="editor-button" :aria-pressed="mode === 'edit'" aria-label="編集" title="編集" @click="mode = 'edit'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg></button>
         <button type="button" class="editor-button split-button" :aria-pressed="mode === 'split'" aria-label="分割" title="分割" @click="mode = 'split'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 3v18" /></svg></button>
         <button type="button" class="editor-button" :aria-pressed="mode === 'preview'" aria-label="プレビュー" title="プレビュー" @click="mode = 'preview'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg></button>
@@ -337,7 +347,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
 
           <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="section === 'tests' ? 'page' : undefined" aria-label="テストケース" title="テストケース" @click="section = 'tests'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 6 2 2 3-4m-5 9 2 2 3-4m-5 9 2 2 3-4M12 6h9M12 13h9M12 20h9" /></svg><span class="editor-sidebar-label">テストケース</span></button>
           <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="section === 'generators' ? 'page' : undefined" aria-label="生成と検証" title="生成と検証" @click="section = 'generators'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7-5 5 5 5m10-10 5 5-5 5M14 4l-4 16" /></svg><span class="editor-sidebar-label">生成と検証</span></button>
-          <button type="button" class="editor-button editor-sidebar-item" disabled aria-label="解説（準備中）" title="解説（準備中）"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15" /></svg><span class="editor-sidebar-label">解説</span></button>
+          <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="section === 'editorial' ? 'page' : undefined" aria-label="解説" title="解説" @click="section = 'editorial'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15" /></svg><span class="editor-sidebar-label">解説</span></button>
           <button type="button" class="editor-button editor-sidebar-item" :disabled="!ready || publishing" :aria-current="managing ? 'page' : undefined" aria-label="問題管理" title="問題管理" @click="openManagement"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 .6-2h4.8l.6 2 2 1.2 2.1-.5 2.4 4.2-1.5 1.5v2.3l1.5 1.5-2.4 4.2-2.1-.5-2 1.2-.6 2H9l-.6-2-2-1.2-2.1.5-2.4-4.2 1.5-1.5V9.4L1.9 7.9l2.4-4.2 2.1.5Z" transform="translate(0 1)" /><circle cx="12" cy="12" r="3" /></svg><span class="editor-sidebar-label">問題管理</span></button>
         </nav>
       </aside>
@@ -346,8 +356,8 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       <p v-if="storageError" class="editor-error" role="alert">{{ storageError }}</p>
       <noscript><p class="editor-error">編集と保存には JavaScript を有効にしてください。</p></noscript>
     </div>
-    <div v-show="section === 'statement'" class="author-edit-content">
-    <div class="author-fields">
+    <div v-show="section === 'statement' || section === 'editorial'" class="author-edit-content">
+    <div v-if="section === 'statement'" class="author-fields">
       <div class="title-field">
         <div class="field-heading"><label for="problem-title">問題のタイトル</label><span id="title-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.title ? errors.title : '' }}</span></div>
         <input id="problem-title" v-model="draft.title" maxlength="120" placeholder="例：A + B" :disabled="!ready || publishing" :aria-invalid="(showErrors || touched.title) && !!errors.title" aria-describedby="title-error" @blur="touched.title = true">
@@ -363,7 +373,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
       <section id="source-pane" class="source-pane" aria-label="Markdown 編集">
-        <div class="pane-heading"><div class="source-heading-label"><label for="problem-source">本文 <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink><span id="source-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.markdown ? errors.markdown : '' }}</span></div><span>{{ draft.markdown.length.toLocaleString('en-US') }} / 100,000</span></div>
+        <div class="pane-heading"><div class="source-heading-label"><label for="problem-source">{{ section === 'editorial' ? '解説' : '本文' }} <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink><span v-if="section === 'statement'" id="source-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.markdown ? errors.markdown : '' }}</span></div><span>{{ activeMarkdown.length.toLocaleString('en-US') }} / 100,000</span></div>
         <div class="editor-toolbar" aria-label="記法を挿入">
           <button type="button" :disabled="!ready || publishing" @click="insertSnippet('\n## 見出し\n')" aria-label="見出し" title="見出し"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 5v14M5 12h14" /></svg></button>
           <button type="button" :disabled="!ready || publishing" @click="insertSnippet('**強調**')" aria-label="太字" title="太字"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2.4" d="M6 12h7a4 4 0 0 1 0 8H6V4h6a4 4 0 0 1 0 8" /></svg></button>
@@ -376,17 +386,17 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
           <div class="source-line-mirror" aria-hidden="true" :style="{ width: `${sourceWidth}px`, transform: `translateY(${-sourceScrollTop}px)` }">
             <div v-for="(line, index) in sourceLines" :key="index" class="source-mirror-row"><span class="source-line-number">{{ index + 1 }}</span><span class="source-mirror-text">{{ line || '\u200b' }}</span></div>
           </div>
-        <textarea id="problem-source" ref="editor" v-model="draft.markdown" maxlength="100000" spellcheck="false" :disabled="!ready || publishing" :aria-invalid="(showErrors || touched.markdown) && !!errors.markdown" aria-describedby="source-error" @scroll="syncSource" @input="syncSource" @blur="touched.markdown = true" />
+        <textarea id="problem-source" ref="editor" v-model="activeMarkdown" maxlength="100000" spellcheck="false" :disabled="!ready || publishing" :aria-invalid="section === 'statement' && (showErrors || touched.markdown) && !!errors.markdown" :aria-describedby="section === 'statement' ? 'source-error' : undefined" @scroll="syncSource" @input="syncSource" @blur="section === 'statement' && (touched.markdown = true)" />
         </div>
       </section>
       <div class="split-handle" role="separator" tabindex="0" aria-label="編集欄とプレビューの幅を調整" aria-orientation="vertical" aria-controls="source-pane preview-pane" :aria-valuenow="Math.round(splitPercent)" :aria-valuetext="`編集欄 ${Math.round(splitPercent)}%、プレビュー ${100 - Math.round(splitPercent)}%`" :aria-valuemin="30" :aria-valuemax="70" title="ドラッグで幅を調整・ダブルクリックで均等に戻す" @pointerdown="startResize" @pointermove="moveResize" @pointerup="stopResize" @pointercancel="stopResize" @lostpointercapture="resizing = false" @keydown="resizeWithKeyboard" @dblclick="setSplit(50)" />
-      <section id="preview-pane" class="preview-pane" aria-label="問題のプレビュー">
+      <section id="preview-pane" class="preview-pane" :aria-label="section === 'editorial' ? '解説のプレビュー' : '問題のプレビュー'">
         <div class="pane-heading"><h2>プレビュー</h2><span>表示を確認</span></div>
         <div class="preview-document">
-          <p class="preview-title">{{ draft.title || '無題の問題' }}</p>
-          <p class="preview-limits">実行時間 {{ draft.timeLimitMs || '—' }} ms ／ メモリ {{ draft.memoryLimitMb || '—' }} MiB</p>
+          <p class="preview-title">{{ section === 'editorial' ? '解説' : (draft.title || '無題の問題') }}</p>
+          <p v-if="section === 'statement'" class="preview-limits">実行時間 {{ draft.timeLimitMs || '—' }} ms ／ メモリ {{ draft.memoryLimitMb || '—' }} MiB</p>
           <ProblemMarkdown v-if="renderedSource.trim()" :source="renderedSource" />
-          <p v-else class="muted">本文を書くと、ここにプレビューが表示されます。</p>
+          <p v-else class="muted">{{ section === 'editorial' ? '解説' : '本文' }}を書くと、ここにプレビューが表示されます。</p>
         </div>
       </section>
     </div>

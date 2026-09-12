@@ -30,6 +30,16 @@ test('problem is readable with JavaScript disabled', async ({ browser }) => {
   await context.close()
 })
 
+test('published editorial is available from the problem menu', async ({ page }) => {
+  await page.goto('/problems/11111111-1111-4111-8111-111111111111')
+  await page.getByRole('link', { name: '解説', exact: true }).click()
+  await expect(page).toHaveURL(/view=editorial/)
+  await expect(page.getByRole('heading', { name: '解説', exact: true })).toBeVisible()
+  await expect(page.locator('.problem-body .katex')).toBeVisible()
+  await expect(page.getByRole('link', { name: '解説', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('form')).toHaveCount(0)
+})
+
 test('client navigation and hydration work without errors', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
