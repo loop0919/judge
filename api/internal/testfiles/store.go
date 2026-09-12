@@ -119,9 +119,10 @@ func (s *Store) Begin(ctx context.Context, owner, problemID, id string, size int
 
 func (s *Store) Complete(ctx context.Context, owner, problemID, id string) (problems.TestFile, error) {
 	var key, version, digest string
+	var uploadVersion *string
 	var size int64
 	var ready bool
-	err := s.pool.QueryRow(ctx, `SELECT object_key,COALESCE(version_id,''),sha256,size,ready FROM test_files WHERE id=$1 AND owner_id=$2 AND problem_id=$3`, id, owner, problemID).Scan(&key, &version, &digest, &size, &ready)
+	err := s.pool.QueryRow(ctx, `SELECT object_key,COALESCE(version_id,''),sha256,size,ready,upload_version_id FROM test_files WHERE id=$1 AND owner_id=$2 AND problem_id=$3`, id, owner, problemID).Scan(&key, &version, &digest, &size, &ready, &uploadVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return problems.TestFile{}, ErrNotFound
 	}
@@ -132,13 +133,13 @@ func (s *Store) Complete(ctx context.Context, owner, problemID, id string) (prob
 	if ready {
 		return ref, nil
 	}
-	result, err := s.objects.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key), ChecksumMode: types.ChecksumModeEnabled})
+	result, err := s.objects.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key), VersionId: uploadVersion, ChecksumMode: types.ChecksumModeEnabled})
 	if err != nil {
 		return problems.TestFile{}, ErrInvalid
 	}
 	defer result.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(result.Body, MaxSize+1))
-	if err != nil || int64(len(data)) != size || !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 || result.VersionId == nil {
+	if err != nil || int64(len(data)) != size || !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 || result.VersionId == nil || (uploadVersion != nil && *result.VersionId != *uploadVersion) {
 		return problems.TestFile{}, ErrInvalid
 	}
 	sum := sha256.Sum256(data)

@@ -5,7 +5,7 @@ const config = useRuntimeConfig()
 const { data: post, error } = await useFetch(() => `/api/posts/${encodeURIComponent(String(route.params.id))}`)
 if (error.value || !post.value) throw createError({ statusCode: error.value?.statusCode === 404 ? 404 : 502, statusMessage: error.value?.statusCode === 404 ? '記事が見つかりません' : '記事を取得できませんでした', fatal: true })
 const canonical = computed(() => new URL(`/blog/${post.value!.id}`, config.public.siteUrl).href)
-useSeoMeta({ title: () => `${post.value?.title} | OpenOJ`, description: () => post.value?.markdown.slice(0, 160), ogTitle: () => `${post.value?.title} | OpenOJ`, ogUrl: () => canonical.value, ogType: 'article' })
+useSeoMeta({ title: () => `${post.value?.title} | ShareOJ`, description: () => post.value?.markdown.slice(0, 160), ogTitle: () => `${post.value?.title} | ShareOJ`, ogUrl: () => canonical.value, ogType: 'article' })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 <template>

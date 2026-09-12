@@ -10,9 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5"
 	"judge/api/internal/database"
+	"judge/api/internal/problems"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 )
 
 func main() {
@@ -27,12 +31,38 @@ func main() {
 	}
 	defer pool.Close()
 	store := submissions.Store{Pool: pool}
+	bucket := os.Getenv("TEST_DATA_BUCKET")
+	var objects *s3.Client
+	if bucket != "" {
+		sdk, err := config.LoadDefaultConfig(ctx)
+		if err != nil {
+			log.Fatal("AWS configuration unavailable")
+		}
+		objects = s3.NewFromConfig(sdk)
+	}
 	log.Print("Local C++ judge worker started")
 	for ctx.Err() == nil {
 		item, job, err := store.Claim(ctx)
 		if err == nil {
 			jobCtx, cancel := context.WithTimeout(ctx, submissions.JudgeTimeout)
-			result := submissions.Judge(jobCtx, item.Source, job)
+			var result submissions.Result
+			if err := store.ResolveTestFiles(jobCtx, &job); err != nil {
+				result = submissions.Result{Verdict: "JE"}
+			} else {
+				job.LoadFile = func(ctx context.Context, file *problems.TestFile) (string, error) {
+					if objects == nil {
+						return "", testfiles.ErrUnavailable
+					}
+					return testfiles.ReadFile(ctx, objects, bucket, file)
+				}
+				job.SaveOutput = func(ctx context.Context, data []byte) (*problems.TestFile, error) {
+					if objects == nil {
+						return nil, testfiles.ErrUnavailable
+					}
+					return testfiles.WriteGenerated(ctx, objects, bucket, job.GenerationPrefix, data)
+				}
+				result = submissions.Judge(jobCtx, item.Source, job)
+			}
 			cancel()
 			saveCtx, saveCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			if err := store.Finish(saveCtx, item.ID, result); err != nil {

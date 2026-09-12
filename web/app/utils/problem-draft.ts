@@ -57,9 +57,16 @@ export function persistedDraft<T extends { testCases: TestCase[] }>(draft: T) {
   }
 }
 
+export const generatorSchema = z.object({ runtime: z.string().max(64).default('cpp17'), source: z.string().default('') })
+export const generatorsSchema = z.object({ input: generatorSchema, output: generatorSchema, validation: generatorSchema.default({ runtime: 'cpp17', source: '' }) })
+export type Generators = z.infer<typeof generatorsSchema>
+export const emptyGenerators = (): Generators => ({ input: { runtime: 'cpp17', source: '' }, output: { runtime: 'cpp17', source: '' }, validation: { runtime: 'cpp17', source: '' } })
+
 export const problemDraftSchema = z.object({
+  generators: generatorsSchema.default(emptyGenerators),
   title: z.string().max(120),
   markdown: z.string().max(100_000),
+  editorial: z.string().max(100_000).default(''),
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
   testCases: z.array(z.object({

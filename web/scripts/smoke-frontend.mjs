@@ -20,7 +20,7 @@ export async function smokeFrontend(siteUrl, { attempts = 12, retryDelayMs = 500
   // A newly migrated database legitimately has no published problems or posts.
   // Check the DB-backed catalogues, rather than assuming a seeded problem exists.
   const html = await (await get('/problems')).text()
-  assert.match(html, /OpenOJ/)
+  assert.match(html, /ShareOJ/)
   assert.ok(html.includes(`${origin.origin}/problems`), 'Public canonical URL missing')
   for (const extension of ['js', 'css']) {
     const path = html.match(new RegExp(`(?:src|href)="([^" ]+\\.${extension})"`))?.[1]
@@ -28,7 +28,7 @@ export async function smokeFrontend(siteUrl, { attempts = 12, retryDelayMs = 500
     assert.equal(new URL(path, origin).origin, origin.origin, 'Unexpected asset origin')
     assert.ok((await (await get(path)).arrayBuffer()).byteLength > 0)
   }
-  assert.match(await (await get('/blog')).text(), /OpenOJ/)
+  assert.match(await (await get('/blog')).text(), /ShareOJ/)
   for (const path of ['/api/problems', '/api/posts']) {
     const catalogue = await (await get(path)).json()
     assert.ok(Array.isArray(catalogue.items), `${path}: items missing`)

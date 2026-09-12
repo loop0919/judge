@@ -2,6 +2,23 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('details render Markdown while preserving code fences and escaping titles', () => {
+  expect(renderProblemMarkdown(':::details タイトル\n内容\n:::')).toBe('<details><summary>タイトル</summary>\n<p>内容</p>\n</details>\n')
+  const html = renderProblemMarkdown([
+    '::::details <img src=x onerror=alert(1)>', '**内容** $A$', '',
+    '```text', ':::', '```', '::::', '', '後続の本文',
+  ].join('\n'))
+  expect(html).toContain('<details><summary>&lt;img src=x onerror=alert(1)&gt;</summary>')
+  expect(html).toContain('<strong>内容</strong>')
+  expect(html).toContain('class="katex"')
+  expect(html).toContain('<code class="language-text">:::\n</code>')
+  expect(html).toContain('</details>\n<p>後続の本文</p>')
+  expect(html).not.toContain('<img')
+  expect(html).not.toContain('<details open')
+  expect(renderProblemMarkdown('```makefile\n:::details タイトル\n内容\n:::\n```')).not.toContain('<details>')
+  expect(renderProblemMarkdown(':::details\n内容')).toContain('<summary>詳細</summary>\n<p>内容</p>\n</details>')
+})
+
 test('Markdown supports flexible structure and dedicated input / math fences', () => {
   const html = renderProblemMarkdown([
     '## 自由な見出し', '', '**太字**と $a_i$', '',
@@ -18,6 +35,24 @@ test('Markdown supports flexible structure and dedicated input / math fences', (
   expect(html).toContain('>$literal$\n</code>')
   expect(html).toContain('<code>$code$</code>')
   expect(html).not.toContain('$A_1')
+})
+
+test('code fences highlight C++, C, Python, and Rust', () => {
+  for (const [language, source] of [
+    ['cpp', '#include <iostream>\nint main() { return 0; }'],
+    ['c', '#include <stdio.h>\nint main(void) { return 0; }'],
+    ['python', 'def answer():\n    return 42'],
+    ['rust', 'fn main() { let answer = 42; }'],
+  ]) {
+    const html = renderProblemMarkdown(`\`\`\`${language}\n${source}\n\`\`\``)
+    const lineNumbers = source.split('\n').map((_, line) => line + 1).join('\n')
+    expect(html).toContain(`<pre class="highlighted-code"><span class="code-line-numbers" aria-hidden="true">${lineNumbers}</span>`)
+    expect(html).toContain(`class="language-${language}"`)
+    expect(html).toContain('<span class="hljs-')
+    expect(html).not.toContain('<iostream>')
+  }
+  expect(renderProblemMarkdown('```text\nint main() {}\n```')).not.toContain('class="hljs ')
+  expect(renderProblemMarkdown('```text\na\nb\n```')).not.toContain('code-line-numbers')
 })
 
 test('HTML and malicious protocols cannot become executable content', () => {

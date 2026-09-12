@@ -260,6 +260,14 @@ func (p PrivateProblems) testFile(w http.ResponseWriter, r *http.Request, owner 
 }
 
 func validDraft(d problems.Draft) bool {
+	if d.Generators != nil {
+		for _, g := range []problems.Generator{d.Generators.Input, d.Generators.Output, d.Generators.Validation} {
+			if len(g.Runtime) > 64 || len(g.Source) > 65536 || !utf8.ValidString(g.Source) || strings.ContainsRune(g.Source+g.Runtime, 0) {
+				return false
+			}
+		}
+	}
+
 	timeMS, e1 := strconv.Atoi(d.TimeLimitMS)
 	if e1 != nil || timeMS < 100 || timeMS > 5000 || timeMS%100 != 0 || len(d.TestCases) > 100 {
 		return false
@@ -297,8 +305,8 @@ func validDraft(d problems.Draft) bool {
 		return false
 	}
 	memory, e2 := strconv.Atoi(d.MemoryLimitMB)
-	return utf8.RuneCountInString(d.Title) <= 120 && utf8.RuneCountInString(d.Markdown) <= 100000 &&
-		!strings.ContainsRune(d.Title+d.Markdown, '\x00') && len(d.TimeLimitMS) <= 10 && len(d.MemoryLimitMB) <= 10 &&
+	return utf8.RuneCountInString(d.Title) <= 120 && utf8.RuneCountInString(d.Markdown) <= 100000 && utf8.RuneCountInString(d.Editorial) <= 100000 &&
+		!strings.ContainsRune(d.Title+d.Markdown+d.Editorial, '\x00') && len(d.TimeLimitMS) <= 10 && len(d.MemoryLimitMB) <= 10 &&
 		e1 == nil && e2 == nil && timeMS >= 100 && timeMS <= 5000 && timeMS%100 == 0 && memory >= 64 && memory <= 512
 }
 

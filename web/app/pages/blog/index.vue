@@ -15,7 +15,7 @@ async function more() {
   finally { loading.value = false }
 }
 const date = (value: string) => new Date(value).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
-useSeoMeta({ title: 'ブログ | OpenOJ', description: 'ユーザーと運営が投稿する記事。', ogTitle: 'ブログ | OpenOJ', ogUrl: canonical, ogType: 'website' })
+useSeoMeta({ title: 'ブログ | ShareOJ', description: 'ユーザーと運営が投稿する記事。', ogTitle: 'ブログ | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
@@ -28,6 +28,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
     </article>
     <p v-if="message" role="alert">{{ message }}</p>
     <button v-if="cursor" class="editor-button" :disabled="loading" @click="more">さらに読み込む</button>
+    <p><NuxtLink to="/blog/generator-guide">入出力生成と入力検証の使い方</NuxtLink></p>
     <p><NuxtLink to="/blog/markdown-guide">Markdown・数式の書き方</NuxtLink></p>
   </div>
 </template>

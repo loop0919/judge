@@ -33,6 +33,31 @@ func TestResultValidation(t *testing.T) {
 	if !validResult(good) {
 		t.Fatal("zero CPU measurement is valid")
 	}
+	empty := ""
+	good.Cases[0].Output = &empty
+	if !validResult(good) {
+		t.Fatal("empty generation output rejected")
+	}
+	inline := "x"
+	good.Cases[0].Output = &inline
+	if validResult(good) {
+		t.Fatal("inline generation bytes must not enter queue")
+	}
+	good.Cases[0].Output = nil
+	file := &problems.TestFile{ID: "33333333-3333-4333-8333-333333333333", Size: 16 << 20, SHA256: strings.Repeat("a", 64), Key: "test-files/owner/problem/generated/file", Version: "version"}
+	good.Cases[0].OutputFile = file
+	if !validResult(good) {
+		t.Fatal("16 MiB file reference rejected")
+	}
+	encoded, _ := json.Marshal(envelope{Result: &good})
+	if len(encoded) > 4096 {
+		t.Fatal("result contains generated data")
+	}
+	file.Size++
+	if validResult(good) {
+		t.Fatal("oversized generated file accepted")
+	}
+	good.Cases[0].OutputFile = nil
 	good.Cases[0].MemoryBytes = nil
 	if validResult(good) {
 		t.Fatal("missing measurement must not pass")

@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"judge/api/internal/database"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 )
 
 type bridge struct {
@@ -54,9 +55,22 @@ func validResult(r submissions.Result) bool {
 	if len(r.Cases) != r.Total || r.Total == 0 {
 		return false
 	}
+	var generatedBytes int64
 	passed := 0
 	verdict := "AC"
 	for _, c := range r.Cases {
+		if c.Output != nil && (c.Verdict != "AC" || *c.Output != "" || c.OutputFile != nil) {
+			return false
+		}
+		if c.OutputFile != nil {
+			if c.Verdict != "AC" || !testfiles.ValidGeneratedFile(c.OutputFile) {
+				return false
+			}
+			generatedBytes += c.OutputFile.Size
+			if generatedBytes > submissions.GenerationOutputLimit {
+				return false
+			}
+		}
 		if !allowed[c.Verdict] || c.Verdict == "CE" || c.Verdict == "JE" || c.CPUTimeMS == nil || c.WallTimeMS == nil || c.MemoryBytes == nil {
 			return false
 		}
@@ -96,10 +110,7 @@ func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEv
       (progress->>'phase'='PREPARING' OR (progress->>'completed')::int < $7)))`,
 				e.ID, e.Attempt, raw, submissions.IsolateRuntimeIDs(), p.Total, p.Phase, p.Completed)
 		} else {
-			raw, _ := json.Marshal(e.Result)
-			// UUID parameters are compared as text so poison IDs cannot abort unrelated records.
-			_, err = b.db.Exec(ctx, `UPDATE submissions SET status='DONE',result=$3,progress=NULL,finished_at=clock_timestamp()
-    WHERE id::text=$1 AND judge_attempt::text=$2 AND runtime=ANY($4::text[]) AND status <> 'DONE'`, e.ID, e.Attempt, raw, submissions.IsolateRuntimeIDs())
+			err = (&submissions.Store{Pool: b.db}).FinishAttempt(ctx, e.ID, e.Attempt, *e.Result)
 		}
 		if err != nil {
 			response.BatchItemFailures = append(response.BatchItemFailures, events.SQSBatchItemFailure{ItemIdentifier: record.MessageId})
@@ -155,7 +166,7 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 		_, err = tx.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE id=$1`, id)
 		return err
 	}
-	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": runtime, "runtimeDigest": job.Image, "source": source, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
+	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": runtime, "runtimeDigest": job.Image, "source": source, "generate": job.Generate, "validate": job.Validate, "generationBaseBytes": job.GenerationBaseBytes, "generationPrefix": job.GenerationPrefix, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
 	if err != nil {
 		return err
 	}

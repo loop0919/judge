@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Submission } from '../../../../shared/types/submission'
-useSeoMeta({ title: '提出履歴 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '提出履歴 | ShareOJ', robots: 'noindex, nofollow' })
 const items = ref<Submission[]>([])
 const loading = ref(false)
 const message = ref('')

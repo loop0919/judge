@@ -5,8 +5,9 @@ const { user } = useAccount()
 const config = useRuntimeConfig()
 const { data: problem, error } = await useFetch(() => `/api/problems/${encodeURIComponent(String(route.params.id))}`)
 if (error.value || !problem.value) throw createError({ statusCode: error.value?.statusCode === 404 ? 404 : 502, statusMessage: error.value?.statusCode === 404 ? 'Problem not found' : 'Problem service unavailable', fatal: true })
+const showingEditorial = computed(() => route.query.view === 'editorial')
 const canonical = computed(() => new URL(`/problems/${problem.value!.id}`, config.public.siteUrl).href)
-useSeoMeta({ title: () => `${problem.value?.title} | OpenOJ`, description: () => problem.value?.markdown.slice(0, 160), ogTitle: () => `${problem.value?.title} | OpenOJ`, ogUrl: () => canonical.value, ogType: 'article' })
+useSeoMeta({ title: () => `${showingEditorial.value ? '解説 | ' : ''}${problem.value?.title} | ShareOJ`, description: () => (showingEditorial.value ? problem.value?.editorial : problem.value?.markdown)?.slice(0, 160), ogTitle: () => `${problem.value?.title} | ShareOJ`, ogUrl: () => canonical.value, ogType: 'article' })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 <template>
@@ -18,12 +19,19 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>
     </header>
     <nav class="problem-menu" aria-label="問題メニュー">
-      <NuxtLink :to="`/problems/${problem.id}`" aria-current="page">問題</NuxtLink>
+      <NuxtLink :to="`/problems/${problem.id}`" :aria-current="showingEditorial ? undefined : 'page'">問題</NuxtLink>
+      <NuxtLink :to="{ path: `/problems/${problem.id}`, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink>
       <NuxtLink v-if="user" to="/my/submissions">提出履歴</NuxtLink>
     </nav>
     <article class="problem-body" aria-label="問題詳細">
-      <ProblemMarkdown :source="problem.markdown" />
-      <SubmissionForm :problem-id="problem.id" />
+      <template v-if="showingEditorial">
+        <ProblemMarkdown v-if="problem.editorial" :source="problem.editorial" />
+        <p v-else class="muted">解説はまだありません。</p>
+      </template>
+      <template v-else>
+        <ProblemMarkdown :source="problem.markdown" />
+        <SubmissionForm :problem-id="problem.id" />
+      </template>
     </article>
   </div>
 </template>

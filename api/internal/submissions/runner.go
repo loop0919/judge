@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // JudgeTimeout covers up to 100 cases, including container startup, inspection and cleanup.
@@ -150,10 +151,37 @@ func Judge(ctx context.Context, source string, job Job) Result {
 		return r
 	}
 	r.Verdict = "AC"
+	generatedBytes := job.GenerationBaseBytes
+	if generatedBytes < 0 || generatedBytes > GenerationOutputLimit {
+		r.Verdict = "JE"
+		return r
+	}
 	for i, c := range job.Cases {
 		if ctx.Err() != nil {
 			r.Verdict = "JE"
 			return r
+		}
+		if c.InputFile != nil {
+			if job.LoadFile == nil {
+				r.Verdict = "JE"
+				return r
+			}
+			c.Input, err = job.LoadFile(ctx, c.InputFile)
+			if err != nil {
+				r.Verdict = "JE"
+				return r
+			}
+		}
+		if c.OutputFile != nil && !job.Generate {
+			if job.LoadFile == nil {
+				r.Verdict = "JE"
+				return r
+			}
+			c.Output, err = job.LoadFile(ctx, c.OutputFile)
+			if err != nil {
+				r.Verdict = "JE"
+				return r
+			}
 		}
 		limit := time.Duration(job.TimeLimitMS) * time.Millisecond
 		actual := container(ctx, job.Image, dir, c.Input, job.MemoryLimitMB, limit+10*time.Second, 16<<20,
@@ -170,10 +198,31 @@ func Judge(ctx context.Context, source string, job Job) Result {
 			verdict = "TLE"
 		case actual.code != 0:
 			verdict = "RE"
-		case !equalTokens(actual.output, []byte(c.Output)):
+		case job.Generate && (generatedBytes+int64(len(actual.output)) > GenerationOutputLimit):
+			verdict = "OLE"
+		case job.Generate && (!utf8.Valid(actual.output) || bytes.ContainsRune(actual.output, 0)):
+			verdict = "RE"
+		case !job.Generate && !job.Validate && !equalTokens(actual.output, []byte(c.Output)):
 			verdict = "WA"
 		default:
 			r.Passed++
+		}
+		if job.Generate && verdict == "AC" {
+			if len(actual.output) == 0 {
+				value := ""
+				r.Cases[i].Output = &value
+			} else {
+				if job.SaveOutput == nil {
+					r.Verdict = "JE"
+					return r
+				}
+				r.Cases[i].OutputFile, err = job.SaveOutput(ctx, actual.output)
+				if err != nil {
+					r.Verdict = "JE"
+					return r
+				}
+			}
+			generatedBytes += int64(len(actual.output))
 		}
 		r.Cases[i].Verdict = verdict
 		if verdict == "JE" {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'マイページ | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'マイページ | ShareOJ', robots: 'noindex, nofollow' })
 const { profile, logout } = useAccount()
 const joined = computed(() => profile.value ? new Date(profile.value.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' }) : '')
 </script>

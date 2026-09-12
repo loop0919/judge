@@ -7,7 +7,7 @@ test('initial HTTP response includes the problem and SEO metadata', async ({ req
   // Ignore script contents: serialized hydration data is not SSR content.
   const markup = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
   expect(markup).toMatch(/<html\s+lang="ja"/)
-  expect(markup).toContain('<title>A + B | OpenOJ</title>')
+  expect(markup).toContain('<title>A + B | ShareOJ</title>')
   expect(markup).toContain('name="description"')
   expect(markup).toContain('property="og:title"')
   expect(markup).toContain('rel="canonical" href="https://judge.example/problems/11111111-1111-4111-8111-111111111111"')
@@ -30,6 +30,16 @@ test('problem is readable with JavaScript disabled', async ({ browser }) => {
   await context.close()
 })
 
+test('published editorial is available from the problem menu', async ({ page }) => {
+  await page.goto('/problems/11111111-1111-4111-8111-111111111111')
+  await page.getByRole('link', { name: '解説', exact: true }).click()
+  await expect(page).toHaveURL(/view=editorial/)
+  await expect(page.getByRole('heading', { name: '解説', exact: true })).toBeVisible()
+  await expect(page.locator('.problem-body .katex')).toBeVisible()
+  await expect(page.getByRole('link', { name: '解説', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('form')).toHaveCount(0)
+})
+
 test('client navigation and hydration work without errors', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -39,9 +49,9 @@ test('client navigation and hydration work without errors', async ({ page }) => 
   await page.goto('/problems')
   await page.locator('.problem-row').click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('A + B')
-  await expect(page).toHaveTitle('A + B | OpenOJ')
+  await expect(page).toHaveTitle('A + B | ShareOJ')
   await page.locator('.breadcrumb').getByRole('link', { name: '公開問題' }).click()
-  await expect(page).toHaveTitle('公開問題 | OpenOJ')
+  await expect(page).toHaveTitle('公開問題 | ShareOJ')
   expect(errors).toEqual([])
 })
 

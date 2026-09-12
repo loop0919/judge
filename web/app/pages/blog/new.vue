@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { postSchema } from '~~/shared/types/post'
-useSeoMeta({ title: '記事を書く | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '記事を書く | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
 const router = useRouter()
 const { refreshAccount } = useAccount()
@@ -102,7 +102,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="author-page">
     <header class="editor-topbar">
-      <NuxtLink class="wordmark" to="/" aria-label="OpenOJ ホーム">Open<span>OJ</span></NuxtLink>
+      <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
       <div v-show="!managing" class="editor-view-switch" aria-label="表示の切り替え">
         <button type="button" class="editor-button" :aria-pressed="mode === 'edit'" aria-label="編集" title="編集" @click="mode = 'edit'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg></button>
         <button type="button" class="editor-button split-button" :aria-pressed="mode === 'split'" aria-label="分割" title="分割" @click="mode = 'split'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M12 3v18" /></svg></button>
@@ -148,6 +148,7 @@ onBeforeUnmount(() => {
           <button type="button" :disabled="!ready || busy" @click="insertSnippet('**強調**')" aria-label="太字" title="太字"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2.4" d="M6 12h7a4 4 0 0 1 0 8H6V4h6a4 4 0 0 1 0 8" /></svg></button>
           <button type="button" :disabled="!ready || busy" @click="insertSnippet(mathSnippet)" aria-label="数式" title="数式"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4H6l7 8-7 8h13" /></svg></button>
           <button type="button" :disabled="!ready || busy" @click="insertSnippet('\n```text\nコード\n```\n')" aria-label="コード" title="コード"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-14-2 16" /></svg></button>
+          <button type="button" :disabled="!ready || busy" @click="insertSnippet('\n:::details タイトル\n内容\n:::\n')" aria-label="折りたたみ" title="折りたたみ"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 8 3 3 3-3M7 15h10" /></svg></button>
         </div>
         <div class="numbered-source">
           <div class="source-line-mirror" aria-hidden="true" :style="{ width: `${sourceWidth}px`, transform: `translateY(${-sourceScrollTop}px)` }">

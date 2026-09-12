@@ -1,5 +1,5 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'プロフィール設定 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'プロフィール設定 | ShareOJ', robots: 'noindex, nofollow' })
 const { profile } = useAccount()
 </script>
 <template>

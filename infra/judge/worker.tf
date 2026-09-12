@@ -60,10 +60,12 @@ resource "aws_iam_user_policy" "worker" {
   user = aws_iam_user.worker.name
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       { Effect = "Allow", Action = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:ChangeMessageVisibility"], Resource = aws_sqs_queue.queue["requests"].arn },
       { Effect = "Allow", Action = ["sqs:SendMessage"], Resource = aws_sqs_queue.queue["results"].arn },
       { Effect = "Allow", Action = ["s3:GetObjectVersion"], Resource = concat(["${aws_s3_bucket.jobs.arn}/jobs/*"], var.test_data_bucket == null ? [] : ["${var.test_data_bucket.arn}/test-files/*"]) }
-    ]
+      ], var.test_data_bucket == null ? [] : [
+      { Effect = "Allow", Action = ["s3:PutObject", "s3:PutObjectTagging"], Resource = "${var.test_data_bucket.arn}/test-files/*/*/generated/*" }
+    ])
   })
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Submission } from '../../../../shared/types/submission'
 definePageMeta({ key: route => String(route.params.id) })
-useSeoMeta({ title: '提出結果 | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: '提出結果 | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
 const item = ref<Submission | null>(null)
 const message = ref('')

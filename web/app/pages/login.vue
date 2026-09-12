@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { data: providers } = await useFetch<{ google: boolean }>('/api/auth/providers')
-useSeoMeta({ title: 'ログイン | OpenOJ', robots: 'noindex, nofollow' })
+useSeoMeta({ title: 'ログイン | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
 const { user } = useAccount()
 const username = ref('')

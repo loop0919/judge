@@ -29,7 +29,9 @@ p { margin: 0 0 16px; }
 .site-header { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--color-line); }
 .wordmark { font-size: 1.625rem; letter-spacing: -.06em; font-weight: 750; text-decoration: none; color: var(--color-ink); }
 .wordmark span { color: var(--color-accent); }
+.wordmark .wordmark-alpha { margin-inline-start: .3em; color: inherit; font-size: .55em; letter-spacing: 0; vertical-align: baseline; }
 .site-header a, .breadcrumb a, .return-link { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
+.site-header .wordmark { align-items: baseline; }
 .site-header nav a { font-size: .875rem; text-decoration: none; }
 .skip-link { position: absolute; top: -100px; padding: 12px; background: var(--color-paper); z-index: 2; }
 .skip-link:focus { top: 12px; }
@@ -51,6 +53,15 @@ dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .problem-body ul { padding-inline-start: 24px; }
 .problem-body li { padding-inline-start: 4px; margin-block: 4px; }
 pre { margin: 0; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 4px; padding: 16px 20px; overflow-x: auto; line-height: 1.75; font-size: .9375rem; }
+.highlighted-code { display: grid; grid-template-columns: max-content max-content; padding: 0; }
+.code-line-numbers { position: sticky; left: 0; z-index: 1; padding: 16px 12px; border-inline-end: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-muted); text-align: end; user-select: none; }
+.highlighted-code code { padding: 16px 20px; }
+.hljs-comment, .hljs-quote { color: #66717e; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-type { color: #8250df; }
+.hljs-string, .hljs-meta .hljs-string { color: #0a6b3f; }
+.hljs-number, .hljs-literal { color: #0550ae; }
+.hljs-title, .hljs-built_in { color: #953800; }
+.hljs-meta { color: #57606a; }
 .input-format { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 4px; padding: 16px 20px; white-space: pre-wrap; overflow-x: auto; }
 code { font-family: var(--font-code); }
 .sample { margin-top: 28px; }

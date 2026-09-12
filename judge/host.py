@@ -38,6 +38,13 @@ def pointer(body):
 def validate_job(job, runtime):
     if job.get('runtimeDigest') != runtime or job.get('runtime') not in RUNTIMES:
         raise ValueError('runtime mismatch')
+    if type(job.get('generate', False)) is not bool or type(job.get('validate', False)) is not bool or (job.get('generate') and job.get('validate')):
+        raise ValueError('generation mode')
+    base = job.get('generationBaseBytes', 0)
+    if type(base) is not int or not 0 <= base <= TEST_SET_LIMIT:
+        raise ValueError('generation budget')
+    if job.get('generate') and not re.fullmatch(r'test-files/[a-f0-9]{32}/[a-f0-9-]{36}/generated/', job.get('generationPrefix', '')):
+        raise ValueError('generation prefix')
     source = job.get('source')
     if not isinstance(source, str) or not 0 < len(source.encode()) <= 65536 or '\0' in source:
         raise ValueError('source')
@@ -66,7 +73,7 @@ def validate_job(job, runtime):
                 raise ValueError('test file')
             if not re.fullmatch('[a-f0-9]{64}', file['sha256']) or not isinstance(file['versionId'], str) or not 0 < len(file['versionId']) <= 1024:
                 raise ValueError('test file')
-            if not isinstance(file['key'], str) or not re.fullmatch(r'test-files/[a-f0-9]{32}/[a-f0-9-]{36}/[a-f0-9-]{36}', file['key']):
+            if not isinstance(file['key'], str) or not re.fullmatch(r'test-files/[a-f0-9]{32}/[a-f0-9-]{36}/(?:generated/)?[a-f0-9-]{36}', file['key']):
                 raise ValueError('test file')
             size += file['size']
     if size > TEST_SET_LIMIT:
@@ -79,7 +86,7 @@ def number(value, maximum):
     return value
 
 
-def case_result(reply, index, case):
+def case_result(reply, index, case, generate=False, validate=False):
     if reply.get('index') != index or reply.get('status') not in ('', 'RE', 'SG', 'TO'):
         raise ValueError('invalid case response')
     for key in ('oom', 'overflow'):
@@ -102,12 +109,21 @@ def case_result(reply, index, case):
         verdict = 'TLE'
     elif reply['status'] or reply['exitCode'] or reply['signal']:
         verdict = 'RE'
-    elif re.findall(rb'[^ \t\n\r\v\f]+', output) != re.findall(rb'[^ \t\n\r\v\f]+', case['output'].encode()):
+    elif not generate and not validate and re.findall(rb'[^ \t\n\r\v\f]+', output) != re.findall(rb'[^ \t\n\r\v\f]+', case['output'].encode()):
         verdict = 'WA'
     else:
         verdict = 'AC'
-    return dict(name=case.get('name') or f'ケース{index + 1}', verdict=verdict,
+    item = dict(name=case.get('name') or f'ケース{index + 1}', verdict=verdict,
                 cpuTimeMs=cpu, wallTimeMs=wall, memoryBytes=memory)
+    if generate and verdict == 'AC':
+        try:
+            text = output.decode('utf-8')
+            if '\0' in text:
+                raise ValueError('NUL output')
+            item['output'] = text
+        except (UnicodeDecodeError, ValueError):
+            item['verdict'] = 'RE'
+    return item
 
 
 def prepare_cgroup():
@@ -139,9 +155,10 @@ def slot():
         yield
 
 
-def judge(job, runtime, load_file=None, progress=None):
+def judge(job, runtime, load_file=None, progress=None, save_output=None):
     validate_job(job, runtime)
     deadline = time.monotonic() + 1800
+    generated_bytes = job.get('generationBaseBytes', 0)
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
     try:
         if progress:
@@ -163,7 +180,16 @@ def judge(job, runtime, load_file=None, progress=None):
             reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
                                          timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
             reply['index'] = index
-            item = case_result(reply, index, case)
+            item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False))
+            if 'output' in item:
+                generated_bytes += len(item['output'].encode())
+                if generated_bytes > TEST_SET_LIMIT:
+                    del item['output']
+                    item['verdict'] = 'OLE'
+                elif item['output']:
+                    if save_output is None:
+                        raise ValueError('output storage unavailable')
+                    item['outputFile'] = save_output(item.pop('output').encode())
             result['cases'].append(item)
             if item['verdict'] == 'AC':
                 result['passed'] += 1

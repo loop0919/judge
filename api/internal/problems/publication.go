@@ -13,6 +13,7 @@ type PublicProblem struct {
 	ID            string    `json:"id"`
 	Title         string    `json:"title"`
 	Markdown      string    `json:"markdown,omitempty"`
+	Editorial     string    `json:"editorial,omitempty"`
 	TimeLimitMS   string    `json:"timeLimitMs,omitempty"`
 	MemoryLimitMB string    `json:"memoryLimitMb,omitempty"`
 	Author        string    `json:"author"`
@@ -55,6 +56,7 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 	}
 	p.Title = d.Title
 	p.Markdown = d.Markdown
+	p.Editorial = d.Editorial
 	p.TimeLimitMS = d.TimeLimitMS
 	p.MemoryLimitMB = d.MemoryLimitMB
 	return p, nil

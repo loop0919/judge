@@ -8,12 +8,15 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"judge/api/internal/problems"
 	"judge/api/internal/submissions"
+	"judge/api/internal/testfiles"
 )
 
 func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owner string) {
@@ -61,9 +64,14 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		return
 	}
 	var input struct {
-		ProblemID string `json:"problemId"`
-		Runtime   string `json:"runtime"`
-		Source    string `json:"source"`
+		ProblemID  string `json:"problemId"`
+		Runtime    string `json:"runtime"`
+		Source     string `json:"source"`
+		Generation *struct {
+			Mode  string `json:"mode"`
+			Start int64  `json:"start"`
+			Count int    `json:"count"`
+		} `json:"generation"`
 	}
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
@@ -88,7 +96,66 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		authError(w, 400, "invalid_submission")
 		return
 	}
-	item, err := p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected)
+	var item submissions.Submission
+	if input.Generation == nil {
+		item, err = p.Submissions.CreateRuntime(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected)
+	} else {
+		g := input.Generation
+		if p.Store == nil {
+			authError(w, 503, "database_unavailable")
+			return
+		}
+		if (g.Mode != "input" && g.Mode != "output" && g.Mode != "validation") || g.Count < 1 || g.Count > 100 || g.Start < -2147483648 || g.Start > 2147483647-int64(g.Count-1) {
+			authError(w, 400, "invalid_submission")
+			return
+		}
+		problem, getErr := p.Store.Get(r.Context(), owner, input.ProblemID)
+		if getErr != nil {
+			problemError(w, getErr)
+			return
+		}
+		job := submissions.Job{Generate: g.Mode != "validation", Validate: g.Mode == "validation", GenerationPrefix: testfiles.GenerationPrefix(owner, input.ProblemID), Image: p.JudgeImage, TimeLimitMS: 5000, MemoryLimitMB: 512}
+		if g.Mode == "input" {
+			if len(problem.Draft.TestCases)+g.Count > 100 {
+				authError(w, 400, "invalid_submission")
+				return
+			}
+			for i := 0; i < g.Count; i++ {
+				job.Cases = append(job.Cases, problems.TestCase{Input: strconv.FormatInt(g.Start+int64(i), 10) + "\n"})
+			}
+		} else {
+			// Inputs come only from this owner's saved draft, never client-supplied file references.
+			if g.Start < 1 || g.Start+int64(g.Count)-1 > int64(len(problem.Draft.TestCases)) {
+				authError(w, 400, "invalid_submission")
+				return
+			}
+			for _, c := range problem.Draft.TestCases[int(g.Start)-1 : int(g.Start)-1+g.Count] {
+				c.Output = ""
+				c.OutputFile = nil
+				job.Cases = append(job.Cases, c)
+			}
+		}
+		for i, c := range problem.Draft.TestCases {
+			if c.InputFile != nil {
+				job.GenerationBaseBytes += c.InputFile.Size
+			} else {
+				job.GenerationBaseBytes += int64(len(c.Input))
+			}
+			if g.Mode == "output" && i >= int(g.Start)-1 && i < int(g.Start)-1+g.Count {
+				continue
+			}
+			if c.OutputFile != nil {
+				job.GenerationBaseBytes += c.OutputFile.Size
+			} else {
+				job.GenerationBaseBytes += int64(len(c.Output))
+			}
+		}
+		if job.GenerationBaseBytes > submissions.GenerationOutputLimit {
+			authError(w, 400, "invalid_submission")
+			return
+		}
+		item, err = p.Submissions.CreateGeneration(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, selected, job)
+	}
 	if errors.Is(err, submissions.ErrNotReady) {
 		authError(w, 409, "tests_not_ready")
 		return

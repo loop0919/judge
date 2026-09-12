@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 """SQS/S3 transport; runs as a single systemd-managed slot on the Lightsail host."""
+import base64
+import uuid
 import hashlib
 import json
 import logging
@@ -20,6 +22,20 @@ def read_test_file(s3, bucket, item):
         return data.decode('utf-8')
     except UnicodeDecodeError as error:
         raise ValueError('test file encoding') from error
+
+
+def write_generated_file(s3, bucket, prefix, data):
+    if not bucket:
+        raise ValueError('output storage unavailable')
+    file_id = str(uuid.uuid4())
+    digest = hashlib.sha256(data).digest()
+    key = prefix + file_id
+    response = s3.put_object(Bucket=bucket, Key=key, Body=data, ContentType='text/plain; charset=utf-8',
+                             Tagging='status=pending', ChecksumSHA256=base64.b64encode(digest).decode())
+    version = response.get('VersionId')
+    if not isinstance(version, str) or not version:
+        raise ValueError('versioned output storage required')
+    return dict(id=file_id, size=len(data), sha256=digest.hex(), key=key, versionId=version)
 
 
 def progress_reporter(client, queue, item):
@@ -80,7 +96,8 @@ def main():
                     raise ValueError('job identity')
                 try:
                     result = judge(job, runtime, lambda item: read_test_file(s3, test_bucket, item),
-                                   progress_reporter(progress_client, results, item))
+                                   progress_reporter(progress_client, results, item),
+                                   lambda data: write_generated_file(s3, test_bucket, job['generationPrefix'], data))
                 except Exception:
                     # Avoid logging source, test data, credentials, or sandbox diagnostics.
                     logging.error('judge failed')
