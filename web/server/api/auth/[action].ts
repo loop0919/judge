@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { googleOAuthConfig } from '../../utils/google-oauth'
-import { clearSession, saveSession, sessionTokensSchema, limitedJSON, privateAPI, privateHeaders, requireSameOrigin, hasSession } from '../../utils/private-api'
+import { clearPrivateSession, saveSession, sessionTokensSchema, limitedJSON, privateAPI, privateHeaders, requireSameOrigin, hasSession } from '../../utils/private-api'
 
 const resultSchema = z.object({
   refresh_token: z.string().min(1).max(3800).optional(), access_token: z.string().optional(), expires_in: z.number().int().positive().optional(),
@@ -16,14 +16,14 @@ export default defineEventHandler(async event => {
     try { return { user: await privateAPI<{ id: string }>(event, '/auth/me') } }
     catch (error) {
       if ((error as { statusCode?: number }).statusCode !== 401) throw error
-      clearSession(event)
+      clearPrivateSession(event)
       return { user: null }
     }
   }
   if (!['login', 'challenge', 'logout', 'signup', 'confirm-signup', 'resend-confirmation'].includes(action ?? '') || event.method !== 'POST') throw createError({ statusCode: 404 })
   requireSameOrigin(event)
   if (action === 'logout') {
-    clearSession(event)
+    clearPrivateSession(event)
     return { user: null }
   }
   const body = await limitedJSON(event, 16 << 10)

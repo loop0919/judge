@@ -12,7 +12,7 @@ export function hasSession(event: H3Event) {
   return Boolean(getCookie(event, sessionCookie) || getCookie(event, refreshCookie))
 }
 
-export function clearSession(event: H3Event) {
+export function clearPrivateSession(event: H3Event) {
   deleteCookie(event, sessionCookie, cookieOptions(event))
   deleteCookie(event, refreshCookie, cookieOptions(event))
 }
@@ -35,7 +35,7 @@ async function refreshSession(event: H3Event) {
     return tokens.access_token
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status
-    if (status === 401) clearSession(event)
+    if (status === 401) clearPrivateSession(event)
     throw createError({ statusCode: status && [401, 429, 503].includes(status) ? status : 502, statusMessage: 'Session refresh failed' })
   }
 }
