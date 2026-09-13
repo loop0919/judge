@@ -30,7 +30,7 @@ for (const width of [320, 375, 414, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/problems/new')
     const title = page.locator('#problem-title')
-    const difficulty = page.getByLabel('難易度（作問者設定）')
+    const difficulty = page.getByLabel('難易度（作成者設定）')
     const time = page.locator('#time-limit')
     await expect(difficulty).toBeEnabled()
     expect(await title.evaluate(element => !!(element.compareDocumentPosition(document.querySelector('#problem-difficulty')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
