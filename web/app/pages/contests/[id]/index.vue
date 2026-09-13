@@ -44,7 +44,6 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/contests">コンテスト</NuxtLink><span aria-hidden="true">/</span><span>{{ contest.title }}</span></nav>
     <nav class="problem-menu" aria-label="コンテストメニュー">
       <NuxtLink v-for="(label, view) in views" :key="view" :to="{ path: `/contests/${contest.id}`, query: view === 'overview' ? {} : { view } }" :aria-current="activeView === view ? 'page' : undefined">{{ label }}</NuxtLink>
-      <NuxtLink to="/blog/contest-rules">ルール</NuxtLink>
     </nav>
     <header class="problem-header">
       <div class="contest-heading">
@@ -58,6 +57,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     </header>
     <section v-if="activeView === 'overview'" id="overview" class="contest-section contest-description" aria-labelledby="overview-title">
       <h2 id="overview-title">概要</h2><ProblemMarkdown v-if="contest.description" :source="contest.description" /><p v-else class="muted">コンテストの説明はまだありません。</p>
+      <p><NuxtLink to="/blog/contest-rules">ルール</NuxtLink></p>
     </section>
     <section v-if="activeView === 'problems'" id="problems" class="contest-section" aria-labelledby="problems-title">
       <h2 id="problems-title">問題</h2>

@@ -94,9 +94,19 @@ test('create, reorder and edit an unpublished contest; guests cannot inspect its
   await expect(page.getByRole('region', { name: 'コンテストの問題', exact: true })).toBeVisible()
   await contestMenu.getByRole('link', { name: '概要', exact: true }).click()
   await expect(page.getByRole('heading', { name: '開催案内', exact: true })).toBeVisible()
-  await contestMenu.getByRole('link', { name: 'ルール', exact: true }).click()
+  await expect(contestMenu.getByRole('link', { name: 'ルール', exact: true })).toHaveCount(0)
+  await page.getByRole('region', { name: '概要', exact: true }).getByRole('link', { name: 'ルール', exact: true }).click()
   await expect(page).toHaveURL('/blog/contest-rules')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('コンテストのルール')
+  await page.getByRole('link', { name: '使える言語と実行環境の仕様', exact: true }).click()
+  await expect(page).toHaveURL('/blog/language-guide')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('使える言語と実行環境の仕様')
+  for (const width of [320, 375, 414, 768]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`language-guide-${width}.png`), fullPage: true })
+  }
+  await page.goBack()
   for (const width of [320, 375, 414, 768]) {
     await page.setViewportSize({ width, height: 900 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -158,6 +168,13 @@ test('scheduled problems open for submission, then publish with editorial and so
   await expect(bob.getByRole('heading', { name: 'コンテスト本文', exact: true })).toBeVisible()
   await expect(bob.getByRole('navigation', { name: '問題メニュー' }).getByRole('link')).toHaveText(['問題', '自分の提出', 'すべての提出'])
   await bob.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
+  const guideOpened = bob.waitForEvent('popup')
+  await bob.getByRole('link', { name: '使える言語と実行環境の仕様' }).click()
+  const guide = await guideOpened
+  await expect(guide).toHaveURL('/blog/language-guide')
+  await expect(guide.getByRole('heading', { level: 1 })).toHaveText('使える言語と実行環境の仕様')
+  await guide.close()
+  await expect(bob.getByLabel('ソースコード', { exact: true })).toHaveText('int main(){}')
   await bob.getByRole('button', { name: '提出する', exact: true }).click()
   await expect(bob).toHaveURL(/\/my\/submissions\/[a-f0-9-]{36}$/)
   const sid = bob.url().split('/').pop()!

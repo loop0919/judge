@@ -28,6 +28,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
     <p v-if="message" role="alert">{{ message }}</p>
     <ContentPagination :index="index" :has-next="!!current.nextCursor" :loading="loading" @move="move" />
     <p><NuxtLink to="/blog/contest-rules">コンテストのルール</NuxtLink></p>
+    <p><NuxtLink to="/blog/language-guide">使える言語と実行環境の仕様</NuxtLink></p>
     <p><NuxtLink to="/blog/generator-guide">入出力生成と入力検証の使い方</NuxtLink></p>
     <p><NuxtLink to="/blog/markdown-guide">Markdown・数式の書き方</NuxtLink></p>
   </div>
