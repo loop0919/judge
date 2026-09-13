@@ -23,8 +23,11 @@ test('problem publication is visible anonymously and private edits stay private'
   const guest = await browser.newContext({ baseURL: 'http://127.0.0.1:13002' })
   expect((await guest.request.get(`/api/problems/${id}`)).status()).toBe(404)
   await page.getByRole('button', { name: '問題管理', exact: true }).click()
-  await page.getByRole('button', { name: '公開する', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('公開しました')
+  await page.goto('/problems')
+  await page.getByRole('link', { name: '投稿', exact: true }).click()
+  await page.getByLabel('投稿する問題').selectOption(id)
+  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await expect(page).toHaveURL(`/problems/${id}`)
   const reader = await guest.newPage()
   await reader.goto(`/problems/${id}`)
   await expect(reader.getByRole('heading', { level: 1 })).toHaveText('公開フロー確認')
@@ -35,7 +38,7 @@ test('problem publication is visible anonymously and private edits stay private'
     expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await reader.screenshot({ path: testInfo.outputPath(`problem-${width}.png`), fullPage: true })
   }
-  const savedEditorURL = page.url()
+  const savedEditorURL = `/problems/new?problem=${id}`
   const favoritePage = await page.context().newPage()
   await favoritePage.goto(`/problems/${id}`)
   const favorite = favoritePage.getByRole('button', { name: /お気に入り/ })

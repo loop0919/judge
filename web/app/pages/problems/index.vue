@@ -11,7 +11,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
   <div class="catalogue">
-    <h1>問題</h1>
+    <header class="draft-library-heading"><h1>問題</h1><NuxtLink class="editor-button primary" to="/problems/post">投稿</NuxtLink></header>
     <p v-if="!current.items.length" class="muted">公開された問題はまだありません。</p>
     <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="問題一覧" :aria-busy="loading">
       <table class="content-table">
