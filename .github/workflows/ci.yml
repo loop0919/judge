@@ -3,6 +3,10 @@ name: CI
 on:
   pull_request:
   workflow_call:
+    inputs:
+      upload-deploy-artifacts:
+        type: boolean
+        default: false
   workflow_dispatch:
 
 permissions:
@@ -78,6 +82,17 @@ jobs:
       - name: Test deployment smoke checks
         run: node --test scripts/smoke-frontend.test.mjs
 
+      - name: Upload frontend Lambda package
+        if: inputs.upload-deploy-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-lambda
+          path: web/.build/web.zip
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+
   test:
     name: Test and package API
     runs-on: ubuntu-24.04
@@ -123,7 +138,9 @@ jobs:
         run: python3 -m unittest discover -s judge/tests -v
 
       - name: Verify Lambda package
-        run: test -s api/.build/api.zip
+        run: |
+          test -s api/.build/api.zip
+          test -s api/.build/migrate.zip
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -143,3 +160,16 @@ jobs:
             terraform -chdir="infra/$root" validate
             terraform -chdir="infra/$root" test
           done
+
+      - name: Upload API Lambda packages
+        if: inputs.upload-deploy-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-lambda
+          path: |
+            api/.build/api.zip
+            api/.build/migrate.zip
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true

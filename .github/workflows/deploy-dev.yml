@@ -28,6 +28,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/ci.yml
+    with:
+      upload-deploy-artifacts: true
 
   deploy:
     name: Deploy API and frontend
@@ -49,36 +51,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7.0.0
 
-      - name: Set up Go
-        uses: actions/setup-go@v7.0.0
+      - name: Download API Lambda packages from CI
+        uses: actions/download-artifact@v8
         with:
-          go-version-file: api/go.mod
-          cache-dependency-path: api/go.sum
+          name: api-lambda
+          path: api/.build
 
-      - name: Test API
-        working-directory: api
-        run: |
-          go test ./...
-          go vet ./...
+      - name: Download frontend Lambda package from CI
+        uses: actions/download-artifact@v8
+        with:
+          name: frontend-lambda
+          path: web/.build
 
-      - name: Build Lambda package
-        working-directory: api
-        run: make package
-
-      - name: Set up Node.js
+      - name: Set up Node.js for deployment smoke check
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build and test frontend Lambda
-        working-directory: web
-        run: |
-          npm ci
-          npm run typecheck
-          npm run package:lambda
-          npm run test:lambda
 
       - name: Validate deployment configuration
         shell: bash
@@ -111,19 +99,6 @@ jobs:
         with:
           terraform_version: 1.16.0
           terraform_wrapper: false
-
-      - name: Check Terraform formatting
-        run: terraform fmt -check -recursive infra
-
-      - name: Validate and test Terraform
-        shell: bash
-        run: |
-          set -euo pipefail
-          for root in bootstrap api frontend deploy-access; do
-            terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
-            terraform -chdir="infra/$root" validate
-            terraform -chdir="infra/$root" test
-          done
 
       - name: Initialize API state
         env:
