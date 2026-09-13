@@ -104,6 +104,16 @@ set +a
 
 ## 開発手順
 
+クローン後、次のコマンドでGitフックを有効にする。
+
+```console
+make install-hooks
+```
+
+以後、`git push`の前にNix開発環境でフロントエンドの型チェック、ビルド、Playwrightの全テストを実行し、失敗したらpushを中止する。
+初回は[フロントエンドの手順](web/README.md#ビルドとテスト)に従ってnpm依存関係とChromiumをインストールしておく。
+テスト対象は現在の作業ツリーなので、pushするブランチをチェックアウトし、変更をコミットしてからpushする。
+
 - [APIの起動とテスト](api/README.md)
 - [フロントエンドの起動とSSRの確認](web/README.md)
 - [AWSインフラの作成とデプロイ](infra/README.md)
