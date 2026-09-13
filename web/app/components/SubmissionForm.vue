@@ -12,7 +12,7 @@ const runtimeStorageKey = 'openoj.submission-runtime'
 onMounted(() => {
   try {
     const saved = localStorage.getItem(runtimeStorageKey)
-    if (saved && available.value.some(item => item.id === saved)) runtime.value = saved
+    if (saved !== null && (saved === '' || available.value.some(item => item.id === saved))) runtime.value = saved
   } catch { /* Storage may be disabled by the browser. */ }
 })
 function rememberRuntime() {
@@ -20,7 +20,7 @@ function rememberRuntime() {
   catch { /* Keep language selection usable without storage. */ }
 }
 watch(available, items => {
-  if (!items.some(item => item.id === runtime.value)) runtime.value = items[0]?.id ?? ''
+  if (runtime.value && !items.some(item => item.id === runtime.value)) runtime.value = items[0]?.id ?? ''
 }, { immediate: true })
 const sending = ref(false)
 const runningEasyTest = ref(false)
@@ -83,6 +83,7 @@ async function submit(easyTest = false) {
     <form @submit.prevent="submit()">
       <label for="submission-language">言語</label>
       <select id="submission-language" v-model="runtime" :disabled="sending" @change="rememberRuntime">
+        <option value="">-- 未選択 --</option>
         <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
       </select>
       <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
@@ -90,13 +91,13 @@ async function submit(easyTest = false) {
       <p v-if="message" role="alert">{{ message }}</p>
       <div class="submission-actions">
         <div class="sample-action">
-          <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'サンプル検証中…' : 'サンプル検証' }}</button>
+          <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !runtime || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'サンプル検証中…' : 'サンプル検証' }}</button>
           <span class="sample-help">
             <button class="sample-help-button" type="button" aria-label="サンプル検証の説明" :aria-describedby="sampleHelpId">?</button>
             <span :id="sampleHelpId" class="sample-tooltip" role="tooltip">サンプルケースを検証する機能です。</span>
           </span>
         </div>
-        <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending && !runningEasyTest ? '提出中…' : '提出する' }}</button>
+        <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !runtime || !available.length" :aria-busy="sending">{{ sending && !runningEasyTest ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
     <section v-if="easyResult" class="easy-result" aria-labelledby="easy-result-title">

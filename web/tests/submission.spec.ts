@@ -19,6 +19,27 @@ test('language selection survives reloads and returning to the problem', async (
   await expect(language).toHaveValue('cpp17')
 })
 
+test('unselected language disables both actions and survives reloads', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.goto(`/problems/${problemId}`)
+  const language = page.getByRole('combobox', { name: '言語' })
+  const submit = page.getByRole('button', { name: '提出する', exact: true })
+  const sample = page.getByRole('button', { name: 'サンプル検証', exact: true })
+  await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
+  await language.selectOption({ label: '-- 未選択 --' })
+  await expect(submit).toBeDisabled()
+  await expect(sample).toBeDisabled()
+  await language.selectOption('cpp17')
+  await expect(submit).toBeEnabled()
+  await expect(sample).toBeEnabled()
+  await language.selectOption('')
+  await page.reload()
+  await expect(language).toHaveValue('')
+  await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
+  await expect(submit).toBeDisabled()
+  await expect(sample).toBeDisabled()
+})
+
 test('an unavailable saved language falls back to the default', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
   await page.addInitScript(() => localStorage.setItem('openoj.submission-runtime', 'removed-runtime'))
