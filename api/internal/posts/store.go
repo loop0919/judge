@@ -65,7 +65,7 @@ func (s *Store) conflict(ctx context.Context, owner, id string, p Post, err erro
 func (s *Store) Publish(ctx context.Context, owner, id string, version int64, publish bool) (Post, error) {
 	query := `UPDATE blog_posts SET published_title=NULL,published_markdown=NULL,published_version=0,published_at=NULL,version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING ` + columns
 	if publish {
-		query = `UPDATE blog_posts SET published_title=title,published_markdown=markdown,published_version=version+1,published_at=clock_timestamp(),version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING ` + columns
+		query = `UPDATE blog_posts SET published_title=title,published_markdown=markdown,published_version=version+1,published_at=COALESCE(published_at,clock_timestamp()),version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING ` + columns
 	}
 	p, err := scan(s.pool.QueryRow(ctx, query, owner, id, version))
 	return s.conflict(ctx, owner, id, p, err)

@@ -165,6 +165,12 @@ func TestProfilesPostgres(t *testing.T) {
 		check("PUT", private+"/publication", "alice", `{"version":1}`, 400)
 		check("PUT", private+"/publication", "alice", `{"version":1,"publish":true}`, 200)
 		visible := check("GET", public, "", "", 200)
+		var initial struct {
+			PublishedAt time.Time `json:"publishedAt"`
+		}
+		if err := json.Unmarshal([]byte(visible), &initial); err != nil || initial.PublishedAt.IsZero() {
+			t.Fatalf("initial publication: %s (%v)", visible, err)
+		}
 		if !strings.Contains(visible, "public body") || !strings.Contains(visible, `"author":"alice_new"`) || strings.Contains(visible, "owner") {
 			t.Fatal(visible)
 		}
@@ -217,6 +223,12 @@ func TestProfilesPostgres(t *testing.T) {
 		}
 		check("PUT", private+"/publication", "alice", `{"version":2,"publish":true}`, 409)
 		check("PUT", private+"/publication", "alice", `{"version":3,"publish":true}`, 200)
+		var updated struct {
+			PublishedAt time.Time `json:"publishedAt"`
+		}
+		if err := json.Unmarshal([]byte(check("GET", public, "", "", 200)), &updated); err != nil || !updated.PublishedAt.Equal(initial.PublishedAt) {
+			t.Fatalf("%s publication time changed after update: %v -> %v (%v)", kind, initial.PublishedAt, updated.PublishedAt, err)
+		}
 		if !strings.Contains(check("GET", public, "", "", 200), "private secret") {
 			t.Fatal("snapshot not updated")
 		}

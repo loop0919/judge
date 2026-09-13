@@ -53,6 +53,34 @@ func TestContestsPostgres(t *testing.T) {
 		}
 	}
 	exec(`INSERT INTO user_profiles(owner_id,handle) VALUES ('alice','alice'),('bob','bob'),('tester','tester'),('carol','carol')`)
+	t.Run("publication order survives schedule edits", func(t *testing.T) {
+		const older = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+		const newer = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+		exec(`INSERT INTO contests(id,owner_id,title,description,starts_at,ends_at,created_at)
+ VALUES ($1,'alice','Older','',now()+interval '3 hours',now()+interval '4 hours',now()-interval '1 day'),
+ ($2,'alice','Newer','',now()+interval '1 hour',now()+interval '2 hours',now())`, older, newer)
+		defer exec(`DELETE FROM contests WHERE id IN ($1,$2)`, older, newer)
+		catalogue := &contests.Store{Pool: store.Pool()}
+		checkOrder := func() {
+			t.Helper()
+			for _, owner := range []string{"", "alice"} {
+				items, err := catalogue.List(ctx, owner, 0)
+				if err != nil || len(items) != 2 || items[0].ID != newer || items[1].ID != older {
+					t.Fatalf("publication order for %q: %+v (%v)", owner, items, err)
+				}
+				page, err := catalogue.List(ctx, owner, 1)
+				if err != nil || len(page) != 1 || page[0].ID != older {
+					t.Fatalf("next page: %+v (%v)", page, err)
+				}
+			}
+		}
+		checkOrder()
+		penalty := 5
+		if err := catalogue.Save(ctx, "alice", older, contests.Input{Title: "Edited", StartsAt: time.Now().Add(5 * time.Hour), EndsAt: time.Now().Add(6 * time.Hour), PenaltyMinutes: &penalty, Version: 1}, func(problems.Draft) bool { return true }); err != nil {
+			t.Fatal(err)
+		}
+		checkOrder()
+	})
 	const a = "11111111-1111-4111-8111-111111111111"
 	const b = "22222222-2222-4222-8222-222222222222"
 	const cid = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
