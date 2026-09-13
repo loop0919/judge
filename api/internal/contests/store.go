@@ -58,7 +58,7 @@ func scan(row pgx.Row) (Contest, error) {
 
 func (s *Store) List(ctx context.Context, owner string, offset int) ([]Contest, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT `+fields+` FROM contests c JOIN user_profiles u ON u.owner_id=c.owner_id
- WHERE ($1='' OR c.owner_id=$1) ORDER BY c.created_at DESC,c.id DESC LIMIT 51 OFFSET $2`, owner, offset)
+ WHERE ($1='' OR c.owner_id=$1) ORDER BY c.starts_at DESC,c.created_at DESC,c.id DESC LIMIT 51 OFFSET $2`, owner, offset)
 	if err != nil {
 		return nil, err
 	}
