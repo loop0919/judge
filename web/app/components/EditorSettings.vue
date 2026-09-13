@@ -12,7 +12,7 @@ const titleId = useId()
   <Teleport to="body">
     <dialog ref="dialog" class="editor-settings-dialog" :aria-labelledby="titleId">
       <header class="settings-heading">
-        <h2 :id="titleId">エディタ設定</h2>
+        <h2 :id="titleId">エディタ設定（{{ kind === 'markdown' ? 'Markdown' : 'Code' }}）</h2>
         <button class="editor-button settings-close" type="button" aria-label="エディタ設定を閉じる" @click="dialog?.close()"><span aria-hidden="true">×</span></button>
       </header>
       <label>インデント方式
@@ -21,8 +21,6 @@ const titleId = useId()
       <label>インデント幅
         <select v-model="settings.width" @change="saveSettings"><option v-for="width in 8" :key="width" :value="width">{{ width }}</option></select>
       </label>
-      <p>{{ kind === 'markdown' ? 'Markdownエディタ' : 'コードエディタ' }}に適用され、このブラウザに保存されます。tabの場合、幅はタブの表示幅です。入力済みの文字は変換しません。</p>
-      <p>Tabでインデント、Shift+Tabで解除します。エディタからフォーカスを移すには、Escapeを押してからTabを押してください。</p>
       <form method="dialog"><button class="editor-button" autofocus>閉じる</button></form>
     </dialog>
   </Teleport>
@@ -39,6 +37,5 @@ h2 { margin: 0; font-size: 1.125rem; }
 label { display: grid; gap: 8px; margin-block: 16px; font-size: .875rem; }
 select { width: 100%; padding: 8px; border: 1px solid var(--color-line); border-radius: 4px; color: var(--color-ink); background: var(--color-paper); font: inherit; }
 select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-p { font-size: .8125rem; color: var(--color-muted); }
 form { display: flex; justify-content: flex-end; margin-top: 24px; }
 </style>
