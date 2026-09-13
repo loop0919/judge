@@ -4,6 +4,7 @@ definePageMeta({ key: route => route.path })
 useResponseHeader('Cache-Control').value = 'no-store'
 useResponseHeader('Vary').value = 'Cookie'
 const route = useRoute()
+const { profile } = useAccount()
 const id = encodeURIComponent(String(route.params.id))
 const pid = encodeURIComponent(String(route.params.problem))
 const { data: contest, refresh: refreshContest } = await useFetch<Contest>(`/api/contests/${id}`)
@@ -19,7 +20,7 @@ onBeforeUnmount(() => clearInterval(timer))
 <template>
   <div v-if="problem && contest" class="problem-page">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="`/contests/${id}?view=problems`">{{ contest.title }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav>
-    <nav class="problem-menu" aria-label="問題メニュー"><NuxtLink :to="problemPath" :aria-current="showingEditorial ? undefined : 'page'">問題</NuxtLink><NuxtLink v-if="contest.status === 'ended' || problem.editorial" :to="{ path: problemPath, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink><NuxtLink :to="`/contests/${id}?view=standings`">順位表</NuxtLink><NuxtLink to="/my/submissions">自分の提出</NuxtLink></nav>
+    <nav class="problem-menu" aria-label="問題メニュー"><NuxtLink :to="problemPath" :aria-current="showingEditorial ? undefined : 'page'">問題</NuxtLink><NuxtLink v-if="contest.status === 'ended' || profile?.handle === problem.author" :to="{ path: problemPath, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink><NuxtLink to="/my/submissions">自分の提出</NuxtLink></nav>
     <header class="problem-header"><h1>{{ problem.title }}</h1><div class="problem-summary"><div class="problem-meta muted"><p>作成者 {{ problem.author }}</p><p>配点 {{ contest.problems.find(p => p.id === problem!.id)?.points }} 点</p></div></div><dl class="limits"><div><dt>実行時間制限</dt><dd>{{ Number(problem.timeLimitMs) / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl></header>
     <article class="problem-body">
       <template v-if="showingEditorial"><ProblemMarkdown v-if="problem.editorial" :source="problem.editorial" /><p v-else>解説は終了後に公開されます。終了後も表示されない場合は未登録です。</p></template>
