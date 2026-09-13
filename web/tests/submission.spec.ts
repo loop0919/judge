@@ -95,6 +95,7 @@ test('C++ submission opens its result and polls until completion', async ({ page
   await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
   await expect(page.getByRole('status')).toHaveText('AC：正解')
   await expect(page.getByRole('row', { name: '正解したケース 2 / 2' })).toBeVisible()
+  await expect(page.getByRole('row', { name: '言語 C++17 (GCC)', exact: true })).toBeVisible()
   await expect(page.getByRole('row', { name: '問題の版', exact: false })).toHaveCount(0)
   await expect(page.getByRole('table', { name: 'テストケースごとの結果' }).getByRole('row', { name: 'sample AC' })).toBeVisible()
   await expect(page.getByRole('table', { name: 'テストケースごとの結果' }).getByRole('row', { name: 'large AC' })).toBeVisible()
@@ -126,6 +127,7 @@ for (const view of ['detail', 'history']) {
       return route.fulfill({ json: view === 'detail' ? state : { items: [state] } })
     })
     await page.goto(`/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`)
+    await expect(page.getByRole('cell', { name: 'Python (CPython 3.14)', exact: true })).toBeVisible()
     const badge = page.locator('.verdict-badge').first()
     await expect(badge).toHaveText('WJ')
     await expect(badge.locator('.judge-spinner')).toBeVisible()
@@ -248,3 +250,24 @@ for (const failed of [false, true]) {
     await expect(page.getByText('このケースの入出力は記録されていません。')).toHaveCount(0)
   })
 }
+
+
+test('history labels cover all runtimes, historical aliases and unknown IDs', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  const languages = [
+    ['cpp17-isolate', 'C++17 (GCC)'], ['cpp17-local', 'C++17 (GCC)'],
+    ['c23-gcc-isolate', 'C23 (GCC)'], ['c23-clang-isolate', 'C23 (Clang)'],
+    ['cpp23-gcc-isolate', 'C++23 (GCC)'], ['cpp23-clang-isolate', 'C++23 (Clang)'],
+    ['python314-isolate', 'Python (CPython 3.14)'], ['python314', 'Python (CPython 3.14)'],
+    ['pypy311-isolate', 'Python (PyPy 3.11)'], ['codon020-isolate', 'Python (Codon 0.20)'],
+    ['rust2024-isolate', 'Rust (Edition 2024)'], ['java24-isolate', 'Java (OpenJDK 24)'],
+    ['future-runtime-isolate', 'future-runtime-isolate'],
+  ]
+  // Labels must not depend on which languages currently accept submissions.
+  await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [] } }))
+  await page.route('**/api/my/submissions', route => route.fulfill({ json: { items: languages.map(([runtime], index) => ({
+    id: String(index), problemId, problemTitle: 'A + B', runtime, status: 'DONE', result: { verdict: 'AC', passed: 1, total: 1 }, createdAt: '2026-09-01T00:00:00Z',
+  })) } }))
+  await page.goto('/my/submissions')
+  await expect(page.locator('.submission-language')).toHaveText(languages.map(([, label]) => label!))
+})

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { runtimeLabel } from '~/utils/runtime-label'
 import type { Submission } from '~~/shared/types/submission'
 withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const items = ref<Submission[]>([])
@@ -40,7 +41,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
           <tr v-for="item in items" :key="item.id">
             <td class="submission-date"><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td>
             <td class="submission-problem"><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
-            <td class="submission-language">{{ item.runtime.startsWith('cpp17') ? 'C++17' : item.runtime }}</td>
+            <td class="submission-language">{{ runtimeLabel(item.runtime) }}</td>
             <td class="submission-result"><span role="status"><SubmissionStatus :item="item" /></span></td>
             <td><NuxtLink :to="`/my/submissions/${item.id}`" :aria-label="`${item.problemTitle}の提出詳細`">詳細</NuxtLink></td>
           </tr>
