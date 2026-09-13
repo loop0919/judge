@@ -1,2 +1,4 @@
-<script setup lang="ts">useSeoMeta({ title: '作成したコンテスト | ShareOJ', robots: 'noindex, nofollow' })</script>
-<template><ContestList mine /></template>
+<script setup lang="ts">
+await navigateTo('/my?tab=contests', { replace: true, redirectCode: 302 })
+</script>
+<template><span /></template>
