@@ -1,5 +1,10 @@
+<script setup lang="ts">
+import { loginDestination } from '~~/shared/utils/login-destination'
+const route = useRoute()
+const href = computed(() => route.query.next ? `/auth/google?${new URLSearchParams({ next: loginDestination(route.query.next) })}` : '/auth/google')
+</script>
 <template>
-  <a class="google-login-link" href="/auth/google">
+  <a class="google-login-link" :href="href">
     <img src="/images/google-g.png" width="20" height="20" alt="" aria-hidden="true">
     <span><slot>Googleでログイン</slot></span>
   </a>

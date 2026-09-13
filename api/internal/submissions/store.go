@@ -162,7 +162,7 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
   FROM (
     SELECT id, COALESCE(published_draft,draft) AS selected_draft,
       CASE WHEN published_draft IS NULL THEN version ELSE published_version END AS selected_version
-    FROM problem_drafts WHERE $9='' AND id=$3 AND (published_draft IS NOT NULL OR owner_id=$2)
+    FROM problem_drafts WHERE $9='' AND id=$3 AND (published_draft IS NOT NULL OR can_manage_problem(id,$2))
     UNION ALL
     SELECT cp.problem_id,cp.draft,cp.problem_version FROM contest_problems cp JOIN contests c ON c.id=cp.contest_id CROSS JOIN moment
     WHERE $9<>'' AND c.id=NULLIF($9,'')::uuid AND cp.problem_id=$3 AND
@@ -196,7 +196,7 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
 	// Checker diagnostics can contain private tests and checker source.
-	privateColumns := strings.Replace(columns, "result,", `CASE WHEN (COALESCE((job->>'easyTest')::boolean,false) AND job->'interactor' IS NOT NULL AND job->'interactor' <> 'null'::jsonb) OR EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=submissions.problem_id AND p.owner_id=$2) THEN result ELSE result-'checkerLog' END,`, 1)
+	privateColumns := strings.Replace(columns, "result,", `CASE WHEN (COALESCE((job->>'easyTest')::boolean,false) AND job->'interactor' IS NOT NULL AND job->'interactor' <> 'null'::jsonb) OR EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=submissions.problem_id AND can_manage_problem(p.id,$2)) THEN result ELSE result-'checkerLog' END,`, 1)
 	return scan(s.Pool.QueryRow(ctx, `SELECT `+privateColumns+` FROM submissions WHERE id=$1 AND owner_id=$2`, id, owner))
 }
 
@@ -291,5 +291,5 @@ func (s *Store) CreateGeneration(ctx context.Context, owner, id, problemID, sour
 	return scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
  (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
  SELECT $1,$2,id,version,draft->>'title',$5,$4,$6 FROM problem_drafts
- WHERE id=$3 AND owner_id=$2 RETURNING `+columns, id, owner, problemID, source, runtime, raw))
+ WHERE id=$3 AND can_manage_problem(id,$2) RETURNING `+columns, id, owner, problemID, source, runtime, raw))
 }

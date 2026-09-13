@@ -4,7 +4,7 @@ const { profile, logout } = useAccount()
 const route = useRoute()
 const router = useRouter()
 const activeContent = computed({
-  get: () => ['problems', 'posts', 'contests', 'submissions'].includes(String(route.query.tab)) ? String(route.query.tab) : 'problems',
+  get: () => ['problems', 'testing', 'posts', 'contests', 'submissions'].includes(String(route.query.tab)) ? String(route.query.tab) : 'problems',
   set: tab => { void router.replace({ query: { ...route.query, tab } }) },
 })
 const joined = computed(() => profile.value ? new Date(profile.value.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' }) : '')
@@ -16,13 +16,15 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
       <div class="profile-identity"><p class="eyebrow">マイページ</p><h1>{{ profile.handle }}</h1><p class="muted">{{ joined }}に登録</p></div>
       <NuxtLink class="editor-button" to="/my/settings">プロフィールを編集</NuxtLink>
     </header>
-    <nav class="content-menu" aria-label="作成したコンテンツ">
-      <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">問題</button>
+    <nav class="content-menu" aria-label="マイページのコンテンツ">
+      <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">自分の問題</button>
+      <button :aria-pressed="activeContent === 'testing'" @click="activeContent = 'testing'">テスト中の問題</button>
       <button :aria-pressed="activeContent === 'posts'" @click="activeContent = 'posts'">記事</button>
       <button :aria-pressed="activeContent === 'contests'" @click="activeContent = 'contests'">コンテスト</button>
       <button :aria-pressed="activeContent === 'submissions'" @click="activeContent = 'submissions'">提出履歴</button>
     </nav>
     <SavedProblems v-show="activeContent === 'problems'" />
+    <SavedProblems v-if="activeContent === 'testing'" testing />
     <SavedPosts v-show="activeContent === 'posts'" />
     <ContestList v-if="activeContent === 'contests'" mine />
     <SubmissionHistory v-if="activeContent === 'submissions'" embedded />

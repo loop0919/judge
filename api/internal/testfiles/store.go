@@ -122,7 +122,7 @@ func (s *Store) Complete(ctx context.Context, owner, problemID, id string) (prob
 	var uploadVersion *string
 	var size int64
 	var ready bool
-	err := s.pool.QueryRow(ctx, `SELECT object_key,COALESCE(version_id,''),sha256,size,ready,upload_version_id FROM test_files WHERE id=$1 AND owner_id=$2 AND problem_id=$3`, id, owner, problemID).Scan(&key, &version, &digest, &size, &ready, &uploadVersion)
+	err := s.pool.QueryRow(ctx, `SELECT object_key,COALESCE(version_id,''),sha256,size,ready,upload_version_id FROM test_files WHERE id=$1 AND (owner_id=$2 OR can_manage_problem(problem_id,$2)) AND problem_id=$3`, id, owner, problemID).Scan(&key, &version, &digest, &size, &ready, &uploadVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return problems.TestFile{}, ErrNotFound
 	}
@@ -154,7 +154,7 @@ func (s *Store) Complete(ctx context.Context, owner, problemID, id string) (prob
 	if err != nil {
 		return problems.TestFile{}, ErrUnavailable
 	}
-	command, err := s.pool.Exec(ctx, `UPDATE test_files SET version_id=$4,ready=true WHERE id=$1 AND owner_id=$2 AND problem_id=$3 AND NOT ready`, id, owner, problemID, version)
+	command, err := s.pool.Exec(ctx, `UPDATE test_files SET version_id=$4,ready=true WHERE id=$1 AND (owner_id=$2 OR can_manage_problem(problem_id,$2)) AND problem_id=$3 AND NOT ready`, id, owner, problemID, version)
 	if err != nil || command.RowsAffected() != 1 {
 		return problems.TestFile{}, ErrUnavailable
 	}
@@ -164,7 +164,7 @@ func (s *Store) Complete(ctx context.Context, owner, problemID, id string) (prob
 func (s *Store) Download(ctx context.Context, owner, problemID, id string) (Download, error) {
 	var key, version, digest string
 	var size int64
-	err := s.pool.QueryRow(ctx, `SELECT object_key,version_id,sha256,size FROM test_files WHERE id=$1 AND owner_id=$2 AND problem_id=$3 AND ready`, id, owner, problemID).Scan(&key, &version, &digest, &size)
+	err := s.pool.QueryRow(ctx, `SELECT object_key,version_id,sha256,size FROM test_files WHERE id=$1 AND (owner_id=$2 OR can_manage_problem(problem_id,$2)) AND problem_id=$3 AND ready`, id, owner, problemID).Scan(&key, &version, &digest, &size)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Download{}, ErrNotFound
 	}

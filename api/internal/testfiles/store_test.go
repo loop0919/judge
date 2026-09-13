@@ -151,4 +151,28 @@ func TestExactLimitUploadCompletionAndDownload(t *testing.T) {
 		t.Fatal("completion not idempotent", err)
 	}
 
+	// Accepted testers and the author share uploaded/generated files in both directions.
+	if _, err = db.Save(ctx, "owner", problemID, 0, problems.Draft{Title: "shared"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Pool().Exec(ctx, `INSERT INTO user_profiles(owner_id,handle) VALUES('tester','tester'); INSERT INTO problem_testers(problem_id,owner_id) VALUES('11111111-1111-4111-8111-111111111111','tester')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Download(ctx, "tester", problemID, fileID); err != nil {
+		t.Fatal("tester download", err)
+	}
+	testerFile := "44444444-4444-4444-8444-444444444444"
+	if _, err = store.Begin(ctx, "tester", problemID, testerFile, MaxSize, digest); err != nil {
+		t.Fatal("tester upload", err)
+	}
+	if _, err = store.Complete(ctx, "owner", problemID, testerFile); err != nil {
+		t.Fatal("author completes tester file", err)
+	}
+	if _, err = store.Download(ctx, "owner", problemID, testerFile); err != nil {
+		t.Fatal("author downloads tester file", err)
+	}
+	if _, err = store.Download(ctx, "other", problemID, testerFile); err != ErrNotFound {
+		t.Fatal("outsider downloaded shared file", err)
+	}
+
 }

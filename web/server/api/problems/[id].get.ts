@@ -1,7 +1,6 @@
 import { publicProblemSchema } from '~~/shared/types/problem'
 import { publicContent } from '../../utils/public-content'
 import { accountProblemSchema } from '../../../app/utils/account-problems'
-import { profileResultSchema } from '../../../app/utils/profile'
 import { hasSession, privateAPI, privateHeaders } from '../../utils/private-api'
 export default defineEventHandler(async event => {
   privateHeaders(event)
@@ -20,12 +19,10 @@ export default defineEventHandler(async event => {
     const parsed = accountProblemSchema.safeParse(saved)
     if (!parsed.success || parsed.data.id !== id) throw createError({ statusCode: 502 })
     const { draft } = parsed.data
-    const author = profileResultSchema.safeParse(await privateAPI(event, '/my/profile'))
-    if (!author.success) throw createError({ statusCode: 502 })
     return {
       id, difficulty: draft.difficulty, favoriteCount: 0, title: draft.title.trim() || '無題の問題', markdown: draft.markdown, editorial: draft.editorial,
       timeLimitMs: Number(draft.timeLimitMs), memoryLimitMb: Number(draft.memoryLimitMb),
-      author: author.data.profile?.handle ?? '', isPrivate: true, specialJudge: draft.checker !== null, interactive: draft.interactor !== null,
+      author: parsed.data.author, isPrivate: true, specialJudge: draft.checker !== null, interactive: draft.interactor !== null,
     }
   }
   const result = publicProblemSchema.safeParse(content)

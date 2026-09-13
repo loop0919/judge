@@ -13,6 +13,7 @@ export default defineEventHandler(async event => {
   const params = new URLSearchParams()
   if (method === 'DELETE' && typeof query.version === 'string') params.set('version', query.version)
   if (!id && typeof query.cursor === 'string') params.set('cursor', query.cursor)
+  if (!id && typeof query.role === 'string') params.set('role', query.role)
   const path = `/my/problems${id ? `/${id}` : ''}?${params}`
   const body = method === 'PUT' ? await limitedJSON(event, 3 << 20) : undefined
   const result = await privateAPI(event, path, { method, body })

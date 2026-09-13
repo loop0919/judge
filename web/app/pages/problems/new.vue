@@ -15,6 +15,23 @@ const saving = ref(false)
 const publishing = ref(false)
 const publishedVersion = ref(0)
 const publicationError = ref('')
+const testerLink = ref('')
+const testerLinkBusy = ref(false)
+const testerLinkMessage = ref('')
+async function createTesterLink() {
+  if (testerLinkBusy.value) return
+  testerLinkBusy.value = true; testerLinkMessage.value = ''
+  try {
+    if (!await saveDraft(true)) return
+    const result = await $fetch<{ token: string }>(`/api/my/problems/${cloudId.value}/tester-invitation`, { method: 'POST' })
+    testerLink.value = new URL(`/my/tester-invitations/${result.token}`, window.location.origin).href
+  } catch (error) { testerLinkMessage.value = accountError(error) }
+  finally { testerLinkBusy.value = false }
+}
+async function copyTesterLink() {
+  try { await navigator.clipboard.writeText(testerLink.value); testerLinkMessage.value = 'リンクをコピーしました。' }
+  catch { testerLinkMessage.value = 'リンクを選択してコピーしてください。' }
+}
 let cloudOwner = ''
 let disposed = false
 let inFlight: Promise<boolean> | undefined
@@ -412,7 +429,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       <div class="management-content">
         <header><h1 id="management-title">問題管理</h1><p class="manage-problem-title">{{ draft.title.trim() || '無題の問題' }}</p><p class="muted">{{ saveLocation }}</p></header>
         <section class="management-row"><div><h2>公開設定</h2><p>問題文・テストケース・判定方法は「公開内容を更新」を押すまで採点に反映されません。テストケースの入出力は公開ページには表示しません。</p><p v-if="publicationError" class="editor-error" role="alert">{{ publicationError }}</p><NuxtLink v-if="publishedVersion" :to="`/problems/${cloudId}`" target="_blank">公開ページを見る</NuxtLink></div><div class="publication-actions"><button class="editor-button primary" :disabled="saving || publishing || generating" @click="publishProblem(true)">{{ publishedVersion ? '公開内容を更新' : '公開する' }}</button><button v-if="publishedVersion" class="editor-button" :disabled="saving || publishing || generating" @click="publishProblem(false)">非公開に戻す</button></div></section>
-        <section class="management-row"><div><h2>テスターリンク</h2><p>公開前の問題をテスターに共有します。</p></div><button type="button" class="editor-button" disabled>リンクを発行（準備中）</button></section>
+        <section class="management-row"><div><h2>テスターリンク</h2><p>リンクを受け取ったユーザーが「許可する」を押すと、テスターになります。テスターは問題の編集・公開・削除を含め、作者と同じ操作ができます。</p><template v-if="testerLink"><label for="tester-link">招待リンク</label><input id="tester-link" :value="testerLink" readonly @focus="($event.target as HTMLInputElement).select()"><button type="button" class="editor-button" @click="copyTesterLink">リンクをコピー</button></template><p v-if="testerLinkMessage" role="status">{{ testerLinkMessage }}</p></div><button type="button" class="editor-button" :disabled="!ready || saving || publishing || generating || testerLinkBusy" @click="createTesterLink">{{ testerLinkBusy ? '発行中…' : 'リンクを発行' }}</button></section>
         <section class="management-row"><div><h2>リジャッジ</h2><p>テストケースや採点設定の変更後に、提出を再採点します。</p></div><button type="button" class="editor-button" disabled>リジャッジ（準備中）</button></section>
         <section class="management-row"><div><h2>テストケースの一括削除</h2><p>この問題に登録したテストケースをまとめて削除します。</p></div><button type="button" class="editor-button" :disabled="!draft.testCases.length || publishing || generating" @click="clearTestCases">一括削除</button></section>
         <section class="management-row"><div><h2>問題の削除</h2><p>問題を削除します。この操作は取り消せません。</p></div><button type="button" class="editor-button danger" :disabled="generating" @click="openDeleteConfirmation">問題を削除</button></section>
@@ -425,6 +442,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
 </template>
 
 <style scoped>
+#tester-link { display: block; box-sizing: border-box; width: 100%; margin-block: 8px; padding: 8px; font: inherit; }
 @media (min-width: 60rem) {
   .editor-main .author-fields { grid-template-columns: minmax(0, 1fr) 160px 140px 140px; }
 }

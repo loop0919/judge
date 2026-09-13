@@ -1,0 +1,79 @@
+import { test, expect, type Page } from '@playwright/test'
+
+async function login(page: Page, name: string) {
+  await page.getByLabel('メールアドレス', { exact: true }).fill(`${name}@example.test`)
+  await page.getByLabel('パスワード', { exact: true }).fill('test-password')
+  await page.getByRole('button', { name: 'ログイン', exact: true }).click()
+}
+
+test('tester invitation requires consent, resumes after login, and grants shared editing', async ({ page, browser }, testInfo) => {
+  await page.goto('/login')
+  await login(page, 'alice')
+  await expect(page).toHaveURL('/my')
+  await page.goto('/problems/new?fresh=1')
+  await page.locator('#problem-title').fill('テスター招待の問題')
+  await page.getByRole('button', { name: '問題管理', exact: true }).click()
+  await page.getByRole('button', { name: 'リンクを発行', exact: true }).click()
+  const link = await page.getByLabel('招待リンク', { exact: true }).inputValue()
+  expect(link).toMatch(/\/my\/tester-invitations\/[A-Z2-7]{32}$/)
+  const id = new URL(page.url()).searchParams.get('problem')!
+  const context = await browser.newContext({ baseURL: 'http://127.0.0.1:13002' })
+  const tester = await context.newPage()
+  try {
+    await tester.goto(link)
+    await expect(tester).toHaveURL(/\/login\?next=/)
+    await login(tester, 'bob')
+    await expect(tester).toHaveURL(link)
+    await expect(tester.getByRole('heading', { name: 'テスター招待の問題' })).toBeVisible()
+    await tester.setViewportSize({ width: 375, height: 812 })
+    expect(await tester.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await tester.screenshot({ path: testInfo.outputPath('tester-invitation-mobile.png'), fullPage: true })
+    expect((await context.request.get(`/api/my/problems/${id}`)).status()).toBe(404)
+    const noOrigin = await context.request.post(`/api/my/tester-invitations/${link.split('/').pop()}`)
+    expect(noOrigin.status()).toBe(403)
+    await tester.getByRole('button', { name: '許可する', exact: true }).click()
+    await expect(tester).toHaveURL('/my?tab=testing')
+    const tested = tester.getByRole('table', { name: 'テスト中の問題', exact: true })
+    await expect(tested.getByRole('link', { name: 'テスター招待の問題を編集', exact: true })).toBeVisible()
+    expect(await tester.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await tester.screenshot({ path: testInfo.outputPath('testing-problems-mobile.png'), fullPage: true })
+    await tester.getByRole('button', { name: '自分の問題', exact: true }).click()
+    await expect(tester.getByRole('table', { name: '自分の問題', exact: true }).getByText('テスター招待の問題')).toHaveCount(0)
+    await tester.getByRole('button', { name: 'テスト中の問題', exact: true }).click()
+    await tested.getByRole('link', { name: 'テスター招待の問題を編集', exact: true }).click()
+    await tester.locator('#problem-title').fill('テスターが編集した問題')
+    await tester.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(tester.getByText('保存済み', { exact: true })).toBeVisible()
+    await page.reload()
+    await expect(page.locator('#problem-title')).toHaveValue('テスターが編集した問題')
+    await tester.goto(`/problems/${id}`)
+    await expect(tester.getByText('作成者 alice', { exact: true })).toBeVisible()
+    await tester.goto(link)
+    await expect(tester.getByText('この問題はすでに操作できます。')).toBeVisible()
+    await expect(tester.getByRole('button', { name: '許可する' })).toHaveCount(0)
+  } finally { await context.close() }
+  const newcomerContext = await browser.newContext({ baseURL: 'http://127.0.0.1:13002' })
+  try {
+    const newcomer = await newcomerContext.newPage()
+    const email = `tester-${Date.now()}@example.test`
+    for (const [action, data] of [
+      ['signup', { email, password: 'ValidPassword123!' }],
+      ['confirm-signup', { email, code: '123456' }],
+    ] as const) {
+      expect((await newcomer.request.post(`/api/auth/${action}`, { headers: { origin: 'http://127.0.0.1:13002' }, data })).ok()).toBe(true)
+    }
+    await newcomer.goto(link)
+    await expect(newcomer).toHaveURL(/\/login\?next=/)
+    await newcomer.getByLabel('メールアドレス').fill(email)
+    await newcomer.getByLabel('パスワード', { exact: true }).fill('ValidPassword123!')
+    await newcomer.getByRole('button', { name: 'ログイン', exact: true }).click()
+    await expect(newcomer).toHaveURL(/\/onboarding\?next=/)
+    await newcomer.getByLabel('ユーザーID', { exact: true }).fill(`tester_${Date.now()}`)
+    await newcomer.getByRole('button', { name: '登録してはじめる' }).click()
+    await expect(newcomer).toHaveURL(link)
+    await expect(newcomer.getByRole('button', { name: '許可する', exact: true })).toBeVisible()
+    expect((await newcomer.request.get(`/api/my/problems/${id}`)).status()).toBe(404)
+    await newcomer.getByRole('button', { name: '許可する', exact: true }).click()
+    await expect(newcomer).toHaveURL('/my?tab=testing')
+  } finally { await newcomerContext.close() }
+})

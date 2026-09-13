@@ -1,3 +1,5 @@
+import { loginDestination } from '~~/shared/utils/login-destination'
+
 export default defineNuxtRouteMiddleware(async to => {
   if (import.meta.server) return
   if (!(to.path === '/my' || to.path.startsWith('/my/') || to.path === '/problems/new' || to.path === '/blog/new' || to.path === '/onboarding')) return
@@ -8,8 +10,8 @@ export default defineNuxtRouteMiddleware(async to => {
       const user = await refreshAccount()
       if (!user) return navigateTo({ path: '/login', query: { next: to.fullPath } }, { replace: true })
       const profile = await refreshProfile()
-      if (!profile && to.path !== '/onboarding') return navigateTo('/onboarding', { replace: true })
-      if (profile && to.path === '/onboarding') return navigateTo('/my', { replace: true })
+      if (!profile && to.path !== '/onboarding') return navigateTo(to.path.startsWith('/my/tester-invitations/') ? { path: '/onboarding', query: { next: loginDestination(to.fullPath) } } : '/onboarding', { replace: true })
+      if (profile && to.path === '/onboarding') return navigateTo(loginDestination(to.query.next), { replace: true })
     } catch {
       throw createError({ statusCode: 503, statusMessage: 'プロフィールを読み込めませんでした。時間をおいて再読み込みしてください。' })
     }

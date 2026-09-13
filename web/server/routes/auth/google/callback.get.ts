@@ -1,3 +1,4 @@
+import { loginDestination } from '~~/shared/utils/login-destination'
 import { profileResultSchema } from '../../../../app/utils/profile'
 import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
@@ -13,7 +14,8 @@ export default defineEventHandler(async event => {
   deleteCookie(event, oauthCookie, cookieOptions(event))
   const query = getQuery(event)
   const config = googleOAuthConfig(event)
-  const [state, verifier] = flow.split('.')
+  const [state, verifier, encodedNext = ''] = flow.split('.')
+  const next = loginDestination(Buffer.from(encodedNext, 'base64url').toString('utf8'))
   if (!config || !state || !verifier || !/^[\w-]{43}$/.test(state) || !/^[\w-]{43}$/.test(verifier)
     || typeof query.state !== 'string' || Buffer.byteLength(query.state) !== Buffer.byteLength(state)
     || !timingSafeEqual(Buffer.from(query.state), Buffer.from(state))
@@ -28,7 +30,7 @@ export default defineEventHandler(async event => {
     await privateAPI<{ id: string }>(event, '/auth/me', { token: result.access_token })
     const account = profileResultSchema.parse(await privateAPI(event, '/my/profile', { token: result.access_token }))
     saveSession(event, result, true)
-    return sendRedirect(event, account.profile ? '/my' : '/onboarding', 303)
+    return sendRedirect(event, account.profile ? next : (next === '/my' ? '/onboarding' : `/onboarding?${new URLSearchParams({ next })}`), 303)
   } catch {
     return sendRedirect(event, '/login?socialError=failed', 303)
   }

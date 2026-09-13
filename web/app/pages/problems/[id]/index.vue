@@ -24,7 +24,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
     </nav>
     <header class="problem-header">
       <h1>{{ problem.title }}</h1>
-      <p v-if="problem.isPrivate" class="muted">非公開 · 作成者本人のみ閲覧・提出できます。</p>
+      <p v-if="problem.isPrivate" class="muted">非公開 · 作成者とテスターが閲覧・提出できます。</p>
       <div class="problem-summary">
         <div class="problem-meta muted">
           <p>作成者 {{ problem.author }}</p>

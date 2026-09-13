@@ -1,10 +1,11 @@
-// Package problems persists private, owner-scoped problem drafts.
+// Package problems persists problem drafts shared by authors and testers.
 package problems
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"judge/api/internal/database"
@@ -62,6 +63,7 @@ type TestFile struct {
 }
 
 type Problem struct {
+	Author           string    `json:"author"`
 	PublishedVersion int64     `json:"publishedVersion"`
 	ID               string    `json:"id"`
 	Version          int64     `json:"version"`
@@ -108,7 +110,7 @@ func (s *Store) Migrate(ctx context.Context) error { return database.Migrate(ctx
 func scan(row pgx.Row) (Problem, error) {
 	var p Problem
 	var data []byte
-	err := row.Scan(&p.ID, &p.Version, &p.UpdatedAt, &data, &p.PublishedVersion)
+	err := row.Scan(&p.ID, &p.Version, &p.UpdatedAt, &data, &p.PublishedVersion, &p.Author)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, ErrNotFound
 	}
@@ -120,12 +122,23 @@ func scan(row pgx.Row) (Problem, error) {
 }
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Problem, error) {
-	return scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version FROM problem_drafts WHERE owner_id=$1 AND id=$2`, owner, id))
+	return scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'') FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2`, owner, id))
 }
 
 // List returns at most 51 rows; the HTTP layer exposes 50 and a next cursor.
 func (s *Store) List(ctx context.Context, owner string, cursor *Cursor) ([]Summary, error) {
+	return s.list(ctx, owner, cursor, false)
+}
+
+func (s *Store) ListTesting(ctx context.Context, owner string, cursor *Cursor) ([]Summary, error) {
+	return s.list(ctx, owner, cursor, true)
+}
+
+func (s *Store) list(ctx context.Context, owner string, cursor *Cursor, testing bool) ([]Summary, error) {
 	query := `SELECT id, draft->>'title', updated_at, published_version,COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'') FROM problem_drafts WHERE owner_id=$1`
+	if testing {
+		query = strings.Replace(query, "WHERE owner_id=$1", "WHERE owner_id<>$1 AND EXISTS(SELECT 1 FROM problem_testers t WHERE t.problem_id=problem_drafts.id AND t.owner_id=$1)", 1)
+	}
 	args := []any{owner}
 	if cursor != nil {
 		query += ` AND (updated_at, id) < ($2, $3::uuid)`
@@ -152,9 +165,9 @@ func (s *Store) Save(ctx context.Context, owner, id string, version int64, draft
 	}
 	var p Problem
 	if version == 0 {
-		p, err = scan(s.pool.QueryRow(ctx, `INSERT INTO problem_drafts (id, owner_id, draft) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id, version, updated_at, draft, published_version`, id, owner, data))
+		p, err = scan(s.pool.QueryRow(ctx, `INSERT INTO problem_drafts (id, owner_id, draft) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`, id, owner, data))
 	} else {
-		p, err = scan(s.pool.QueryRow(ctx, `UPDATE problem_drafts SET draft=$4, version=version+1, updated_at=clock_timestamp() WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING id, version, updated_at, draft, published_version`, owner, id, version, data))
+		p, err = scan(s.pool.QueryRow(ctx, `UPDATE problem_drafts SET draft=$4, version=version+1, updated_at=clock_timestamp() WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3 RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`, owner, id, version, data))
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return p, err
@@ -185,7 +198,7 @@ func (s *Store) validateTestFiles(ctx context.Context, owner, problemID string, 
 	for id := range want {
 		ids = append(ids, id)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id::text,size,sha256 FROM test_files WHERE owner_id=$1 AND problem_id=$2 AND ready AND id::text=ANY($3::text[])`, owner, problemID, ids)
+	rows, err := s.pool.Query(ctx, `SELECT id::text,size,sha256 FROM test_files WHERE (owner_id=$1 OR can_manage_problem(problem_id,$1)) AND problem_id=$2 AND ready AND id::text=ANY($3::text[])`, owner, problemID, ids)
 	if err != nil {
 		return err
 	}
@@ -212,7 +225,7 @@ func (s *Store) validateTestFiles(ctx context.Context, owner, problemID string, 
 }
 
 func (s *Store) Delete(ctx context.Context, owner, id string, version int64) error {
-	result, err := s.pool.Exec(ctx, `DELETE FROM problem_drafts WHERE owner_id=$1 AND id=$2 AND version=$3`, owner, id, version)
+	result, err := s.pool.Exec(ctx, `DELETE FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3`, owner, id, version)
 	if err != nil {
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "23503" {

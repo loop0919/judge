@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { loginDestination } from '~~/shared/utils/login-destination'
 const { data: providers } = await useFetch<{ google: boolean }>('/api/auth/providers')
 useSeoMeta({ title: 'ログイン | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
@@ -36,8 +37,7 @@ async function submit() {
     if (!result.user) throw new Error('Invalid response')
     user.value = result.user
     const next = typeof route.query.next === 'string' ? route.query.next : ''
-    // Only local, known destinations can be used as a return path.
-    await navigateTo(/^\/(my(?:\/(?:problems|settings|posts))?|(?:problems|blog)\/new)(\?.*)?$/.test(next) ? next : '/my')
+    await navigateTo(loginDestination(next))
   } catch {
     error.value = 'ログインできませんでした。入力内容と接続を確認して、もう一度お試しください。'
   } finally { busy.value = false }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { loginDestination } from '~~/shared/utils/login-destination'
+const route = useRoute()
 import { profileResultSchema, profileError, type Profile } from '~/utils/profile'
 const props = defineProps<{ initial: Profile | null, onboarding?: boolean }>()
 const { user, profile, refreshAccount } = useAccount()
@@ -46,7 +48,7 @@ async function save() {
     const result = profileResultSchema.parse(await $fetch('/api/my/profile', { method: 'PUT', body: { handle: normalizedHandle.value, avatar: avatar.value, version: props.initial?.version ?? 0 } }))
     if (!result.profile) throw new Error('Missing profile')
     profile.value = result.profile
-    await navigateTo('/my')
+    await navigateTo(props.onboarding ? loginDestination(route.query.next) : '/my')
   } catch (e) { error.value = profileError(e) }
   finally { saving.value = false }
 }

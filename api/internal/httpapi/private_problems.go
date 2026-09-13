@@ -82,6 +82,9 @@ var (
 )
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /my/problems/{id}/tester-invitation", p.handle)
+	mux.HandleFunc("GET /my/tester-invitations/{token}", p.handle)
+	mux.HandleFunc("POST /my/tester-invitations/{token}", p.handle)
 	mux.HandleFunc("GET /my/contests", p.handle)
 	mux.HandleFunc("GET /my/contests/{id}", p.handle)
 	mux.HandleFunc("PUT /my/contests/{id}", p.handle)
@@ -153,6 +156,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/tester-invitations/") || strings.HasSuffix(r.URL.Path, "/tester-invitation") {
+		p.testerInvitation(w, r.WithContext(ctx), owner)
+		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/contests") {
 		p.contest(w, r.WithContext(ctx), owner)
@@ -358,7 +365,22 @@ func (p PrivateProblems) list(w http.ResponseWriter, r *http.Request, owner stri
 	if !ok {
 		return
 	}
-	items, err := p.Store.List(r.Context(), owner, cursor)
+	var items []problems.Summary
+	var err error
+	switch r.URL.Query().Get("role") {
+	case "", "author":
+		items, err = p.Store.List(r.Context(), owner, cursor)
+	case "tester":
+		store, ok := p.Store.(*problems.Store)
+		if !ok {
+			authError(w, 503, "database_unavailable")
+			return
+		}
+		items, err = store.ListTesting(r.Context(), owner, cursor)
+	default:
+		authError(w, 400, "invalid_request")
+		return
+	}
 	if err != nil {
 		problemError(w, err)
 		return

@@ -36,7 +36,7 @@ func (s *Store) Publish(ctx context.Context, owner, id string, version int64, pu
 	}
 	defer tx.Rollback(ctx)
 	var locked string
-	if err = tx.QueryRow(ctx, `SELECT id FROM problem_drafts WHERE id=$1 AND owner_id=$2 FOR UPDATE`, id, owner).Scan(&locked); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT id FROM problem_drafts WHERE id=$1 AND can_manage_problem(id,$2) FOR UPDATE`, id, owner).Scan(&locked); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			err = ErrNotFound
 		}
@@ -49,9 +49,9 @@ func (s *Store) Publish(ctx context.Context, owner, id string, version int64, pu
 	if reserved {
 		return Problem{}, ErrContestLocked
 	}
-	query := `UPDATE problem_drafts SET published_draft=NULL,published_version=0,published_at=NULL,version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version`
+	query := `UPDATE problem_drafts SET published_draft=NULL,published_version=0,published_at=NULL,version=version+1 WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`
 	if publish {
-		query = `UPDATE problem_drafts SET published_draft=draft,published_version=version+1,published_at=clock_timestamp(),version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version`
+		query = `UPDATE problem_drafts SET published_draft=draft,published_version=version+1,published_at=clock_timestamp(),version=version+1 WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`
 	}
 	p, err := scan(tx.QueryRow(ctx, query, owner, id, version))
 	if errors.Is(err, ErrNotFound) {

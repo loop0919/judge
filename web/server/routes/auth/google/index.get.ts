@@ -1,3 +1,4 @@
+import { loginDestination } from '~~/shared/utils/login-destination'
 import { createHash, randomBytes } from 'node:crypto'
 import { googleOAuthConfig, oauthCookie } from '../../../utils/google-oauth'
 import { cookieOptions, privateHeaders } from '../../../utils/private-api'
@@ -8,7 +9,7 @@ export default defineEventHandler(event => {
   if (!config) return sendRedirect(event, '/login?socialError=unavailable', 303)
   const state = randomBytes(32).toString('base64url')
   const verifier = randomBytes(32).toString('base64url')
-  setCookie(event, oauthCookie, `${state}.${verifier}`, { ...cookieOptions(event), maxAge: 600 })
+  setCookie(event, oauthCookie, `${state}.${verifier}.${Buffer.from(loginDestination(getQuery(event).next)).toString('base64url')}`, { ...cookieOptions(event), maxAge: 600 })
   const url = new URL('/oauth2/authorize', config.domain)
   url.search = new URLSearchParams({
     identity_provider: 'Google', response_type: 'code', client_id: config.clientId,
