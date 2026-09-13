@@ -414,7 +414,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       <section id="preview-pane" class="preview-pane" :aria-label="section === 'editorial' ? '解説のプレビュー' : '問題のプレビュー'">
         <div class="pane-heading"><h2>プレビュー</h2><span>表示を確認</span></div>
         <div class="preview-document">
-          <p class="preview-title">{{ section === 'editorial' ? '解説' : (draft.title || '無題の問題') }}</p>
+          <p v-if="section === 'statement'" class="preview-title">{{ draft.title || '無題の問題' }}</p>
           <p v-if="section === 'statement'" class="preview-limits">実行時間 {{ draft.timeLimitMs || '—' }} ms ／ メモリ {{ draft.memoryLimitMb || '—' }} MiB</p>
           <ProblemMarkdown v-if="renderedSource.trim()" :source="renderedSource" />
           <p v-else class="muted">{{ section === 'editorial' ? '解説' : '本文' }}を書くと、ここにプレビューが表示されます。</p>
