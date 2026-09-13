@@ -2,13 +2,18 @@
 import { basicSetup } from 'codemirror'
 import { cpp } from '@codemirror/lang-cpp'
 import { Compartment, EditorState } from '@codemirror/state'
-import { EditorView } from '@codemirror/view'
+import { indentWithTab } from '@codemirror/commands'
+import { indentUnit } from '@codemirror/language'
+import { EditorView, keymap } from '@codemirror/view'
 
 const source = defineModel<string>({ required: true })
 const props = defineProps<{ disabled?: boolean, readonly?: boolean, label?: string }>()
 const labelId = useId()
 const container = ref<HTMLDivElement>()
 const bytes = computed(() => new TextEncoder().encode(source.value).length)
+const { settings, indentation } = useEditorSettings()
+const indentConfig = new Compartment()
+const indentExtensions = () => [indentUnit.of(indentation.value), EditorState.tabSize.of(settings.value.width)]
 const editable = new Compartment()
 let editor: EditorView | undefined
 const editing = () => [EditorState.readOnly.of(Boolean(props.disabled || props.readonly)), EditorView.editable.of(!props.disabled && !props.readonly)]
@@ -20,6 +25,8 @@ onMounted(() => {
     extensions: [
       basicSetup,
       cpp(),
+      keymap.of([indentWithTab]),
+      indentConfig.of(indentExtensions()),
       editable.of(editing()),
       EditorView.contentAttributes.of({ 'aria-labelledby': labelId, 'aria-multiline': 'true', ...(props.readonly ? { tabindex: '0', 'aria-readonly': 'true' } : {}) }),
       EditorView.updateListener.of(update => {
@@ -39,6 +46,7 @@ onMounted(() => {
   })
 })
 watch(() => [props.disabled, props.readonly], () => editor?.dispatch({ effects: editable.reconfigure(editing()) }))
+watch(() => [settings.value.style, settings.value.width], () => editor?.dispatch({ effects: indentConfig.reconfigure(indentExtensions()) }))
 watch(source, value => {
   if (editor && value !== editor.state.doc.toString()) {
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
@@ -51,7 +59,7 @@ onBeforeUnmount(() => editor?.destroy())
   <div class="source-code-editor" :class="{ 'is-disabled': disabled, 'is-readonly': readonly }">
     <div class="pane-heading">
       <span :id="labelId">{{ label || 'ソースコード' }}</span>
-      <span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span>
+      <div class="source-editor-actions"><span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span><EditorSettings v-if="!readonly" :disabled="disabled" /></div>
     </div>
     <div ref="container" class="code-surface" />
   </div>
@@ -60,6 +68,7 @@ onBeforeUnmount(() => editor?.destroy())
 <style scoped>
 .source-code-editor { min-width: 0; margin-top: 20px; border: 1px solid var(--color-line); border-radius: 4px; overflow: hidden; }
 .pane-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--color-line); font-size: .875rem; }
+.source-editor-actions { display: flex; align-items: center; gap: 8px; }
 .byte-count { font-size: .75rem; color: var(--color-muted); }
 .code-surface { position: relative; height: 384px; min-height: 180px; overflow: hidden; resize: vertical; }
 .code-surface:focus-within::after { content: ""; position: absolute; inset: 0; z-index: 10; border: 2px solid var(--color-accent); pointer-events: none; }
