@@ -168,10 +168,10 @@ func TestSubmissionsPostgres(t *testing.T) {
 		}
 		return w.Body.String()
 	}
-	// Easy Test uses a literal prefix, preserves order, and never enters submission history.
+	// Easy Test uses explicit flags regardless of names, preserves order, and never enters submission history.
 	const easyProblem = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
 	_, err = store.Save(ctx, "alice", easyProblem, 0, problems.Draft{Title: "Easy", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{
-		{Name: "sample_2", Input: "2", Output: "2"}, {Name: "sampleX1"}, {Name: "hidden"}, {Name: "sample_1", Input: "1", Output: "1"}, {Name: "Sample_3"}, {},
+		{Name: "example.txt", IsSample: true, Input: "2", Output: "2"}, {Name: "sampleX1"}, {Name: "hidden"}, {Name: "sample_1", IsSample: true, Input: "1", Output: "1"}, {Name: "sample_unchecked"}, {},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +189,7 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	var easyJob submissions.Job
-	if err := json.Unmarshal(rawJob, &easyJob); err != nil || !easyJob.EasyTest || len(easyJob.Cases) != 2 || easyJob.Cases[0].Name != "sample_2" || easyJob.Cases[1].Name != "sample_1" {
+	if err := json.Unmarshal(rawJob, &easyJob); err != nil || !easyJob.EasyTest || len(easyJob.Cases) != 2 || easyJob.Cases[0].Name != "example.txt" || easyJob.Cases[1].Name != "sample_1" {
 		t.Fatalf("wrong sample selection: %s %v", rawJob, err)
 	}
 	if got := request("GET", "/my/submissions", "alice", "", 200); strings.Contains(got, easy.ID) {

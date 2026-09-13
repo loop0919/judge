@@ -136,7 +136,7 @@ func (s *Store) CreateTestRun(ctx context.Context, owner, id, problemID, source,
   CROSS JOIN LATERAL (
     SELECT COALESCE(jsonb_agg(c ORDER BY ordinal), '[]'::jsonb) AS selected_cases
     FROM jsonb_array_elements(COALESCE(selected_draft->'testCases','[]'::jsonb)) WITH ORDINALITY AS cases(c, ordinal)
-    WHERE NOT $8::boolean OR starts_with(c->>'name', 'sample_')
+    WHERE NOT $8::boolean OR c->'isSample' = 'true'::jsonb
   ) tests
   WHERE jsonb_array_length(selected_cases) > 0 AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) > 0
   AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) <= 100

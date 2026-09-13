@@ -43,6 +43,7 @@ type Draft struct {
 }
 
 type TestCase struct {
+	IsSample   bool      `json:"isSample"`
 	Name       string    `json:"name"`
 	Input      string    `json:"input"`
 	Output     string    `json:"output"`

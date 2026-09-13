@@ -8,6 +8,7 @@ export const testSetLimit = 512 << 20
 export const testFileSchema = z.object({ id: z.string().uuid(), size: z.number().int().positive().max(testFileLimit), sha256: z.string().regex(/^[a-f0-9]{64}$/) })
 export type TestFile = z.infer<typeof testFileSchema>
 export type TestCase = {
+  isSample?: boolean
   name?: string
   input: string
   output: string
@@ -43,7 +44,7 @@ export function persistedDraft<T extends { testCases: TestCase[] }>(draft: T) {
   return {
     ...draft,
     testCases: draft.testCases.map((item) => {
-      const result: Record<string, unknown> = { name: item.name }
+      const result: Record<string, unknown> = { name: item.name, isSample: item.isSample ?? false }
       for (const key of ['input', 'output'] as const) {
         const file = item[`${key}File`]
         if (file && !item[`_${key}Dirty`]) {
@@ -74,7 +75,7 @@ export const problemDraftSchema = z.object({
   timeLimitMs: z.string().max(10),
   memoryLimitMb: z.string().max(10),
   testCases: z.array(z.object({
-    name: z.string().optional(), input: z.string().default(''), output: z.string().default(''),
+    name: z.string().optional(), isSample: z.boolean().optional(), input: z.string().default(''), output: z.string().default(''),
     inputFile: testFileSchema.optional(), outputFile: testFileSchema.optional(),
   })).default([]),
 })

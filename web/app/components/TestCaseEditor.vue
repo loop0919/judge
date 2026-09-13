@@ -100,7 +100,7 @@ function add() {
           <li v-for="(item, index) in cases" :key="index">
             <button type="button" :aria-current="selected === index ? 'true' : undefined" :disabled="locked" :title="fileName(item, index)" @click="selected = index">
               <svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8M8 16h6" /></svg>
-              <span>{{ fileName(item, index) }}</span>
+              <span>{{ fileName(item, index) }}</span><svg v-if="item.isSample" class="sample-flag" viewBox="0 0 24 24" role="img" aria-label="サンプルケース"><path d="M5 21V3m0 1c5-4 9 4 14 0v10c-5 4-9-4-14 0" /></svg>
             </button>
           </li>
         </ul>
@@ -110,6 +110,7 @@ function add() {
         <div class="case-name">
           <label :for="`case-name-${selected}`">テストケース名</label>
           <input :id="`case-name-${selected}`" v-model="current.name" :aria-label="`テストケース名 ${selected + 1}`" :placeholder="`ケース${selected + 1}`" :disabled="locked" autocomplete="off" title="64文字まで。入力と出力に同じ名前を使用します。" />
+          <label class="sample-option"><input v-model="current.isSample" type="checkbox" :disabled="locked">サンプルケースにする</label>
           <button type="button" class="editor-button case-delete" :disabled="locked" :aria-label="`ケース${selected + 1}を削除`" title="選択中のケースの入力と出力を削除" @click="remove"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" /></svg>削除</button>
         </div>
         <div :key="selected" class="case-fields">
@@ -155,7 +156,11 @@ function add() {
 .case-detail { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .case-name { background: var(--color-surface); display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--color-line); }
 .case-name label { margin: 0; font-size: .75rem; white-space: nowrap; }
-.case-name input { flex: 1; min-width: 0; max-width: 32rem; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-code); font-size: .8125rem; }
+.case-name input:not([type="checkbox"]) { flex: 1; min-width: 0; max-width: 32rem; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-code); font-size: .8125rem; }
+.sample-flag { --color-sample-flag: #2463d4; width: 18px; height: 18px; margin-left: auto; flex-shrink: 0; fill: var(--color-sample-flag); stroke: var(--color-sample-flag); stroke-width: 1.5; stroke-linejoin: round; }
+.case-name .sample-option { display: inline-flex; align-items: center; gap: 6px; width: auto; cursor: pointer; }
+.sample-option input { accent-color: var(--color-accent); width: 16px; height: 16px; }
+.case-name { flex-wrap: wrap; }
 .case-name button { white-space: nowrap; }
 .case-delete { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; color: var(--color-error); border-color: var(--color-error); }
 .case-delete:hover:not(:disabled) { background: var(--color-error); color: var(--color-paper); }
@@ -168,6 +173,8 @@ function add() {
 .empty-editor { overflow-y: auto; }
 @media (max-width: 900px) { .case-workspace { grid-template-columns: 160px minmax(0, 1fr); } .file-list-heading { padding: 8px; } .case-name { flex-wrap: wrap; gap: 6px; } .case-name label { width: 100%; } }
 @media (max-width: 600px) {
+  .case-name input:not([type="checkbox"]) { flex-basis: 100%; max-width: none; }
+  .case-name .sample-option { flex: 1; }
   .case-toolbar { padding: 8px; }
   .case-toolbar h1 span { margin-left: 4px; }
   .case-notes { padding: 6px 8px; }

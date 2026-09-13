@@ -64,7 +64,7 @@ async function submit(easyTest = false) {
     const code = failure.data?.data?.code
     if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
     else if (code === 'profile_required') message.value = 'プロフィールを登録してから提出してください。'
-    else if (code === 'tests_not_ready') message.value = easyTest ? 'sample_ で始まるテストケースがあることと、検証コード・言語の設定を確認してください。' : 'テストケース、検証コード、利用できる言語の設定を確認してください。'
+    else if (code === 'tests_not_ready') message.value = easyTest ? '「サンプルケースにする」をチェックしたケースがあることと、検証コード・言語の設定を確認してください。' : 'テストケース、検証コード、利用できる言語の設定を確認してください。'
     else if (code === 'judging_unavailable') message.value = 'ジャッジが設定されていません。'
     else message.value = easyTest ? 'サンプル検証の結果を確認できませんでした。再実行するか、結果の詳細を確認してください。' : '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
   } finally { sending.value = false }

@@ -281,4 +281,33 @@ func TestProfilesPostgres(t *testing.T) {
 	if value, e := store.Get(ctx, "alice", id); e != nil || value.Draft.Title != "before upgrade" {
 		t.Fatal("migration lost draft")
 	}
+
+	// Backfill old sample names once, including the published snapshot, while
+	// preserving explicit selections and every other test-case field.
+	legacy := `{"testCases":[{"name":"sample_legacy","input":"keep","output":"output"},{"name":"normal"},{"name":"sample_off","isSample":false},{"name":"custom","isSample":true}]}`
+	if _, err = store.Pool().Exec(ctx, `UPDATE problem_drafts SET draft=$2::jsonb,published_draft=$2::jsonb WHERE id=$1`, id, legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.Pool().Exec(ctx, `DELETE FROM schema_migrations WHERE version=11`); err != nil {
+		t.Fatal(err)
+	}
+	if err = store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var draftJSON, publishedJSON []byte
+	if err = store.Pool().QueryRow(ctx, `SELECT draft,published_draft FROM problem_drafts WHERE id=$1`, id).Scan(&draftJSON, &publishedJSON); err != nil {
+		t.Fatal(err)
+	}
+	for _, data := range [][]byte{draftJSON, publishedJSON} {
+		var draft problems.Draft
+		if err = json.Unmarshal(data, &draft); err != nil {
+			t.Fatal(err)
+		}
+		if len(draft.TestCases) != 4 || !draft.TestCases[0].IsSample || draft.TestCases[1].IsSample || draft.TestCases[2].IsSample || !draft.TestCases[3].IsSample || draft.TestCases[0].Input != "keep" || draft.TestCases[0].Output != "output" {
+			t.Fatalf("incorrect migrated samples: %s", data)
+		}
+	}
+	if err = store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
 }
