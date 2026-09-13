@@ -433,3 +433,49 @@ JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","python314","pypy311","codon020","
 
 Pythonの34テスト、PostgreSQLを使うGoのrace検出付きテスト、Webの型検査、ブラウザー10テスト、WebのLambdaパッケージテストが成功した。
 公開WebのSSR、API接続、静的ファイル取得も確認した。
+
+## 2026年9月13日のサンプル検証の配置追従
+
+提出`51db9a8a-b78a-4610-86a7-0e328c547004`では、bridgeが生成したジョブに`easyTest`が含まれず、workerにも入出力の保存処理が配置されていなかった。
+Web/APIへの反映だけでは、この提出の入力・期待出力・実際の出力を表示できなかった。
+既存の修正`909f31d`と`5ee3d9e`を含むbridgeをビルドし、workerの`host.py`と`interactive_smoke.py`を配置した。
+新規受付を停止し、要求・結果・両方の失敗キューが空であることを確認してから、定期dispatchと結果受信を停止して更新した。
+
+| 項目 | 値 |
+| --- | --- |
+| ビルド元コミット | `d214361` |
+| SSM管理対象 | `mi-08a9ccbdc9116b369` |
+| runtime digest | `sha256:60b4506b3bd0f4554b18719a52b8eaadaa5e6a5d0839df09d9d3552253c2f570` |
+| bridge ZIP SHA-256 | `bcc6b02da473ff6399f1db3ea8fe1b815223ace43a71442ee7865440120421c2` |
+| worker配布物SHA-256 | `cbe13b3e2ecdce345c3e55541e74f243518e0d65968125f23c8acdcd4477a8e1` |
+| worker配置SSMコマンドID | `9b77a605-542f-4a1c-9e35-056fad117e69` |
+| 全体smokeのSSMコマンドID | `5d483d90-f324-48cd-b2ce-5c83c720f5e0` |
+
+worker配布物は専用ジョブバケットの`releases/<SHA-256>/sample-code.tar.gz`へ保存した。
+旧コード・設定・manifestはworkerの`/opt/judge-release/sample-20260913/before.tar.gz`へ退避した。
+変更前のランタイム全体の整合性を確認したうえで、新しいfingerprintを生成した。
+OS・コンパイラ・隔離設定は変更していない。
+
+全10ランタイムの通常判定・検証コード・対話形式と、共通の隔離テストが成功した。
+実機のレポートは`judge/.build/smoke-report-sample.json`へ保存した。
+Pythonの37テストと、Goの`cmd/judge-bridge`・`internal/submissions`の単体テストも成功した。
+
+公開APIから一時的な非公開問題へ提出し、次の3件を確認した。
+
+| 検証内容 | 確認結果 | 提出ID |
+| --- | --- | --- |
+| 通常形式のサンプル検証 | 1/2ケースAC、全ケースに入力・期待出力・実際の出力を保存。非サンプルは実行対象外 | `82ad7782-be39-4201-99a7-96281c96831b` |
+| 通常提出 | 非サンプルを含む3ケースを実行し、`sampleDetails`を返さない | `90699603-005e-4bdf-8c6f-93dae8ce22e2` |
+| 対話形式のサンプル検証 | 2ケースAC、各ケースにジャッジコードの診断を保存 | `d9d0a3f3-052d-4bed-b396-29246e220235` |
+
+検証用の非公開問題と、メール送信なしで作成した一時アカウントは削除した。
+未保存だった過去の結果は変更していないため、入出力を確認するにはサンプル検証を再実行する。
+
+API・bridge・workerのdigestを一致させ、従来の8言語の受付、定期dispatch、結果受信を再開した。
+稼働中のworkerのコードハッシュが配布元と一致し、再起動0回で検証提出を処理したことを確認した。
+両方の失敗キューは0件だった。
+ローカルの`infra/api/runtime.auto.tfvars`と`infra/judge/terraform.tfvars`、GitHub Actionsの`dev`環境変数を新しいdigestへ同期した。
+JavaとC++17の公開保留は維持している。
+
+Web/APIのデプロイだけではbridgeとworkerは更新されない。
+今後も採点コードを変更した場合は、配置後のfingerprintと実機smokeに合わせて、API・bridge・worker・CI変数を同期する。
