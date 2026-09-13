@@ -133,15 +133,13 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
 	if len(checkerRuntimes) == 0 {
 		checkerRuntimes = []string{"cpp17"}
 	}
-	query := s.Pool.QueryRow
-	var tx pgx.Tx
+	tx, err := s.beginSubmission(ctx, owner)
+	if err != nil {
+		return Submission{}, err
+	}
+	defer tx.Rollback(ctx)
+	query := tx.QueryRow
 	if contestID != "" {
-		var err error
-		tx, err = s.Pool.Begin(ctx)
-		if err != nil {
-			return Submission{}, err
-		}
-		defer tx.Rollback(ctx)
 		var locked string
 		err = tx.QueryRow(ctx, `SELECT id FROM contests WHERE id=$1 FOR SHARE`, contestID).Scan(&locked)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -150,7 +148,6 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
 		if err != nil {
 			return Submission{}, err
 		}
-		query = tx.QueryRow
 	}
 	result, err := scan(query(ctx, `WITH moment AS MATERIALIZED (SELECT clock_timestamp() AS now)
  INSERT INTO submissions
@@ -188,7 +185,7 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady
 	}
-	if err == nil && tx != nil {
+	if err == nil {
 		err = tx.Commit(ctx)
 	}
 	return result, err
@@ -288,8 +285,17 @@ func (s *Store) CreateGeneration(ctx context.Context, owner, id, problemID, sour
 	if err != nil {
 		return Submission{}, err
 	}
-	return scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
+	tx, err := s.beginSubmission(ctx, owner)
+	if err != nil {
+		return Submission{}, err
+	}
+	defer tx.Rollback(ctx)
+	result, err := scan(tx.QueryRow(ctx, `INSERT INTO submissions
  (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
  SELECT $1,$2,id,version,draft->>'title',$5,$4,$6 FROM problem_drafts
  WHERE id=$3 AND can_manage_problem(id,$2) RETURNING `+columns, id, owner, problemID, source, runtime, raw))
+	if err == nil {
+		err = tx.Commit(ctx)
+	}
+	return result, err
 }

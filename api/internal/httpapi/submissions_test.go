@@ -153,6 +153,12 @@ func TestSubmissionsPostgres(t *testing.T) {
 	h := newHandler(AuthConfig{}, PrivateProblems{Store: store, Profiles: profiles.New(store.Pool()), Submissions: queue, JudgeImage: image, Verifier: newCognitoVerifier(f.server.URL, "client")})
 	request := func(method, path, owner, body string, want int) string {
 		t.Helper()
+		// These fixture scenarios represent independent judging sessions.
+		if method == "POST" && path == "/my/submissions" {
+			if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '61 seconds' WHERE created_at>clock_timestamp()-interval '60 seconds'`); err != nil {
+				t.Fatal(err)
+			}
+		}
 		r := httptest.NewRequest(method, path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		if owner != "" {
@@ -168,6 +174,57 @@ func TestSubmissionsPostgres(t *testing.T) {
 		}
 		return w.Body.String()
 	}
+	t.Run("account rate limit", func(t *testing.T) {
+		body := `{"problemId":"` + id + `","runtime":"cpp17","source":"source"}`
+		token := f.token(t, "alice", nil)
+		codes := make(chan int, 8)
+		for i := 0; i < 8; i++ {
+			go func() {
+				r := httptest.NewRequest("POST", "/my/submissions", strings.NewReader(body))
+				r.Header.Set("Content-Type", "application/json")
+				r.Header.Set("Authorization", "Bearer "+token)
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				if w.Code == 429 && (w.Header().Get("Retry-After") == "" || !strings.Contains(w.Body.String(), "submission_rate_limited")) {
+					codes <- 0
+					return
+				}
+				codes <- w.Code
+			}()
+		}
+		accepted, limited := 0, 0
+		for i := 0; i < 8; i++ {
+			switch code := <-codes; code {
+			case 202:
+				accepted++
+			case 429:
+				limited++
+			default:
+				t.Fatalf("unexpected status: %d", code)
+			}
+		}
+		if accepted != 2 || limited != 6 {
+			t.Fatalf("accepted=%d limited=%d", accepted, limited)
+		}
+		if _, err := queue.Create(ctx, "bob", newSubmissionID(), id, "source", image); err != nil {
+			t.Fatal(err)
+		}
+		// Only one slot expires: accept one more, then reject generation too.
+		if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '61 seconds' WHERE id=(SELECT id FROM submissions WHERE owner_id='alice' ORDER BY created_at LIMIT 1)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := queue.Create(ctx, "alice", newSubmissionID(), id, "source", image); err != nil {
+			t.Fatal(err)
+		}
+		_, err := queue.CreateGeneration(ctx, "alice", newSubmissionID(), id, "source", "cpp17-local", submissions.Job{Generate: true})
+		var limitedErr *submissions.RateLimitError
+		if !errors.As(err, &limitedErr) {
+			t.Fatalf("generation bypassed shared limit: %v", err)
+		}
+		if _, err := store.Pool().Exec(ctx, `DELETE FROM submissions`); err != nil {
+			t.Fatal(err)
+		}
+	})
 	// Easy Test uses explicit flags regardless of names, preserves order, and never enters submission history.
 	const easyProblem = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
 	_, err = store.Save(ctx, "alice", easyProblem, 0, problems.Draft{Title: "Easy", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{

@@ -162,6 +162,12 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		}
 		item, err = p.Submissions.CreateGeneration(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, selected, job)
 	}
+	var rateLimit *submissions.RateLimitError
+	if errors.As(err, &rateLimit) {
+		w.Header().Set("Retry-After", strconv.Itoa(rateLimit.RetryAfter))
+		authError(w, http.StatusTooManyRequests, "submission_rate_limited")
+		return
+	}
 	if errors.Is(err, submissions.ErrNotReady) {
 		authError(w, 409, "tests_not_ready")
 		return
