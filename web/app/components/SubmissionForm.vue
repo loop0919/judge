@@ -3,6 +3,7 @@ import type { Submission } from '../../shared/types/submission'
 
 const props = defineProps<{ problemId: string, beforeSubmit?: () => Promise<boolean>, disabled?: boolean }>()
 const { user } = useAccount()
+const sampleHelpId = useId()
 const source = ref('')
 const runtime = ref('cpp17')
 const { data: catalog, error: catalogError } = await useFetch('/api/runtimes')
@@ -65,7 +66,7 @@ async function submit(easyTest = false) {
     else if (code === 'profile_required') message.value = 'プロフィールを登録してから提出してください。'
     else if (code === 'tests_not_ready') message.value = easyTest ? 'sample_ で始まるテストケースがあることと、検証コード・言語の設定を確認してください。' : 'テストケース、検証コード、利用できる言語の設定を確認してください。'
     else if (code === 'judging_unavailable') message.value = 'ジャッジが設定されていません。'
-    else message.value = easyTest ? 'Easy Test の結果を確認できませんでした。再実行するか、結果の詳細を確認してください。' : '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
+    else message.value = easyTest ? 'サンプル検証の結果を確認できませんでした。再実行するか、結果の詳細を確認してください。' : '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
   } finally { sending.value = false }
 }
 </script>
@@ -87,14 +88,19 @@ async function submit(easyTest = false) {
       <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>
-      <p class="muted">Easy Test は sample_ で始まるケースのみを実行します。本提出の合格を保証するものではありません。</p>
       <div class="submission-actions">
-        <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'Easy Test 実行中…' : 'Easy Test' }}</button>
+        <div class="sample-action">
+          <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'サンプル検証中…' : 'サンプル検証' }}</button>
+          <span class="sample-help">
+            <button class="sample-help-button" type="button" aria-label="サンプル検証の説明" :aria-describedby="sampleHelpId">?</button>
+            <span :id="sampleHelpId" class="sample-tooltip" role="tooltip">サンプルケースを検証する機能です。</span>
+          </span>
+        </div>
         <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending && !runningEasyTest ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
     <section v-if="easyResult" class="easy-result" aria-labelledby="easy-result-title">
-      <h3 id="easy-result-title">Easy Test の結果</h3>
+      <h3 id="easy-result-title">サンプル検証の結果</h3>
       <p role="status"><SubmissionStatus :item="easyResult" /><template v-if="easyResult.result"> — {{ easyResult.result.passed }} / {{ easyResult.result.total }} ケース合格</template></p>
       <ul v-if="easyResult.result?.cases?.length"><li v-for="(item, index) in easyResult.result.cases" :key="index">{{ item.name }}: {{ item.verdict === 'SKIPPED' ? '未実行' : item.verdict }}</li></ul>
       <pre v-if="easyResult.result?.compileLog">{{ easyResult.result.compileLog }}</pre>
@@ -104,6 +110,12 @@ async function submit(easyTest = false) {
 </template>
 
 <style scoped>
+.sample-action { display: inline-flex; align-items: center; gap: 8px; }
+.sample-help { position: relative; display: inline-flex; }
+.sample-help-button { width: 24px; height: 24px; padding: 0; border: 1px solid var(--color-muted); border-radius: 50%; background: transparent; color: var(--color-muted); font: inherit; cursor: help; }
+.sample-help-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.sample-tooltip { display: none; position: absolute; bottom: 100%; right: 0; width: max-content; max-width: 240px; padding: 6px 8px; border-radius: 4px; background: var(--color-ink); color: var(--color-paper); font-size: .75rem; z-index: 1; }
+.sample-help:hover .sample-tooltip, .sample-help:focus-within .sample-tooltip { display: block; }
 .easy-result { margin-top: 24px; }
 .easy-result pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .submission-form { margin-top: 40px; }
@@ -115,7 +127,7 @@ label { display: block; margin-block: 20px 8px; }
 select { width: 100%; max-width: 320px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: inherit; cursor: pointer; }
 select:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
 select:disabled, .submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
-.submission-actions button { min-height: 44px; padding: 10px 28px; font-weight: 600; }
+.submission-actions .editor-button { min-height: 44px; padding: 10px 28px; font-weight: 600; }
 .submission-actions button:disabled { transform: none; text-decoration: none; }
 .submission-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
 </style>

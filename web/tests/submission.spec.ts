@@ -134,7 +134,7 @@ test('unready judging settings explain why submission was rejected', async ({ pa
 })
 
 
-test('Easy Test polls inline and retains the source for a full submission', async ({ page }) => {
+test('Sample validation polls inline and retains the source for a full submission', async ({ page }) => {
   await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
   const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'cpp17', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
@@ -147,7 +147,16 @@ test('Easy Test polls inline and retains the source for a full submission', asyn
   await page.goto(`/problems/${problemId}`)
   const source = page.getByLabel('ソースコード', { exact: true })
   await source.fill('int main(){}')
-  await page.getByRole('button', { name: 'Easy Test', exact: true }).click()
+  const help = page.getByRole('button', { name: 'サンプル検証の説明', exact: true })
+  const tooltip = page.getByRole('tooltip').filter({ hasText: 'サンプルケースを検証する機能です。' })
+  await expect(tooltip).toBeHidden()
+  await help.hover()
+  await expect(tooltip).toBeVisible()
+  await source.hover()
+  await expect(tooltip).toBeHidden()
+  await help.focus()
+  await expect(tooltip).toBeVisible()
+  await page.getByRole('button', { name: 'サンプル検証', exact: true }).click()
   await expect(page.getByText('sample_1: AC', { exact: true })).toBeVisible()
   await expect(page).toHaveURL(`/problems/${problemId}`)
   await expect(source).toHaveText('int main(){}')

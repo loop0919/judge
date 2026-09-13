@@ -42,7 +42,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
 <template>
   <section class="submission-detail">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/my/submissions">提出履歴</NuxtLink><span aria-hidden="true">/</span><span>提出結果</span></nav>
-    <header class="submission-header"><h1>{{ item?.easyTest ? 'Easy Test の結果' : '提出結果' }}</h1><p v-if="item" class="submission-id">ID: {{ item.id }}</p></header>
+    <header class="submission-header"><h1>{{ item?.easyTest ? 'サンプル検証の結果' : '提出結果' }}</h1><p v-if="item" class="submission-id">ID: {{ item.id }}</p></header>
     <p v-if="message" role="alert">{{ message }} <button class="editor-button" @click="load">再取得</button></p>
     <template v-if="item">
       <section class="submitted-source" :class="{ expanded }" aria-labelledby="source-title">
