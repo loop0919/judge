@@ -1,51 +1,50 @@
 import { testCaseError, testFileLimit, testSetLimit, type TestCase } from './problem-draft'
 
-export function mergeTestCases(existing: TestCase[], imported: TestCase[]): TestCase[] {
+type DataKey = 'input' | 'output'
+export function mergeTestCases(existing: TestCase[], imported: TestCase[], fields: DataKey[] = ['input', 'output']): TestCase[] {
   const replacements = new Map(imported.map(item => [item.name?.trim(), item]))
   const merged = existing.map(item => {
-    const name = item.name?.trim()
-    const replacement = replacements.get(name)
-    replacements.delete(name)
-    return replacement ?? item
+    const replacement = replacements.get(item.name?.trim())
+    replacements.delete(item.name?.trim())
+    if (!replacement) return item
+    const updated = { ...item }
+    for (const key of fields) {
+      updated[key] = replacement[key]
+      delete updated[`${key}File`]
+      delete updated[`_${key}Dirty`]
+    }
+    return updated
   })
   return [...merged, ...replacements.values()]
 }
 
-export async function importTestCases(inputs: File[], outputs: File[], existing: TestCase[]): Promise<TestCase[]> {
-  const pairs = new Map<string, { input?: File, output?: File }>()
+export async function importTestCaseFiles(files: File[], key: DataKey, existing: TestCase[]): Promise<TestCase[]> {
+  const names = new Set<string>()
   const encoder = new TextEncoder()
-  const incomingNames = new Set(inputs.map(file => file.name.trim()))
-  let total = existing.filter(item => !incomingNames.has(item.name?.trim() ?? '')).reduce((sum, item) => sum + (['input', 'output'] as const).reduce((size, key) => size + (item[`${key}File`] && !item[`_${key}Dirty`] ? item[`${key}File`]!.size : encoder.encode(item[key]).length), 0), 0)
-  for (const { file, key } of [...inputs.map(file => ({ file, key: 'input' as const })), ...outputs.map(file => ({ file, key: 'output' as const }))]) {
+  for (const file of files) {
     if (!/^.+\.txt$/.test(file.name)) throw new Error('フォルダには .txt ファイルだけを入れてください。')
-    const name = file.name
-    const pair = pairs.get(name) ?? {}
-    if (pair[key]) throw new Error(`「${file.name}」が重複しています。`)
+    const name = file.name.trim()
+    if (names.has(name)) throw new Error(`「${file.name}」が重複しています。`)
     if (file.size > testFileLimit) throw new Error(`「${file.name}」は16 MiB以内にしてください。`)
-    total += file.size
-    if (total > testSetLimit) throw new Error('テストケース全体を512 MiB以内にしてください。')
-    pair[key] = file
-    pairs.set(name, pair)
+    names.add(name)
   }
-  const imported = [...pairs.keys()].map(name => ({ name, input: '', output: '' }))
-  const error = testCaseError(imported) || testCaseError(mergeTestCases(existing, imported))
+  const total = existing.reduce((sum, item) => sum + (['input', 'output'] as const).reduce((size, field) => {
+    if (field === key && names.has(item.name?.trim() ?? '')) return size
+    return size + (item[`${field}File`] && !item[`_${field}Dirty`] ? item[`${field}File`]!.size : encoder.encode(item[field]).length)
+  }, 0), 0) + files.reduce((sum, file) => sum + file.size, 0)
+  if (total > testSetLimit) throw new Error('テストケース全体を512 MiB以内にしてください。')
+  const imported = files.map(file => ({ name: file.name, input: '', output: '' }))
+  const error = testCaseError(imported) || testCaseError(mergeTestCases(existing, imported, [key]))
   if (error) throw new Error(error)
-  for (const [name, pair] of pairs) {
-    if (!pair.input || !pair.output) throw new Error(`「${name}」の入力と出力を両方のフォルダに用意してください。空データの場合も空のファイルが必要です。`)
-  }
-  for (const item of imported) {
-    const pair = pairs.get(item.name)!
-    for (const key of ['input', 'output'] as const) {
-      const file = pair[key]!
-      const bytes = await file.arrayBuffer()
-      try {
-        item[key] = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-      } catch {
-        throw new Error(`「${file.name}」はUTF-8のテキストファイルにしてください。`)
-      }
+  for (const [index, file] of files.entries()) {
+    const bytes = await file.arrayBuffer()
+    try {
+      imported[index]![key] = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      throw new Error(`「${file.name}」はUTF-8のテキストファイルにしてください。`)
     }
   }
-  const contentError = testCaseError(mergeTestCases(existing, imported))
+  const contentError = testCaseError(mergeTestCases(existing, imported, [key]))
   if (contentError) throw new Error(contentError)
   return imported
 }

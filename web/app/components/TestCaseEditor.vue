@@ -1,38 +1,40 @@
 <script setup lang="ts">
 import { testCaseError, type TestCase } from '~/utils/problem-draft'
 import { downloadTestFile } from '~/utils/test-files'
-import { importTestCases, mergeTestCases } from '~/utils/import-test-cases'
+import { importTestCaseFiles, mergeTestCases } from '~/utils/import-test-cases'
 const cases = defineModel<TestCase[]>({ required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string }>()
 const error = computed(() => testCaseError(cases.value))
 const selected = ref(0)
-const inputFiles = ref<File[]>([])
-const outputFiles = ref<File[]>([])
-function selectFolder(event: Event, key: 'input' | 'output') {
-  const files = Array.from((event.target as HTMLInputElement).files ?? [])
-  if (key === 'input') inputFiles.value = files
-  else outputFiles.value = files
-  importError.value = ''
-  importStatus.value = ''
-}
+const inputFolder = ref<HTMLInputElement>()
+const outputFolder = ref<HTMLInputElement>()
+const folderStatus = reactive({ input: '', output: '' })
 const importing = ref(false)
+const locked = computed(() => props.disabled || importing.value)
 const importError = ref('')
 const importStatus = ref('')
-async function importFiles() {
-  if (props.disabled || importing.value || !inputFiles.value.length || !outputFiles.value.length) return
+let mounted = true
+onBeforeUnmount(() => { mounted = false })
+async function selectFolder(event: Event, key: 'input' | 'output') {
+  const control = event.target as HTMLInputElement
+  const files = Array.from(control.files ?? [])
+  control.value = ''
+  if (locked.value || !files.length) return
   importing.value = true
   importError.value = ''
   importStatus.value = ''
   try {
-    const imported = await importTestCases(inputFiles.value, outputFiles.value, cases.value)
+    const imported = await importTestCaseFiles(files, key, cases.value)
+    if (!mounted) return
     if (props.disabled) throw new Error('現在は取り込めません。もう一度選択してください。')
-    const merged = mergeTestCases(cases.value, imported)
+    const merged = mergeTestCases(cases.value, imported, [key])
     const validation = testCaseError(merged)
     if (validation) throw new Error(validation)
     const added = merged.length - cases.value.length
     cases.value = merged
-    selected.value = merged.indexOf(imported[0]!)
-    importStatus.value = `${added}件追加、${imported.length - added}件上書きしました。`
+    selected.value = merged.findIndex(item => item.name?.trim() === imported[0]!.name?.trim())
+    folderStatus[key] = `${files.length}ファイル取り込み済み`
+    importStatus.value = `${key === 'input' ? '入力' : '出力'}：${added}件追加、${imported.length - added}件更新しました。`
   } catch (error) {
     importError.value = error instanceof Error ? error.message : 'ファイルを読み込めませんでした。'
   } finally {
@@ -65,7 +67,7 @@ function remove() {
   if (current.value && window.confirm(`「${fileName(current.value, selected.value)}」の入力と出力を削除しますか？`)) cases.value.splice(selected.value, 1)
 }
 function add() {
-  if (props.disabled || cases.value.length >= 100) return
+  if (locked.value || cases.value.length >= 100) return
   const used = new Set(cases.value.map(item => item.name?.trim()))
   let number = cases.value.length + 1
   while (used.has(`case_${String(number).padStart(3, '0')}.txt`)) number++
@@ -81,10 +83,10 @@ function add() {
     </header>
     <div class="case-notes">
       <details class="bulk-import"><summary>フォルダから一括追加</summary>
-        <p>入力用・出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は入力・出力を上書きし、新しい名前は追加します。</p>
-        <label>入力フォルダ<input type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'input')"></label>
-        <label>出力フォルダ<input type="file" webkitdirectory multiple aria-label="出力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'output')"></label>
-        <button type="button" class="editor-button" :disabled="disabled || importing || !inputFiles.length || !outputFiles.length" @click="importFiles">{{ importing ? '読み込み中…' : '一括追加' }}</button>
+        <p>選択した側の .txt を自動で追加・更新します（UTF-8）。もう片方のデータは保持します。</p>
+        <div class="folder-picker"><button type="button" class="editor-button" :disabled="locked" @click="inputFolder?.click()">入力フォルダを選択</button><span class="folder-status">{{ folderStatus.input || '未選択' }}</span><input ref="inputFolder" hidden type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="locked" @change="selectFolder($event, 'input')"></div>
+        <div class="folder-picker"><button type="button" class="editor-button" :disabled="locked" @click="outputFolder?.click()">出力フォルダを選択</button><span class="folder-status">{{ folderStatus.output || '未選択' }}</span><input ref="outputFolder" hidden type="file" webkitdirectory multiple aria-label="出力フォルダ" :disabled="locked" @change="selectFolder($event, 'output')"></div>
+        <p v-if="importing" role="status">取り込み中…</p>
       </details>
       <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
     </div>
@@ -93,10 +95,10 @@ function add() {
     <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
     <div class="case-workspace">
       <nav class="case-files" aria-label="テストケース一覧">
-        <div class="file-list-heading"><span>テストケース名</span><button type="button" class="editor-button primary case-add" :disabled="disabled || cases.length >= 100" aria-label="テストケースを追加" @click="add"><span aria-hidden="true">＋</span> 追加</button></div>
+        <div class="file-list-heading"><span>テストケース名</span><button type="button" class="editor-button primary case-add" :disabled="locked || cases.length >= 100" aria-label="テストケースを追加" @click="add"><span aria-hidden="true">＋</span> 追加</button></div>
         <ul>
           <li v-for="(item, index) in cases" :key="index">
-            <button type="button" :aria-current="selected === index ? 'true' : undefined" :disabled="disabled" :title="fileName(item, index)" @click="selected = index">
+            <button type="button" :aria-current="selected === index ? 'true' : undefined" :disabled="locked" :title="fileName(item, index)" @click="selected = index">
               <svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H5v20h14V7Zm0 0v5h5M8 12h8M8 16h6" /></svg>
               <span>{{ fileName(item, index) }}</span>
             </button>
@@ -107,12 +109,12 @@ function add() {
       <div v-if="current" class="case-detail">
         <div class="case-name">
           <label :for="`case-name-${selected}`">テストケース名</label>
-          <input :id="`case-name-${selected}`" v-model="current.name" :aria-label="`テストケース名 ${selected + 1}`" :placeholder="`ケース${selected + 1}`" :disabled="disabled" autocomplete="off" title="64文字まで。入力と出力に同じ名前を使用します。" />
-          <button type="button" class="editor-button case-delete" :disabled="disabled" :aria-label="`ケース${selected + 1}を削除`" title="選択中のケースの入力と出力を削除" @click="remove"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" /></svg>削除</button>
+          <input :id="`case-name-${selected}`" v-model="current.name" :aria-label="`テストケース名 ${selected + 1}`" :placeholder="`ケース${selected + 1}`" :disabled="locked" autocomplete="off" title="64文字まで。入力と出力に同じ名前を使用します。" />
+          <button type="button" class="editor-button case-delete" :disabled="locked" :aria-label="`ケース${selected + 1}を削除`" title="選択中のケースの入力と出力を削除" @click="remove"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" /></svg>削除</button>
         </div>
         <div :key="selected" class="case-fields">
-          <TestDataEditor :id="`case-input-${selected}`" v-model="current.input" label="入力" :disabled="disabled" :stored-bytes="current.inputFile?.size" :loading="loading.input" :error="loadError.input" @update:model-value="current._inputDirty = true" />
-          <TestDataEditor :id="`case-output-${selected}`" v-model="current.output" label="出力" :disabled="disabled" :stored-bytes="current.outputFile?.size" :loading="loading.output" :error="loadError.output" @update:model-value="current._outputDirty = true" />
+          <TestDataEditor :id="`case-input-${selected}`" v-model="current.input" label="入力" :disabled="locked" :stored-bytes="current.inputFile?.size" :loading="loading.input" :error="loadError.input" @update:model-value="current._inputDirty = true" />
+          <TestDataEditor :id="`case-output-${selected}`" v-model="current.output" label="出力" :disabled="locked" :stored-bytes="current.outputFile?.size" :loading="loading.output" :error="loadError.output" @update:model-value="current._outputDirty = true" />
         </div>
       </div>
       <div v-else class="empty-editor"><p>テストケースを追加して、入力と出力を登録してください。</p><p class="muted">空の入力や出力も登録できます。</p></div>
@@ -129,8 +131,9 @@ function add() {
 .case-toolbar h1 span { margin-left: 12px; font-size: .75rem; font-weight: normal; color: var(--color-muted); }
 .case-toolbar button { white-space: nowrap; }
 .case-notes { padding: 8px 16px; font-size: .75rem; color: var(--color-muted); border-bottom: 1px solid var(--color-line); max-height: 25%; overflow-y: auto; }
-.bulk-import label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
-.bulk-import input { max-width: 100%; min-width: 0; }
+.folder-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0; }
+.folder-picker button { white-space: nowrap; }
+.folder-status { color: var(--color-muted); }
 .case-notes p { margin: 0; }
 .case-notes details { margin-top: 4px; }
 .case-notes summary { cursor: pointer; }
