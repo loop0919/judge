@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"judge/api/internal/contests"
 	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 	"judge/api/internal/profiles"
@@ -57,6 +58,7 @@ func (v *cognitoVerifier) Verify(ctx context.Context, raw string) (string, error
 }
 
 type PrivateProblems struct {
+	Contests             *contests.Store
 	DispatchJudge        func(context.Context) error
 	JudgeRuntime         string
 	JudgeEnabledRuntimes string
@@ -80,6 +82,10 @@ var (
 )
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /my/contests", p.handle)
+	mux.HandleFunc("GET /my/contests/{id}", p.handle)
+	mux.HandleFunc("PUT /my/contests/{id}", p.handle)
+	mux.HandleFunc("GET /my/contests/{id}/problems/{problem}", p.handle)
 	mux.HandleFunc("GET /my/favorites/{id}", p.handle)
 	mux.HandleFunc("PUT /my/favorites/{id}", p.handle)
 	mux.HandleFunc("POST /my/submissions", p.handle)
@@ -142,6 +148,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/contests") {
+		p.contest(w, r.WithContext(ctx), owner)
+		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/favorites/") {
 		p.favorite(w, r.WithContext(ctx), owner)
@@ -358,6 +368,8 @@ func (p PrivateProblems) list(w http.ResponseWriter, r *http.Request, owner stri
 
 func problemError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, problems.ErrContestLocked):
+		authError(w, 409, "contest_problem_locked")
 	case errors.Is(err, problems.ErrNotFound):
 		authError(w, 404, "problem_not_found")
 	case errors.Is(err, problems.ErrConflict):

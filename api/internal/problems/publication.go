@@ -30,16 +30,35 @@ type Publications interface {
 }
 
 func (s *Store) Publish(ctx context.Context, owner, id string, version int64, publish bool) (Problem, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Problem{}, err
+	}
+	defer tx.Rollback(ctx)
+	var locked string
+	if err = tx.QueryRow(ctx, `SELECT id FROM problem_drafts WHERE id=$1 AND owner_id=$2 FOR UPDATE`, id, owner).Scan(&locked); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = ErrNotFound
+		}
+		return Problem{}, err
+	}
+	var reserved bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM contest_problems cp JOIN contests c ON c.id=cp.contest_id WHERE cp.problem_id=$1 AND NOT c.released)`, id).Scan(&reserved); err != nil {
+		return Problem{}, err
+	}
+	if reserved {
+		return Problem{}, ErrContestLocked
+	}
 	query := `UPDATE problem_drafts SET published_draft=NULL,published_version=0,published_at=NULL,version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version`
 	if publish {
 		query = `UPDATE problem_drafts SET published_draft=draft,published_version=version+1,published_at=clock_timestamp(),version=version+1 WHERE owner_id=$1 AND id=$2 AND version=$3 RETURNING id,version,updated_at,draft,published_version`
 	}
-	p, err := scan(s.pool.QueryRow(ctx, query, owner, id, version))
+	p, err := scan(tx.QueryRow(ctx, query, owner, id, version))
 	if errors.Is(err, ErrNotFound) {
-		if _, e := s.Get(ctx, owner, id); e != nil {
-			return p, e
-		}
 		return p, ErrConflict
+	}
+	if err == nil {
+		err = tx.Commit(ctx)
 	}
 	return p, err
 }

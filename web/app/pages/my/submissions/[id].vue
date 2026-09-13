@@ -64,7 +64,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
           <table aria-label="提出情報">
             <tbody>
               <tr><th scope="row">提出日時</th><td><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td></tr>
-              <tr><th scope="row">問題</th><td><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td></tr>
+              <tr><th scope="row">問題</th><td><NuxtLink :to="item.contestId ? `/contests/${item.contestId}/problems/${item.problemId}` : `/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td></tr>
               <tr><th scope="row">言語</th><td>{{ runtimeLabel(item.runtime) }}</td></tr>
               <tr><th scope="row">コード長</th><td>{{ codeBytes === null ? '—' : `${codeBytes.toLocaleString('en-US')} bytes` }}</td></tr>
               <tr><th scope="row">結果</th><td><span role="status" aria-live="polite"><SubmissionStatus :item="item" /><template v-if="item.result">：{{ verdicts[item.result.verdict] ?? '' }}</template></span></td></tr>

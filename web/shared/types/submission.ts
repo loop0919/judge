@@ -4,6 +4,8 @@ export type TextPreview = { text: string, truncated: boolean }
 export type SampleDetails = { input: TextPreview, expectedOutput: TextPreview, actualOutput: TextPreview }
 
 export type Submission = {
+  contestId?: string
+  author?: string
   easyTest?: boolean
   id: string
   problemId: string

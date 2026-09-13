@@ -19,6 +19,7 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
     <SavedProblems v-show="activeContent === 'problems'" />
     <SavedPosts v-show="activeContent === 'posts'" />
     <SubmissionHistory v-if="activeContent === 'submissions'" embedded />
+    <p><NuxtLink to="/my/contests">作成したコンテスト</NuxtLink></p>
     <div class="account-actions"><button class="editor-button" @click="logout">ログアウト</button></div>
   </section>
 </template>

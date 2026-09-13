@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"judge/api/internal/problems"
 	"strings"
 	"time"
+
+	"judge/api/internal/problems"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -78,6 +79,8 @@ type Progress struct {
 }
 
 type Submission struct {
+	Author         string    `json:"author"`
+	ContestID      string    `json:"contestId,omitempty"`
 	EasyTest       bool      `json:"easyTest"`
 	ID             string    `json:"id"`
 	ProblemID      string    `json:"problemId"`
@@ -93,12 +96,12 @@ type Submission struct {
 
 type Store struct{ Pool *pgxpool.Pool }
 
-const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at,progress,COALESCE((job->>'easyTest')::boolean,false)`
+const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at,progress,COALESCE((job->>'easyTest')::boolean,false),COALESCE(contest_id::text,''),(SELECT handle FROM user_profiles WHERE user_profiles.owner_id=submissions.owner_id)`
 
 func scan(row pgx.Row) (Submission, error) {
 	var s Submission
 	var result, progress []byte
-	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress, &s.EasyTest)
+	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress, &s.EasyTest, &s.ContestID, &s.Author)
 	if err == nil && result != nil {
 		err = json.Unmarshal(result, &s.Result)
 	}
@@ -119,20 +122,52 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
 
 // CreateTestRun selects sample cases inside the same statement that pins the problem version.
 func (s *Store) CreateTestRun(ctx context.Context, owner, id, problemID, source, image, runtime string, easyTest bool, checkerRuntimes ...string) (Submission, error) {
+	return s.createTestRun(ctx, owner, id, problemID, source, image, runtime, easyTest, "", checkerRuntimes...)
+}
+
+func (s *Store) CreateContestRun(ctx context.Context, owner, id, problemID, source, image, runtime string, easyTest bool, contestID string, checkerRuntimes ...string) (Submission, error) {
+	return s.createTestRun(ctx, owner, id, problemID, source, image, runtime, easyTest, contestID, checkerRuntimes...)
+}
+
+func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source, image, runtime string, easyTest bool, contestID string, checkerRuntimes ...string) (Submission, error) {
 	if len(checkerRuntimes) == 0 {
 		checkerRuntimes = []string{"cpp17"}
 	}
-	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
-  (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
-  SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,
+	query := s.Pool.QueryRow
+	var tx pgx.Tx
+	if contestID != "" {
+		var err error
+		tx, err = s.Pool.Begin(ctx)
+		if err != nil {
+			return Submission{}, err
+		}
+		defer tx.Rollback(ctx)
+		var locked string
+		err = tx.QueryRow(ctx, `SELECT id FROM contests WHERE id=$1 FOR SHARE`, contestID).Scan(&locked)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Submission{}, ErrNotReady
+		}
+		if err != nil {
+			return Submission{}, err
+		}
+		query = tx.QueryRow
+	}
+	result, err := scan(query(ctx, `WITH moment AS MATERIALIZED (SELECT clock_timestamp() AS now)
+ INSERT INTO submissions
+  (id,owner_id,problem_id,problem_version,problem_title,runtime,source,contest_id,created_at,job)
+  SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,NULLIF($9,'')::uuid,moment.now,
   jsonb_build_object('image',$5::text,'easyTest',$8::boolean,'cases',selected_cases,'checker',selected_draft->'checker','interactor',selected_draft->'interactor',
   'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
   FROM (
     SELECT id, COALESCE(published_draft,draft) AS selected_draft,
       CASE WHEN published_draft IS NULL THEN version ELSE published_version END AS selected_version
-    FROM problem_drafts WHERE id=$3 AND (published_draft IS NOT NULL OR owner_id=$2)
-  ) problem
+    FROM problem_drafts WHERE $9='' AND id=$3 AND (published_draft IS NOT NULL OR owner_id=$2)
+    UNION ALL
+    SELECT cp.problem_id,cp.draft,cp.problem_version FROM contest_problems cp JOIN contests c ON c.id=cp.contest_id CROSS JOIN moment
+    WHERE $9<>'' AND c.id=NULLIF($9,'')::uuid AND cp.problem_id=$3 AND
+    (moment.now>=c.starts_at OR c.owner_id=$2 OR EXISTS(SELECT 1 FROM problem_testers t WHERE t.problem_id=cp.problem_id AND t.owner_id=$2))
+  ) problem CROSS JOIN moment
   CROSS JOIN LATERAL (
     SELECT COALESCE(jsonb_agg(c ORDER BY ordinal), '[]'::jsonb) AS selected_cases
     FROM jsonb_array_elements(COALESCE(selected_draft->'testCases','[]'::jsonb)) WITH ORDINALITY AS cases(c, ordinal)
@@ -149,9 +184,12 @@ func (s *Store) CreateTestRun(ctx context.Context, owner, id, problemID, source,
     ($6 <> 'cpp17-local' AND COALESCE(selected_draft->'checker','null'::jsonb) = 'null'::jsonb AND
      selected_draft->'interactor'->>'runtime'=ANY($7::text[]) AND
      length(btrim(selected_draft->'interactor'->>'source', E' \t\r\n'))>0))
-  RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes, easyTest))
+  RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes, easyTest, contestID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady
+	}
+	if err == nil && tx != nil {
+		err = tx.Commit(ctx)
 	}
 	return result, err
 }

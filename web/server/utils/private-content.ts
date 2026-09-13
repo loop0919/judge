@@ -1,5 +1,5 @@
 import { privateHeaders, hasSession, requireSameOrigin, limitedJSON, privateAPI } from './private-api'
-export function privateContent(kind: 'posts' | 'problems', publication = false) {
+export function privateContent(kind: 'posts' | 'problems' | 'contests', publication = false) {
   return defineEventHandler(async event => {
     privateHeaders(event)
     if (!hasSession(event)) throw createError({ statusCode: 401 })
@@ -10,6 +10,7 @@ export function privateContent(kind: 'posts' | 'problems', publication = false) 
     if (method !== 'GET') requireSameOrigin(event)
     const query = getQuery(event)
     const params = new URLSearchParams()
+    if (typeof query.offset === 'string') params.set('offset', query.offset)
     if (typeof query.cursor === 'string') params.set('cursor', query.cursor)
     if (typeof query.version === 'string') params.set('version', query.version)
     const body = method === 'PUT' ? await limitedJSON(event, publication ? 1024 : 700 << 10) : undefined

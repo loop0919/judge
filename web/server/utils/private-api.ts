@@ -77,7 +77,7 @@ export async function privateAPI<T>(event: H3Event, path: string, options: { met
     }
     const status = (error as { response?: { status?: number } }).response?.status
     const upstreamCode = (error as { data?: { error?: string } }).data?.error
-    const code = ['handle_taken', 'profile_conflict', 'profile_required', 'invalid_avatar', 'invalid_profile', 'tests_not_ready', 'judging_unavailable', 'invalid_submission'].includes(upstreamCode ?? '') ? upstreamCode : undefined
+    const code = ['handle_taken', 'profile_conflict', 'profile_required', 'invalid_avatar', 'invalid_profile', 'tests_not_ready', 'judging_unavailable', 'invalid_submission', 'contest_conflict', 'contest_problem_locked', 'invalid_contest'].includes(upstreamCode ?? '') ? upstreamCode : undefined
     throw createError({ statusCode: status && [400, 401, 403, 404, 409, 413, 415, 429, 503].includes(status) ? status : 502, statusMessage: 'Request failed', data: code ? { code } : undefined })
   }
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"judge/api/internal/contests"
 	"judge/api/internal/database"
 	"judge/api/internal/submissions"
 	"judge/api/internal/testfiles"
@@ -139,6 +140,10 @@ func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEv
 }
 
 func (b bridge) dispatch(ctx context.Context) error {
+	// The existing minute schedule also releases contests without incoming web traffic.
+	if err := (&contests.Store{Pool: b.db}).Release(ctx); err != nil {
+		return err
+	}
 	// Bounded expiry covers queue retries too; it does not rejudge a finalized submission.
 	_, err := b.db.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}'
   WHERE runtime=ANY($1::text[]) AND status <> 'DONE' AND created_at < clock_timestamp()-interval '6 hours'`, submissions.IsolateRuntimeIDs())

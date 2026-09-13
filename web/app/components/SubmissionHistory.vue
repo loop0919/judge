@@ -40,7 +40,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
         <tbody>
           <tr v-for="item in items" :key="item.id">
             <td class="submission-date"><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td>
-            <td class="submission-problem"><NuxtLink :to="`/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
+            <td class="submission-problem"><NuxtLink :to="item.contestId ? `/contests/${item.contestId}/problems/${item.problemId}` : `/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
             <td class="submission-language">{{ runtimeLabel(item.runtime) }}</td>
             <td class="submission-result"><span role="status"><SubmissionStatus :item="item" /></span></td>
             <td><NuxtLink :to="`/my/submissions/${item.id}`" :aria-label="`${item.problemTitle}の提出詳細`">詳細</NuxtLink></td>

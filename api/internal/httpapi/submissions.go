@@ -64,6 +64,7 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		return
 	}
 	var input struct {
+		ContestID  string `json:"contestId"`
 		EasyTest   bool   `json:"easyTest"`
 		ProblemID  string `json:"problemId"`
 		Runtime    string `json:"runtime"`
@@ -92,7 +93,7 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 			break
 		}
 	}
-	if (input.EasyTest && input.Generation != nil) || !problemID.MatchString(input.ProblemID) || selected == "" ||
+	if ((input.EasyTest || input.ContestID != "") && input.Generation != nil) || (input.ContestID != "" && !problemID.MatchString(input.ContestID)) || !problemID.MatchString(input.ProblemID) || selected == "" ||
 		strings.TrimSpace(input.Source) == "" || len(input.Source) > 64<<10 || !utf8.ValidString(input.Source) || strings.ContainsRune(input.Source, 0) {
 		authError(w, 400, "invalid_submission")
 		return
@@ -103,7 +104,7 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		for _, r := range p.availableRuntimes() {
 			checkerRuntimes = append(checkerRuntimes, r.ID)
 		}
-		item, err = p.Submissions.CreateTestRun(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected, input.EasyTest, checkerRuntimes...)
+		item, err = p.Submissions.CreateContestRun(r.Context(), owner, newSubmissionID(), input.ProblemID, input.Source, p.JudgeImage, selected, input.EasyTest, input.ContestID, checkerRuntimes...)
 	} else {
 		g := input.Generation
 		if p.Store == nil {

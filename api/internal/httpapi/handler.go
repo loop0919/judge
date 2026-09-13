@@ -2,10 +2,16 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"strings"
+	"time"
+
+	"judge/api/internal/contests"
+	"judge/api/internal/problems"
 )
 
 // NewHandlerは、APIのルートHTTPハンドラーを返す。
@@ -18,7 +24,16 @@ func NewHandler(auth ...AuthConfig) http.Handler {
 }
 
 func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
+	if store, ok := private.Store.(*problems.Store); ok && private.Contests == nil {
+		private.Contests = &contests.Store{Pool: store.Pool()}
+	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /contests", private.publicContest)
+	mux.HandleFunc("GET /contests/{id}", private.publicContest)
+	mux.HandleFunc("GET /contests/{id}/problems/{problem}", private.publicContest)
+	mux.HandleFunc("GET /contests/{id}/standings", private.publicContest)
+	mux.HandleFunc("GET /contests/{id}/submissions", private.publicContest)
+	mux.HandleFunc("GET /contests/{id}/submissions/{submission}", private.publicContest)
 	mux.HandleFunc("GET /health", health)
 	mux.HandleFunc("GET /runtimes", private.runtimes)
 	mux.HandleFunc("GET /problems", private.publicContent)
@@ -33,7 +48,18 @@ func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 	mux.HandleFunc("POST /auth/resend-confirmation", config.registration)
 	private.register(mux)
 
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if private.Contests != nil && (strings.HasPrefix(r.URL.Path, "/contests") || strings.HasPrefix(r.URL.Path, "/problems") || strings.HasPrefix(r.URL.Path, "/my/")) {
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer cancel()
+			if err := private.Contests.Release(ctx); err != nil {
+				w.Header().Set("Cache-Control", "no-store")
+				authError(w, 503, "database_unavailable")
+				return
+			}
+		}
+		mux.ServeHTTP(w, r)
+	})
 }
 
 func health(w http.ResponseWriter, _ *http.Request) {

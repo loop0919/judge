@@ -10,13 +10,15 @@ import (
 	"judge/api/internal/database"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
-	ErrNotFound = errors.New("problem not found")
-	ErrConflict = errors.New("problem changed")
-	ErrTestFile = errors.New("invalid test file")
+	ErrContestLocked = errors.New("problem is reserved for a contest")
+	ErrNotFound      = errors.New("problem not found")
+	ErrConflict      = errors.New("problem changed")
+	ErrTestFile      = errors.New("invalid test file")
 )
 
 type Generator struct {
@@ -68,6 +70,7 @@ type Problem struct {
 }
 
 type Summary struct {
+	ContestID        string    `json:"contestId,omitempty"`
 	PublishedVersion int64     `json:"publishedVersion"`
 	ID               string    `json:"id"`
 	Title            string    `json:"title"`
@@ -122,7 +125,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Problem, error) {
 
 // List returns at most 51 rows; the HTTP layer exposes 50 and a next cursor.
 func (s *Store) List(ctx context.Context, owner string, cursor *Cursor) ([]Summary, error) {
-	query := `SELECT id, draft->>'title', updated_at, published_version FROM problem_drafts WHERE owner_id=$1`
+	query := `SELECT id, draft->>'title', updated_at, published_version,COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'') FROM problem_drafts WHERE owner_id=$1`
 	args := []any{owner}
 	if cursor != nil {
 		query += ` AND (updated_at, id) < ($2, $3::uuid)`
@@ -134,7 +137,7 @@ func (s *Store) List(ctx context.Context, owner string, cursor *Cursor) ([]Summa
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Summary, error) {
 		var p Summary
-		err := row.Scan(&p.ID, &p.Title, &p.UpdatedAt, &p.PublishedVersion)
+		err := row.Scan(&p.ID, &p.Title, &p.UpdatedAt, &p.PublishedVersion, &p.ContestID)
 		return p, err
 	})
 }
@@ -211,6 +214,10 @@ func (s *Store) validateTestFiles(ctx context.Context, owner, problemID string, 
 func (s *Store) Delete(ctx context.Context, owner, id string, version int64) error {
 	result, err := s.pool.Exec(ctx, `DELETE FROM problem_drafts WHERE owner_id=$1 AND id=$2 AND version=$3`, owner, id, version)
 	if err != nil {
+		var pg *pgconn.PgError
+		if errors.As(err, &pg) && pg.Code == "23503" {
+			return ErrContestLocked
+		}
 		return err
 	}
 	if result.RowsAffected() == 1 {

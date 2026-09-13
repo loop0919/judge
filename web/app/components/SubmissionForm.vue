@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Submission } from '../../shared/types/submission'
 
-const props = defineProps<{ problemId: string, beforeSubmit?: () => Promise<boolean>, disabled?: boolean }>()
+const props = defineProps<{ problemId: string, contestId?: string, beforeSubmit?: () => Promise<boolean>, disabled?: boolean }>()
 const { user } = useAccount()
 const sampleHelpId = useId()
 const source = ref('')
@@ -44,7 +44,7 @@ async function submit(easyTest = false) {
       message.value = '下書きを保存できませんでした。保存内容を確認してください。'
       return
     }
-    let result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: runtime.value, source: source.value, easyTest: easyTest || undefined } })
+    let result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { contestId: props.contestId, problemId: props.problemId, runtime: runtime.value, source: source.value, easyTest: easyTest || undefined } })
     if (easyTest) {
       easyResult.value = result
       const deadline = Date.now() + 60 * 60 * 1000
