@@ -25,8 +25,8 @@ test('login, database save, another browser, ownership, conflict and logout', as
   const id = new URL(editorURL).searchParams.get('problem')!
   expect(id).toBeTruthy()
   expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('openoj.problem-drafts')))).toEqual([])
-  await page.getByRole('link', { name: 'ShareOJ ホーム', exact: true }).click()
-  await page.getByRole('link', { name: 'マイページ', exact: true }).click()
+  await page.getByRole('link', { name: 'ShareOJ マイページ', exact: true }).click()
+  await expect(page).toHaveURL('/my')
   await expect(page.getByRole('link', { name: 'DBで保存した問題を編集', exact: true })).toBeVisible()
 
   const secondContext = await browser.newContext({ baseURL: 'http://127.0.0.1:13002' })

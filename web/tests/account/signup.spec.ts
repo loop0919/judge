@@ -44,8 +44,8 @@ test('registers, resumes confirmation, resends code and logs in to save a proble
   await page.getByRole('main').getByRole('link', { name: '新規問題' }).click()
   await page.locator('#problem-title').fill('新規ユーザーの問題')
   await expect(page.getByRole('status')).toHaveText('保存済み')
-  await page.getByRole('link', { name: 'ShareOJ ホーム', exact: true }).click()
-  await page.getByRole('link', { name: 'マイページ', exact: true }).click()
+  await page.getByRole('link', { name: 'ShareOJ マイページ', exact: true }).click()
+  await expect(page).toHaveURL('/my')
   await expect(page.getByRole('link', { name: '新規ユーザーの問題を編集', exact: true })).toBeVisible()
 })
 
