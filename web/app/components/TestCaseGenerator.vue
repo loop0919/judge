@@ -111,7 +111,12 @@ async function generate() {
     message.value = `${amount}件の${mode.value === 'input' ? '入力を追加' : '出力を更新'}しました。`
   } catch (error) {
     message.value = ''
-    failure.value = error instanceof Error && !('statusCode' in error) ? error.message : '実行できませんでした。ログイン状態と実行環境を確認してください。'
+    const detail = (error as { data?: { data?: { code?: string, retryAfter?: number } } }).data?.data
+    if (detail?.code === 'submission_rate_limited') {
+      failure.value = detail.retryAfter
+        ? `提出頻度制限に到達しました。${detail.retryAfter}秒後に再度試してください。`
+        : '提出頻度制限に到達しました。しばらく待ってから再度試してください。'
+    } else failure.value = error instanceof Error && !('statusCode' in error) ? error.message : '実行できませんでした。ログイン状態と実行環境を確認してください。'
   } finally { busy.value = false }
 }
 </script>
@@ -134,7 +139,7 @@ async function generate() {
       <p v-else>既存ケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
       <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
       <SourceCodeEditor v-model="program.source" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />
-      <p v-if="failure" class="editor-error" role="alert">{{ failure }}</p>
+      <p v-if="failure" class="notice notice-error" role="alert">{{ failure }}</p>
       <div class="generator-actions"><button type="button" class="editor-button primary" :disabled="disabled || busy || !available.length" @click="generate">{{ mode === 'validation' ? (busy ? '検証中…' : '検証する') : (busy ? '生成中…' : '生成する') }}</button><button type="button" class="editor-button" @click="emit('show-cases')">テストケースを確認</button></div>
     </div>
     <p v-if="message" role="status">{{ message }}</p>

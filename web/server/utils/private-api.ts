@@ -77,6 +77,12 @@ export async function privateAPI<T>(event: H3Event, path: string, options: { met
     }
     const status = (error as { response?: { status?: number } }).response?.status
     const upstreamCode = (error as { data?: { error?: string } }).data?.error
+    if (status === 429 && upstreamCode === 'submission_rate_limited') {
+      const seconds = Number((error as { response?: { headers?: Headers } }).response?.headers?.get('Retry-After'))
+      const retryAfter = Number.isSafeInteger(seconds) && seconds > 0 ? seconds : undefined
+      if (retryAfter) setResponseHeader(event, 'Retry-After', retryAfter)
+      throw createError({ statusCode: 429, statusMessage: 'Request failed', data: { code: upstreamCode, retryAfter } })
+    }
     const code = ['handle_taken', 'profile_conflict', 'profile_required', 'invalid_avatar', 'invalid_profile', 'tests_not_ready', 'judging_unavailable', 'invalid_submission', 'contest_conflict', 'contest_problem_locked', 'invalid_contest'].includes(upstreamCode ?? '') ? upstreamCode : undefined
     throw createError({ statusCode: status && [400, 401, 403, 404, 409, 413, 415, 429, 503].includes(status) ? status : 502, statusMessage: 'Request failed', data: code ? { code } : undefined })
   }

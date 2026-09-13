@@ -60,9 +60,12 @@ async function submit(easyTest = false) {
     }
     await navigateTo(`/my/submissions/${result.id}`)
   } catch (error) {
-    const failure = error as { statusCode?: number, data?: { data?: { code?: string } } }
+    const failure = error as { statusCode?: number, data?: { data?: { code?: string, retryAfter?: number } } }
     const code = failure.data?.data?.code
     if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
+    else if (code === 'submission_rate_limited') message.value = failure.data?.data?.retryAfter
+      ? `提出頻度制限に到達しました。${failure.data.data.retryAfter}秒後に再度試してください。`
+      : '提出頻度制限に到達しました。しばらく待ってから再度試してください。'
     else if (code === 'profile_required') message.value = 'プロフィールを登録してから提出してください。'
     else if (code === 'tests_not_ready') message.value = easyTest ? '「サンプルケースにする」をチェックしたケースがあることと、検証コード・言語の設定を確認してください。' : 'テストケース、検証コード、利用できる言語の設定を確認してください。'
     else if (code === 'judging_unavailable') message.value = 'ジャッジが設定されていません。'

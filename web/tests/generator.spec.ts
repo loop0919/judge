@@ -175,3 +175,15 @@ test('input validation reports each case without changing test data and persists
   await page.getByRole('button', { name: '検証する', exact: true }).click()
   await expect(page.locator('.generator [role=alert]')).toContainText('既存のテストケースの範囲')
 })
+
+test('generation frequency limit displays the wait time', async ({ page }) => {
+  await page.route('**/api/my/submissions', route => route.fulfill({ status: 429, json: { data: { code: 'submission_rate_limited', retryAfter: 75 } } }))
+  await page.goto('/problems/new')
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await page.getByRole('button', { name: '生成と検証', exact: true }).click()
+  await page.getByLabel('入力生成のコード', { exact: true }).fill('int main(){}')
+  await page.getByRole('button', { name: '生成する', exact: true }).click()
+  const alert = page.locator('.generator [role=alert]')
+  await expect(alert).toHaveText('提出頻度制限に到達しました。75秒後に再度試してください。')
+  await expect(alert).toHaveCSS('background-color', 'rgb(255, 243, 242)')
+})
