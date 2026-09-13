@@ -17,5 +17,5 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
   </article>
 </template>
 <style scoped>
-.post-page { max-width: 48rem; margin: 40px auto 80px; overflow-wrap: anywhere; }
+.post-page { margin: 40px 0 80px; overflow-wrap: anywhere; }
 </style>
