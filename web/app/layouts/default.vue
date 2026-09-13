@@ -16,7 +16,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
   <div class="site-shell" :class="{ 'site-shell--editor': route.meta.editorLayout }">
     <a class="skip-link" href="#main">本文へ移動</a>
     <header v-if="!route.meta.editorLayout" class="site-header">
-      <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
+      <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-beta">(β)</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
         <NuxtLink to="/">ホーム</NuxtLink>
         <NuxtLink to="/problems">問題</NuxtLink>
@@ -36,7 +36,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
     </header>
     <main id="main" tabindex="-1"><slot /></main>
     <footer v-if="!route.meta.editorLayout" class="site-footer">
-      <span class="wordmark">ShareOJ<span class="wordmark-alpha">(α)</span></span>
+      <span class="wordmark">ShareOJ<span class="wordmark-beta">(β)</span></span>
       <span>Share Online Judge</span>
     </footer>
   </div>

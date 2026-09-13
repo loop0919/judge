@@ -95,7 +95,7 @@ async function save() {
 <template>
   <div class="author-page contest-editor">
     <header class="editor-topbar">
-      <NuxtLink class="wordmark" to="/my" aria-label="ShareOJ マイページ">Share<span>OJ</span><span class="wordmark-alpha">(α)</span></NuxtLink>
+      <NuxtLink class="wordmark" to="/my" aria-label="ShareOJ マイページ">Share<span>OJ</span><span class="wordmark-beta">(β)</span></NuxtLink>
       <h1 class="visually-hidden">{{ contestId ? 'コンテスト編集' : 'コンテスト作成' }}</h1>
       <div v-show="section === 'description'" class="editor-view-switch" aria-label="表示の切り替え">
         <button type="button" class="editor-button" :aria-pressed="mode === 'edit'" aria-label="編集" title="編集" @click="mode = 'edit'"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg></button>
