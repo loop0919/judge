@@ -84,6 +84,8 @@ for (const width of [320, 375, 414, 768, 1280]) {
     const overflow = await page.evaluate(() => {
       const viewport = document.documentElement.clientWidth
       return [...document.querySelectorAll('body *')].filter(element => {
+        // Closed details can retain layout boxes even though their contents are not rendered.
+        if (!element.checkVisibility()) return false
         const rect = element.getBoundingClientRect()
         return rect.width > 0 && (rect.right > viewport + 1 || rect.left < -1)
       }).map(element => element.tagName + '.' + element.className)

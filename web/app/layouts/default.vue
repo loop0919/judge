@@ -44,7 +44,8 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
 
 <style scoped>
 .account-nav { min-width: 44px; min-height: 44px; justify-content: center; }
-.create-menu { position: relative; font-size: .875rem; }
+.site-header nav { position: relative; }
+.create-menu { font-size: .875rem; }
 .create-menu summary { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; list-style: none; color: var(--color-accent); }
 .create-menu summary::-webkit-details-marker { display: none; }
 .create-menu summary::after { content: '▾'; font-size: .75rem; }

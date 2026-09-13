@@ -1,5 +1,18 @@
 import { expect, test } from '@playwright/test'
 
+for (const width of [320, 375, 414, 768, 1280]) {
+  test(`creation dropdown fits ${width}px when open`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/')
+    await page.locator('.create-menu summary').click()
+    const menu = page.locator('.create-menu-links')
+    await expect(menu).toBeVisible()
+    const bounds = (await menu.boundingBox())!
+    expect(bounds.x).toBeGreaterThanOrEqual(0)
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width)
+  })
+}
+
 test('creation dropdown supports keyboard, dismissal, and creation links', async ({ page }) => {
   await page.goto('/')
   const nav = page.getByRole('navigation', { name: 'メインナビゲーション' })
