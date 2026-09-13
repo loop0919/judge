@@ -156,7 +156,7 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
  INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,contest_id,created_at,job)
   SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,NULLIF($9,'')::uuid,moment.now,
-  jsonb_build_object('image',$5::text,'easyTest',$8::boolean,'cases',selected_cases,'checker',selected_draft->'checker','interactor',selected_draft->'interactor',
+  jsonb_build_object('privateDraft',($9='' AND NOT EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=$3 AND p.published_draft IS NOT NULL)),'image',$5::text,'easyTest',$8::boolean,'cases',selected_cases,'checker',selected_draft->'checker','interactor',selected_draft->'interactor',
   'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
   FROM (

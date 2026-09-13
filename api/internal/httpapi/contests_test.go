@@ -206,6 +206,33 @@ func TestContestsPostgres(t *testing.T) {
 	request("GET", "/contests/"+cid+"/submissions", "", nil, 404)
 	request("GET", "/contests/"+cid+"/submissions/"+accepted.ID, "", nil, 404)
 	request("GET", "/my/submissions/"+accepted.ID, "carol", nil, 404)
+	// Lists are scoped on the server, and testers are not setters.
+	for _, viewer := range []string{"bob", "tester", "carol"} {
+		request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions", viewer, nil, 404)
+		request("GET", "/my/contests/"+cid+"/submissions/"+accepted.ID, viewer, nil, 404)
+	}
+	request("GET", "/contests/"+cid+"/problems/"+a+"/submissions", "", nil, 404)
+	request("GET", "/contests/"+cid+"/problems/"+a+"/submissions?mine=1", "", nil, 401)
+	request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions?mine=bad", "bob", nil, 400)
+	request("GET", "/my/contests/"+cid+"/problems/"+other+"/submissions?mine=1", "bob", nil, 404)
+	mine := request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions?mine=1", "bob", nil, 200)
+	if !strings.Contains(mine, accepted.ID) || strings.Contains(mine, unsolved.ID) || strings.Contains(mine, tied.ID) || strings.Contains(mine, "code of") || strings.Contains(mine, "private diagnostic") {
+		t.Fatal("mine filter/diagnostic", mine)
+	}
+	setter := request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions", "alice", nil, 200)
+	if !strings.Contains(setter, tied.ID) || !strings.Contains(setter, pre.ID) || strings.Contains(setter, unsolved.ID) || strings.Contains(setter, easy.ID) {
+		t.Fatal("setter problem filter", setter)
+	}
+	request("GET", "/my/contests/"+cid+"/submissions", "alice", nil, 200)
+	setter = request("GET", "/my/contests/"+cid+"/submissions/"+accepted.ID, "alice", nil, 200)
+	if !strings.Contains(setter, "code of bob") || strings.Contains(setter, "private diagnostic") {
+		t.Fatal("setter source", setter)
+	}
+	// Normal problem routes cannot bypass the contest embargo.
+	request("GET", "/problems/"+a+"/submissions", "", nil, 404)
+	request("GET", "/my/problems/"+a+"/submissions", "bob", nil, 404)
+	request("GET", "/problems/"+a+"/submissions/"+accepted.ID, "", nil, 404)
+	request("GET", "/my/problems/"+a+"/submissions/"+accepted.ID, "bob", nil, 404)
 	// Stop at 50 minutes, then finish a previously queued submission.
 	end = start.Add(50 * time.Minute)
 	delayed := submit("carol", b, false)
@@ -251,11 +278,72 @@ func TestContestsPostgres(t *testing.T) {
 	if strings.Contains(list, "code of") || !strings.Contains(list, accepted.ID) {
 		t.Fatal(list)
 	}
+	list = request("GET", "/contests/"+cid+"/problems/"+a+"/submissions", "", nil, 200)
+	if !strings.Contains(list, accepted.ID) || !strings.Contains(list, tied.ID) || strings.Contains(list, unsolved.ID) || strings.Contains(list, pre.ID) {
+		t.Fatal("ended problem filter", list)
+	}
+	request("GET", "/contests/"+cid+"/problems/"+a+"/submissions?offset=-1", "", nil, 400)
+	list = request("GET", "/problems/"+a+"/submissions", "", nil, 200)
+	if !strings.Contains(list, accepted.ID) || strings.Contains(list, pre.ID) || strings.Contains(list, "code of") {
+		t.Fatal("normal problem list", list)
+	}
+	request("GET", "/problems/"+a+"/submissions/"+accepted.ID, "", nil, 200)
+	request("GET", "/problems/"+b+"/submissions/"+accepted.ID, "", nil, 404)
+	request("GET", "/problems/"+a+"/submissions/"+pre.ID, "", nil, 404)
+	request("GET", "/problems/"+b+"/submissions/"+easy.ID, "", nil, 404)
+	request("GET", "/problems/"+a+"/submissions?mine=1", "", nil, 401)
 	// Becoming a tester on either problem removes the user from the entire official table.
 	exec(`INSERT INTO problem_testers(problem_id,owner_id) VALUES($1,'bob')`, b)
 	if rows = rank(); len(rows) != 1 || rows[0].Handle != "carol" {
 		t.Fatal(rows)
 	}
 	// Ordinary practice works after automatic publication, without contest context.
-	request("POST", "/my/submissions", "bob", map[string]any{"problemId": a, "runtime": "cpp17", "source": "practice"}, 202)
+	normal := request("POST", "/my/submissions", "bob", map[string]any{"problemId": a, "runtime": "cpp17", "source": "practice"}, 202)
+	var practiceNormal submissions.Submission
+	json.Unmarshal([]byte(normal), &practiceNormal)
+	list = request("GET", "/problems/"+a+"/submissions", "", nil, 200)
+	if !strings.Contains(list, practiceNormal.ID) {
+		t.Fatal("missing practice", list)
+	}
+	list = request("GET", "/my/problems/"+a+"/submissions?mine=1", "bob", nil, 200)
+	if !strings.Contains(list, practiceNormal.ID) || !strings.Contains(list, accepted.ID) || strings.Contains(list, tied.ID) {
+		t.Fatal("normal mine filter", list)
+	}
+	list = request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions?mine=1", "bob", nil, 200)
+	if strings.Contains(list, practiceNormal.ID) {
+		t.Fatal("practice outside contest", list)
+	}
+	request("GET", "/problems/"+a+"/submissions/"+practiceNormal.ID, "", nil, 200)
+	// Simulate upgrading an old submission without its privacy marker.
+	exec(`UPDATE submissions SET job=job-'privateDraft' WHERE id=$1`, practiceNormal.ID)
+	exec(`DELETE FROM schema_migrations WHERE version=13; DROP INDEX submissions_problem_order`)
+	if err = store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	request("GET", "/problems/"+a+"/submissions/"+practiceNormal.ID, "", nil, 200)
+	// Updating the public problem must not remove earlier public submissions.
+	exec(`UPDATE problem_drafts SET published_at=clock_timestamp() WHERE id=$1`, a)
+	request("GET", "/problems/"+a+"/submissions/"+practiceNormal.ID, "", nil, 200)
+	// Older ordinary draft submissions remain private even after publication.
+	exec(`UPDATE submissions SET created_at=$2,job=job || '{"privateDraft":true}'::jsonb WHERE id=$1`, practiceNormal.ID, start.Add(-time.Minute))
+	request("GET", "/problems/"+a+"/submissions/"+practiceNormal.ID, "", nil, 404)
+	request("GET", "/my/submissions/"+practiceNormal.ID, "bob", nil, 200)
+	// Pagination is applied after the problem and owner filters.
+	exec(`INSERT INTO submissions(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
+      SELECT gen_random_uuid(),'bob',$1,1,'practice','cpp17-local','code','{}'::jsonb FROM generate_series(1,51)`, a)
+	var firstPage, nextPage submissions.ContestSubmissionList
+	json.Unmarshal([]byte(request("GET", "/my/problems/"+a+"/submissions?mine=1", "bob", nil, 200)), &firstPage)
+	json.Unmarshal([]byte(request("GET", "/my/problems/"+a+"/submissions?mine=1&offset=50", "bob", nil, 200)), &nextPage)
+	if len(firstPage.Items) != 50 || !firstPage.HasMore || len(nextPage.Items) == 0 || nextPage.HasMore {
+		t.Fatal("pagination", firstPage, nextPage)
+	}
+	seen := map[string]bool{}
+	for _, item := range firstPage.Items {
+		seen[item.ID] = true
+	}
+	for _, item := range nextPage.Items {
+		if seen[item.ID] {
+			t.Fatal("overlapping pages", item.ID)
+		}
+	}
 }

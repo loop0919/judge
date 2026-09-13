@@ -81,7 +81,7 @@ func (p PrivateProblems) contest(w http.ResponseWriter, r *http.Request, owner s
 		if err == nil {
 			result, err = p.Contests.Get(r.Context(), id, owner)
 		}
-	case r.PathValue("problem") != "":
+	case r.PathValue("problem") != "" && !strings.HasSuffix(r.URL.Path, "/submissions"):
 		pid := r.PathValue("problem")
 		if !problemID.MatchString(pid) {
 			authError(w, 404, "problem_not_found")
@@ -101,7 +101,7 @@ func (p PrivateProblems) contest(w http.ResponseWriter, r *http.Request, owner s
 				authError(w, 404, "submission_not_found")
 				return
 			}
-			result, err = p.Submissions.ContestGet(r.Context(), id, sid)
+			result, err = p.Submissions.ContestGet(r.Context(), id, sid, owner)
 		} else {
 			offset := 0
 			if raw := r.URL.Query().Get("offset"); raw != "" {
@@ -111,7 +111,19 @@ func (p PrivateProblems) contest(w http.ResponseWriter, r *http.Request, owner s
 					return
 				}
 			}
-			result, err = p.Submissions.ContestList(r.Context(), id, offset)
+			if pid := r.PathValue("problem"); pid != "" {
+				if !problemID.MatchString(pid) {
+					authError(w, 404, "problem_not_found")
+					return
+				}
+				mine, ok := submissionMine(w, r, owner)
+				if !ok {
+					return
+				}
+				result, err = p.Submissions.ProblemList(r.Context(), pid, id, owner, mine, offset)
+			} else {
+				result, err = p.Submissions.ContestList(r.Context(), id, owner, offset)
+			}
 		}
 	default:
 		result, err = p.Contests.Get(r.Context(), id, owner)

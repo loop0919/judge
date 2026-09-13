@@ -86,6 +86,9 @@ func (p PrivateProblems) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /my/contests/{id}", p.handle)
 	mux.HandleFunc("PUT /my/contests/{id}", p.handle)
 	mux.HandleFunc("GET /my/contests/{id}/problems/{problem}", p.handle)
+	mux.HandleFunc("GET /my/contests/{id}/problems/{problem}/submissions", p.handle)
+	mux.HandleFunc("GET /my/contests/{id}/submissions", p.handle)
+	mux.HandleFunc("GET /my/contests/{id}/submissions/{submission}", p.handle)
 	mux.HandleFunc("GET /my/favorites/{id}", p.handle)
 	mux.HandleFunc("PUT /my/favorites/{id}", p.handle)
 	mux.HandleFunc("POST /my/submissions", p.handle)
@@ -102,6 +105,8 @@ func (p PrivateProblems) register(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /my/profile", p.handle)
 	mux.HandleFunc("GET /my/problems", p.handle)
 	mux.HandleFunc("GET /my/problems/{id}", p.handle)
+	mux.HandleFunc("GET /my/problems/{id}/submissions", p.handle)
+	mux.HandleFunc("GET /my/problems/{id}/submissions/{submission}", p.handle)
 	mux.HandleFunc("PUT /my/problems/{id}", p.handle)
 	mux.HandleFunc("DELETE /my/problems/{id}", p.handle)
 	mux.HandleFunc("POST /my/problems/{id}/test-files", p.handle)
@@ -151,6 +156,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/contests") {
 		p.contest(w, r.WithContext(ctx), owner)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/problems/") && strings.Contains(r.URL.Path, "/submissions") {
+		p.problemSubmissions(w, r.WithContext(ctx), owner)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/favorites/") {

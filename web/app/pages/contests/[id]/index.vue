@@ -10,17 +10,18 @@ const activeView = computed(() => {
   const view = route.query.view
   return view === 'problems' || view === 'standings' || view === 'submissions' ? view : 'overview'
 })
-const { user } = useAccount()
+const { user, profile } = useAccount()
 const base = `/api/contests/${encodeURIComponent(String(route.params.id))}`
 const { data: contest, error, refresh } = await useFetch<Contest>(base)
 if (error.value || !contest.value) throw createError({ statusCode: error.value?.statusCode === 404 ? 404 : 502, statusMessage: 'コンテストを取得できませんでした', fatal: true })
 useSeoMeta({ title: () => `${contest.value?.title} | ShareOJ` })
 const { data: standings, error: standingsError, refresh: refreshStandings } = await useFetch<Standing[]>(`${base}/standings`)
+const canViewSubmissions = computed(() => contest.value?.status === 'ended' || (profile.value?.handle !== undefined && profile.value.handle === contest.value?.author))
 const submissions = ref<{ items: Submission[], hasMore: boolean } | null>(null)
 const submissionsError = ref('')
 const offset = ref(0)
 async function loadSubmissions() {
-  if (activeView.value !== 'submissions' || contest.value?.status !== 'ended') return
+  if (activeView.value !== 'submissions' || !canViewSubmissions.value) return
   try { submissions.value = await $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query: { offset: offset.value } }); submissionsError.value = '' }
   catch { submissionsError.value = '提出一覧を取得できませんでした。' }
 }
@@ -32,7 +33,7 @@ async function update() {
   finally { updating.value = false }
 }
 watch(() => user.value?.id, () => { void refresh() })
-watch([offset, activeView], () => { void loadSubmissions() })
+watch([offset, activeView, canViewSubmissions], () => { void loadSubmissions() })
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => { void loadSubmissions(); timer = setInterval(() => { if (!document.hidden) void update() }, 15000) })
 onBeforeUnmount(() => clearInterval(timer))
@@ -79,8 +80,8 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     </section>
     <section v-if="activeView === 'submissions'" id="submissions" class="contest-section" aria-labelledby="submissions-title">
       <h2 id="submissions-title">提出一覧</h2>
-      <p v-if="contest.status !== 'ended'" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。</p>
-      <template v-else><p class="muted">終了後は提出コードを閲覧できます。練習提出も掲載します。</p>
+      <p v-if="!canViewSubmissions" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。終了前はコンテストセッターのみ閲覧できます。</p>
+      <template v-else><p class="muted">提出コードを閲覧できます。練習提出も掲載します。</p>
       <p v-if="submissionsError" class="field-error" role="alert">{{ submissionsError }}</p>
       <p v-if="!submissions && !submissionsError" class="muted" role="status">提出一覧を読み込み中…</p>
       <template v-if="submissions"><p v-if="!submissions.items.length" class="contest-empty muted">提出はまだありません。</p><div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0"><table class="content-table"><thead><tr><th scope="col">問題</th><th scope="col">ユーザー</th><th scope="col">結果</th><th scope="col">提出日時（日本時間）</th></tr></thead><tbody><tr v-for="s in submissions.items" :key="s.id"><th scope="row"><NuxtLink :to="`/contests/${contest.id}/submissions/${s.id}`">{{ s.problemTitle }}</NuxtLink></th><td>{{ s.author }}</td><td><SubmissionStatus :item="s" /></td><td>{{ contestDate(s.createdAt) }}<span v-if="new Date(s.createdAt) >= new Date(contest.endsAt)"> · 練習</span></td></tr></tbody></table></div><ContentPagination :index="offset / 50" :has-next="submissions.hasMore" :loading="updating" @move="direction => offset += direction * 50" /></template>

@@ -15,10 +15,10 @@ func publicSubmission(s Submission) Submission {
 }
 
 const contestPublic = `contest_id=$1 AND NOT COALESCE((job->>'easyTest')::boolean,false)
- AND EXISTS(SELECT 1 FROM contests c WHERE c.id=$1 AND statement_timestamp()>=c.ends_at AND submissions.created_at>=c.starts_at)`
+ AND EXISTS(SELECT 1 FROM contests c WHERE c.id=$1 AND (c.owner_id=$3 OR (statement_timestamp()>=c.ends_at AND submissions.created_at>=c.starts_at)))`
 
-func (s *Store) ContestGet(ctx context.Context, contestID, id string) (Submission, error) {
-	item, err := scan(s.Pool.QueryRow(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` AND id=$2`, contestID, id))
+func (s *Store) ContestGet(ctx context.Context, contestID, id, viewer string) (Submission, error) {
+	item, err := scan(s.Pool.QueryRow(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` AND id=$2`, contestID, id, viewer))
 	return publicSubmission(item), err
 }
 
@@ -27,19 +27,23 @@ type ContestSubmissionList struct {
 	HasMore bool         `json:"hasMore"`
 }
 
-func (s *Store) ContestList(ctx context.Context, contestID string, offset int) (ContestSubmissionList, error) {
+func (s *Store) ContestList(ctx context.Context, contestID, viewer string, offset int) (ContestSubmissionList, error) {
 	var ended bool
-	err := s.Pool.QueryRow(ctx, `SELECT statement_timestamp()>=ends_at FROM contests WHERE id=$1`, contestID).Scan(&ended)
+	err := s.Pool.QueryRow(ctx, `SELECT statement_timestamp()>=ends_at OR owner_id=$2 FROM contests WHERE id=$1`, contestID, viewer).Scan(&ended)
 	if err != nil {
 		return ContestSubmissionList{}, err
 	}
 	if !ended {
 		return ContestSubmissionList{}, pgx.ErrNoRows
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` ORDER BY created_at DESC,id DESC LIMIT 51 OFFSET $2`, contestID, offset)
+	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` ORDER BY created_at DESC,id DESC LIMIT 51 OFFSET $2`, contestID, offset, viewer)
 	if err != nil {
 		return ContestSubmissionList{}, err
 	}
+	return submissionList(rows)
+}
+
+func submissionList(rows pgx.Rows) (ContestSubmissionList, error) {
 	items, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Submission, error) {
 		item, e := scan(row)
 		item = publicSubmission(item)
