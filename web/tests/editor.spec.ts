@@ -6,7 +6,7 @@ test('creation page has noindex and is linked from navigation', async ({ page, r
   expect(await response.text()).toContain('name="robots" content="noindex, nofollow"')
   await page.goto('/')
   await page.getByRole('navigation', { name: 'メインナビゲーション' }).getByRole('link', { name: 'マイページ' }).click()
-  await page.getByRole('link', { name: '新しい問題を作成' }).click()
+  await page.getByRole('main').getByRole('link', { name: '新規問題' }).click()
   await expect(page).toHaveTitle('問題を作成 | ShareOJ')
   await expect(page.getByLabel('問題のタイトル', { exact: true })).toBeEnabled()
   await expect(page.locator('#memory-limit')).toHaveValue('512')

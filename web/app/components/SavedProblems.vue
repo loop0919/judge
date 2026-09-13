@@ -28,7 +28,7 @@ onMounted(() => { void loadAccount() })
   <section class="draft-library">
     <header class="draft-library-heading">
       <div><h2>作成した問題</h2></div>
-      <NuxtLink class="editor-button primary" to="/problems/new?fresh=1">新しい問題を作成</NuxtLink>
+      <NuxtLink class="editor-button primary" to="/problems/new?fresh=1">新規問題</NuxtLink>
     </header>
     <p v-if="accountMessage" role="alert" class="editor-error">{{ accountMessage }}</p>
     <p v-if="accountLoading" role="status">問題を読み込んでいます…</p>

@@ -4,7 +4,7 @@ test('multiple drafts remain independent and reopen from the library', async ({ 
   await page.goto('/my/problems')
   await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
   for (const title of ['最初の問題', '次の問題']) {
-    await page.getByRole('link', { name: '新しい問題を作成' }).click()
+    await page.getByRole('main').getByRole('link', { name: '新規問題' }).click()
     await page.locator('#problem-title').fill(title)
     await page.getByRole('button', { name: '保存', exact: true }).click()
     await expect(page).toHaveURL(/problem=/)

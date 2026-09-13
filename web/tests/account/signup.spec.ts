@@ -41,7 +41,7 @@ test('registers, resumes confirmation, resends code and logs in to save a proble
   await page.getByLabel('ユーザーID', { exact: true }).fill(`user_${Date.now()}`)
   await page.getByRole('button', { name: '登録してはじめる' }).click()
   await expect(page).toHaveURL('/my')
-  await page.getByRole('link', { name: '新しい問題を作成' }).click()
+  await page.getByRole('main').getByRole('link', { name: '新規問題' }).click()
   await page.locator('#problem-title').fill('新規ユーザーの問題')
   await expect(page.getByRole('status')).toHaveText('保存済み')
   await page.getByRole('link', { name: 'ShareOJ ホーム', exact: true }).click()

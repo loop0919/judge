@@ -1,5 +1,13 @@
 <script setup lang="ts">
 const route = useRoute()
+const createMenu = ref<HTMLDetailsElement>()
+function closeCreateMenu() { if (createMenu.value) createMenu.value.open = false }
+function onOutsideClick(event: MouseEvent) {
+  if (event.target instanceof Node && !createMenu.value?.contains(event.target)) closeCreateMenu()
+}
+onMounted(() => document.addEventListener('click', onOutsideClick))
+onBeforeUnmount(() => document.removeEventListener('click', onOutsideClick))
+watch(() => route.fullPath, closeCreateMenu)
 const { user, profile, refreshAccount, refreshProfile } = useAccount()
 onMounted(() => { void refreshAccount().then(account => { if (account) return refreshProfile() }).catch(() => {}) })
 </script>
@@ -13,6 +21,13 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
         <NuxtLink to="/">ホーム</NuxtLink>
         <NuxtLink to="/problems">問題</NuxtLink>
         <NuxtLink to="/blog">ブログ</NuxtLink>
+        <details ref="createMenu" class="create-menu" @keydown.esc.prevent="closeCreateMenu(); createMenu?.querySelector('summary')?.focus()">
+          <summary>作成</summary>
+          <div class="create-menu-links" @click="closeCreateMenu">
+            <NuxtLink to="/problems/new?fresh=1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 6-6 6 6 6m10-12 6 6-6 6M14 4l-4 16" /></svg>新規問題</NuxtLink>
+            <NuxtLink to="/blog/new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z" /><path d="m13 6 5 5" /></svg>新規記事</NuxtLink>
+          </div>
+        </details>
         <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
       </nav>
@@ -27,4 +42,11 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
 
 <style scoped>
 .account-nav { min-width: 44px; min-height: 44px; justify-content: center; }
+.create-menu { position: relative; font-size: .875rem; }
+.create-menu summary { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; list-style: none; color: var(--color-accent); }
+.create-menu summary::-webkit-details-marker { display: none; }
+.create-menu summary::after { content: '▾'; font-size: .75rem; }
+.create-menu-links { position: absolute; right: 0; top: 100%; z-index: 20; display: grid; min-width: max-content; padding: 6px; background: var(--color-paper); border: 1px solid var(--color-line); border-radius: 6px; box-shadow: 0 4px 12px #0001; }
+.create-menu-links a { gap: 8px; padding: 0 12px; }
+.create-menu-links a:hover, .create-menu-links a:focus-visible { background: var(--color-surface); }
 </style>

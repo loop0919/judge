@@ -17,7 +17,7 @@ onMounted(() => { void load() })
 </script>
 <template>
   <section class="draft-library">
-    <header class="draft-library-heading"><h2>作成した記事</h2><NuxtLink class="editor-button primary" to="/blog/new">記事を書く</NuxtLink></header>
+    <header class="draft-library-heading"><h2>作成した記事</h2><NuxtLink class="editor-button primary" to="/blog/new">新規記事</NuxtLink></header>
     <p v-if="error" role="alert">{{ error }}</p><button v-if="error" class="editor-button" @click="load()">再試行</button>
     <p v-if="loading" role="status">記事を読み込んでいます…</p>
     <p v-else-if="!posts.length && !error" class="muted">保存した記事はまだありません。</p>
