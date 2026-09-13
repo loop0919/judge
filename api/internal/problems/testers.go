@@ -55,3 +55,10 @@ func (s *Store) TesterInvitation(ctx context.Context, actor, token string, accep
 	}
 	return invitation, tx.Commit(ctx)
 }
+
+// Testers returns public handles after the caller has checked problem access.
+func (s *Store) Testers(ctx context.Context, id string) ([]string, error) {
+	handles := []string{}
+	err := s.pool.QueryRow(ctx, `SELECT ARRAY(SELECT u.handle FROM problem_testers t JOIN user_profiles u ON u.owner_id=t.owner_id WHERE t.problem_id=$1 ORDER BY u.handle)`, id).Scan(&handles)
+	return handles, err
+}

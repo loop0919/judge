@@ -63,6 +63,7 @@ type TestFile struct {
 }
 
 type Problem struct {
+	Testers          []string  `json:"testers,omitempty"`
 	ContestID        string    `json:"contestId,omitempty"`
 	Author           string    `json:"author"`
 	PublishedVersion int64     `json:"publishedVersion"`
@@ -123,7 +124,12 @@ func scan(row pgx.Row) (Problem, error) {
 }
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Problem, error) {
-	return scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),''),COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'') FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2`, owner, id))
+	p, err := scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),''),COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'') FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2`, owner, id))
+	if err != nil {
+		return p, err
+	}
+	p.Testers, err = s.Testers(ctx, id)
+	return p, err
 }
 
 // List returns at most 51 rows; the HTTP layer exposes 50 and a next cursor.

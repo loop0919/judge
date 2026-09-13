@@ -27,7 +27,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
       <p v-if="problem.isPrivate" class="muted">非公開 · 作成者とテスターが閲覧・提出できます。</p>
       <div class="problem-summary">
         <div class="problem-meta muted">
-          <p>作成者 {{ problem.author }}</p>
+          <p>作成者 {{ problem.author }}</p><p v-if="problem.testers?.length">テスター {{ problem.testers.join('、') }}</p>
           <p>難易度（作成者設定） <DifficultyBadge :level="problem.difficulty" /></p>
         </div>
         <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />

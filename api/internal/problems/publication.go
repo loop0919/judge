@@ -10,6 +10,7 @@ import (
 )
 
 type PublicProblem struct {
+	Testers       []string  `json:"testers,omitempty"`
 	Difficulty    *int      `json:"difficulty"`
 	FavoriteCount int64     `json:"favoriteCount"`
 	Interactive   bool      `json:"interactive,omitempty"`
@@ -85,7 +86,8 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 	p.MemoryLimitMB = d.MemoryLimitMB
 	p.SpecialJudge = d.Checker != nil
 	p.Interactive = d.Interactor != nil
-	return p, nil
+	p.Testers, err = s.Testers(ctx, id)
+	return p, err
 }
 
 func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem, error) {

@@ -134,6 +134,9 @@ func TestTesterInvitationsPostgres(t *testing.T) {
 	}
 	request("GET", "/my/problems?role=invalid", "bob", nil, 400)
 	got := request("GET", path, "bob", nil, 200)
+	if !strings.Contains(got, `"testers":["bob"]`) {
+		t.Fatal("missing tester attribution: " + got)
+	}
 	if !strings.Contains(got, `"author":"alice"`) {
 		t.Fatal("author attribution changed: " + got)
 	}
@@ -156,6 +159,9 @@ func TestTesterInvitationsPostgres(t *testing.T) {
 	}
 	request("PUT", path+"/publication", "bob", map[string]any{"version": 2, "publish": true}, 200)
 	public := request("GET", "/problems/"+a, "", nil, 200)
+	if !strings.Contains(public, `"testers":["bob"]`) {
+		t.Fatal("missing public tester attribution: " + public)
+	}
 	if !strings.Contains(public, `"author":"alice"`) {
 		t.Fatal("publication changed author")
 	}

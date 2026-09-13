@@ -246,5 +246,6 @@ func (s *Store) Problem(ctx context.Context, id, pid, viewer string) (problems.P
 	if editorial {
 		p.Editorial = d.Editorial
 	}
-	return p, nil
+	p.Testers, err = problems.New(s.Pool).Testers(ctx, pid)
+	return p, err
 }
