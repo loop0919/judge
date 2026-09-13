@@ -45,7 +45,7 @@ test('checker languages match submissions and settings survive saving and reload
   await page.getByRole('button', { name: '判定方法', exact: true }).click()
   await expect(page.getByLabel('検証コードの言語')).toHaveValue('python314')
   await expect(page.getByLabel('検証コード', { exact: true })).toContainText('assert int(sys.stdin.read()) == 7')
-  await expect(page.locator('#submission-language option')).toHaveText(['C++17', 'Python'])
+  await expect(page.locator('#submission-language option')).toHaveText(['-- 未選択 --', 'C++17', 'Python'])
   await page.screenshot({ path: testInfo.outputPath('checker-desktop.png'), fullPage: true })
   await page.setViewportSize({ width: 375, height: 900 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
