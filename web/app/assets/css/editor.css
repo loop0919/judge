@@ -236,3 +236,6 @@
 @media (prefers-reduced-motion: reduce) {
   .save-spinner { animation: none; }
 }
+
+/* Links used as actions share the button layout, including height and padding. */
+a.editor-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }

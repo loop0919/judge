@@ -67,6 +67,15 @@ test('create, reorder and edit an unpublished contest; guests cannot inspect its
   expect(saved.problems.map((p: { id: string }) => p.id)).toEqual([second, first])
   expect(saved.penaltyMinutes).toBe(5)
   await expect(page.getByRole('heading', { name: '開催案内', exact: true })).toBeVisible()
+  for (const width of [1280, 320, 375, 414, 768]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`contest-detail-${width}.png`), fullPage: true })
+  }
+  const contestMenu = page.getByRole('navigation', { name: 'コンテストメニュー' })
+  await contestMenu.getByRole('link', { name: '順位表', exact: true }).click()
+  await expect(contestMenu.getByRole('link', { name: '順位表', exact: true })).toHaveAttribute('aria-current', 'location')
+  await expect(page.getByRole('heading', { name: '公式順位表', exact: true })).toBeInViewport()
   await page.getByRole('link', { name: 'コンテストを編集', exact: true }).click()
   await page.getByRole('button', { name: 'コンテスト設定', exact: true }).click()
   await page.getByLabel('誤答ペナルティ（分）').fill('0')
@@ -129,8 +138,19 @@ test('scheduled problems open for submission, then publish with editorial and so
   await expect.poll(async () => (await guest.request.get(`/api/problems/${pid}`)).status(), { timeout: 25000 }).toBe(200)
   await reader.goto(`/contests/${id}/problems/${pid}?view=editorial`)
   await expect(reader.getByRole('heading', { name: 'コンテスト解説', exact: true })).toBeVisible()
+  await expect(reader.getByRole('navigation', { name: '問題メニュー' }).getByRole('link', { name: '解説', exact: true })).toHaveAttribute('aria-current', 'page')
+  for (const width of [320, 375, 414, 768]) {
+    await reader.setViewportSize({ width, height: 900 })
+    expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await reader.screenshot({ path: testInfo.outputPath(`contest-editorial-${width}.png`), fullPage: true })
+  }
   await reader.goto(`/contests/${id}/submissions/${sid}`)
   await expect(reader.locator('pre')).toContainText('int main(){}')
+  for (const width of [320, 375, 414, 768]) {
+    await reader.setViewportSize({ width, height: 900 })
+    expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await reader.screenshot({ path: testInfo.outputPath(`contest-submission-${width}.png`), fullPage: true })
+  }
   await reader.goto(`/contests/${id}`)
   await expect(reader.getByText('コンテストは終了しました。以降の提出は練習扱いです。')).toBeVisible()
   await guest.close()

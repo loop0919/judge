@@ -49,15 +49,5 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </template>
 
 <style scoped>
-.problem-body { max-width: 52rem; padding-block: 32px 64px; }
-.problem-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-bottom: 12px; }
-.problem-summary > .favorite-control { margin: 0 0 0 auto; }
-.problem-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
-.problem-meta p { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; overflow-wrap: anywhere; min-width: 0; }
-.problem-header h1 { overflow-wrap: anywhere; }
-.problem-menu { display: flex; flex-wrap: wrap; gap: 24px; border-bottom: 1px solid var(--color-line); }
-.problem-menu a { display: inline-flex; align-items: center; min-height: 48px; padding: 10px 4px; border-bottom: 2px solid transparent; color: var(--color-muted); font-size: .875rem; text-decoration: none; }
-.problem-menu a[aria-current="page"] { border-bottom-color: var(--color-accent); color: var(--color-accent); font-weight: 600; }
-.problem-menu a:hover { color: var(--color-accent); background: var(--color-accent-soft); }
 .notice { margin-top: 32px; }
 </style>
