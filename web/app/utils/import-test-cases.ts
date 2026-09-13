@@ -1,9 +1,21 @@
 import { testCaseError, testFileLimit, testSetLimit, type TestCase } from './problem-draft'
 
+export function mergeTestCases(existing: TestCase[], imported: TestCase[]): TestCase[] {
+  const replacements = new Map(imported.map(item => [item.name?.trim(), item]))
+  const merged = existing.map(item => {
+    const name = item.name?.trim()
+    const replacement = replacements.get(name)
+    replacements.delete(name)
+    return replacement ?? item
+  })
+  return [...merged, ...replacements.values()]
+}
+
 export async function importTestCases(inputs: File[], outputs: File[], existing: TestCase[]): Promise<TestCase[]> {
   const pairs = new Map<string, { input?: File, output?: File }>()
   const encoder = new TextEncoder()
-  let total = existing.reduce((sum, item) => sum + (['input', 'output'] as const).reduce((size, key) => size + (item[`${key}File`] && !item[`_${key}Dirty`] ? item[`${key}File`]!.size : encoder.encode(item[key]).length), 0), 0)
+  const incomingNames = new Set(inputs.map(file => file.name.trim()))
+  let total = existing.filter(item => !incomingNames.has(item.name?.trim() ?? '')).reduce((sum, item) => sum + (['input', 'output'] as const).reduce((size, key) => size + (item[`${key}File`] && !item[`_${key}Dirty`] ? item[`${key}File`]!.size : encoder.encode(item[key]).length), 0), 0)
   for (const { file, key } of [...inputs.map(file => ({ file, key: 'input' as const })), ...outputs.map(file => ({ file, key: 'output' as const }))]) {
     if (!/^.+\.txt$/.test(file.name)) throw new Error('フォルダには .txt ファイルだけを入れてください。')
     const name = file.name
@@ -16,7 +28,7 @@ export async function importTestCases(inputs: File[], outputs: File[], existing:
     pairs.set(name, pair)
   }
   const imported = [...pairs.keys()].map(name => ({ name, input: '', output: '' }))
-  const error = testCaseError([...existing, ...imported])
+  const error = testCaseError(imported) || testCaseError(mergeTestCases(existing, imported))
   if (error) throw new Error(error)
   for (const [name, pair] of pairs) {
     if (!pair.input || !pair.output) throw new Error(`「${name}」の入力と期待出力を両方のフォルダに用意してください。空データの場合も空のファイルが必要です。`)
@@ -33,7 +45,7 @@ export async function importTestCases(inputs: File[], outputs: File[], existing:
       }
     }
   }
-  const contentError = testCaseError([...existing, ...imported])
+  const contentError = testCaseError(mergeTestCases(existing, imported))
   if (contentError) throw new Error(contentError)
   return imported
 }

@@ -150,7 +150,6 @@ test('bulk folder import pairs names, persists data, and rejects invalid batches
     await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
     await page.getByText('フォルダから一括追加', { exact: true }).click()
     const batches = [
-      { inputs: { 'sum.txt': '9' }, outputs: { 'sum.txt': '9' }, error: '重複' },
       { inputs: { 'missing.txt': '1' }, outputs: { 'other.txt': '' }, error: '両方' },
       { inputs: { 'bad.txt': Buffer.from([0xff]) }, outputs: { 'bad.txt': '' }, error: 'UTF-8' },
       { inputs: { 'bad.txt': '\0' }, outputs: { 'bad.txt': '' }, error: '使用できない文字' },
@@ -164,10 +163,37 @@ test('bulk folder import pairs names, persists data, and rejects invalid batches
       await expect(page.locator('.case-files li')).toHaveCount(2)
       await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
     }
-    await select({ 'next.txt': '2' }, { 'next.txt': '4' })
+    await select({ 'sum.txt': '9', 'next.txt': '2' }, { 'next.txt': '4', 'sum.txt': '18' })
     await expect(page.locator('.case-files li')).toHaveCount(3)
     await expect(page.locator('.test-case-editor [role=alert]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+    await expect(page.getByLabel('入力', { exact: true })).toHaveText('9')
+    await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
+    await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
+    await page.reload()
+    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+    await expect(page.locator('.case-files li')).toHaveCount(3)
+    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+    await expect(page.getByLabel('入力', { exact: true })).toHaveText('9')
+    await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('bulk overwrite preserves order, replaces stored files, and validates before mutation', async () => {
+  const { importTestCases, mergeTestCases } = await import('../app/utils/import-test-cases')
+  const file = (name: string, value = '') => new File([value], name)
+  const storedFile = { id: '33333333-3333-4333-8333-333333333333', size: 16 << 20, sha256: 'a'.repeat(64) }
+  const existing = Array.from({ length: 100 }, (_, i) => ({ name: `${i}.txt`, input: '', output: '', ...(i < 16 ? { inputFile: storedFile, outputFile: storedFile } : {}) }))
+  const snapshot = JSON.stringify(existing)
+  const imported = await importTestCases([file('0.txt', '9')], [file('0.txt', '18')], existing)
+  const merged = mergeTestCases(existing, imported)
+  expect(merged).toHaveLength(100)
+  expect(merged[0]).toEqual({ name: '0.txt', input: '9', output: '18' })
+  expect(merged.slice(1)).toEqual(existing.slice(1))
+  await expect(importTestCases([file('0.txt', '\0')], [file('0.txt')], existing)).rejects.toThrow('使用できない文字')
+  await expect(importTestCases([file('0.txt')], [file('other.txt')], existing)).rejects.toThrow()
+  await expect(importTestCases([file('0.txt'), file('0.txt')], [file('0.txt')], existing)).rejects.toThrow('重複')
+  expect(JSON.stringify(existing)).toBe(snapshot)
 })

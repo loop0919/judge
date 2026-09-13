@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { testCaseError, type TestCase } from '~/utils/problem-draft'
 import { downloadTestFile } from '~/utils/test-files'
-import { importTestCases } from '~/utils/import-test-cases'
+import { importTestCases, mergeTestCases } from '~/utils/import-test-cases'
 const cases = defineModel<TestCase[]>({ required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string }>()
 const error = computed(() => testCaseError(cases.value))
@@ -26,12 +26,13 @@ async function importFiles() {
   try {
     const imported = await importTestCases(inputFiles.value, outputFiles.value, cases.value)
     if (props.disabled) throw new Error('現在は取り込めません。もう一度選択してください。')
-    const validation = testCaseError([...cases.value, ...imported])
+    const merged = mergeTestCases(cases.value, imported)
+    const validation = testCaseError(merged)
     if (validation) throw new Error(validation)
-    const first = cases.value.length
-    cases.value = [...cases.value, ...imported]
-    selected.value = first
-    importStatus.value = `${imported.length}件のテストケースを追加しました。`
+    const added = merged.length - cases.value.length
+    cases.value = merged
+    selected.value = merged.indexOf(imported[0]!)
+    importStatus.value = `${added}件追加、${imported.length - added}件上書きしました。`
   } catch (error) {
     importError.value = error instanceof Error ? error.message : 'ファイルを読み込めませんでした。'
   } finally {
@@ -80,10 +81,10 @@ function add() {
     </header>
     <div class="case-notes">
       <details class="bulk-import"><summary>フォルダから一括追加</summary>
-        <p>入力用・期待出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は追加できません。</p>
+        <p>入力用・期待出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は入力・期待出力を上書きし、新しい名前は追加します。</p>
         <label>入力フォルダ<input type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'input')"></label>
         <label>期待出力フォルダ<input type="file" webkitdirectory multiple aria-label="期待出力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'output')"></label>
-        <button type="button" class="editor-button" :disabled="disabled || importing || cases.length >= 100 || !inputFiles.length || !outputFiles.length" @click="importFiles">{{ importing ? '読み込み中…' : '一括追加' }}</button>
+        <button type="button" class="editor-button" :disabled="disabled || importing || !inputFiles.length || !outputFiles.length" @click="importFiles">{{ importing ? '読み込み中…' : '一括追加' }}</button>
       </details>
       <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・期待出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
     </div>
