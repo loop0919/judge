@@ -13,7 +13,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
   <div class="catalogue">
-    <header class="blog-heading"><h1>記事</h1><NuxtLink v-if="user" class="editor-button primary" to="/blog/new">新規記事</NuxtLink></header>
+    <header class="catalogue-heading"><h1>記事</h1><NuxtLink v-if="user" class="editor-button primary" to="/blog/new">新規記事</NuxtLink></header>
     <p v-if="!current.items.length" class="muted">公開された記事はまだありません。</p>
     <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="記事一覧" :aria-busy="loading">
       <table class="content-table">
@@ -34,8 +34,5 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
   </div>
 </template>
 <style scoped>
-.blog-heading { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin: 12px 0 24px; }
-.blog-heading h1 { margin: 0; }
 .operator-label { color: var(--color-accent); border: 1px solid var(--color-line); padding: 2px 6px; border-radius: 4px; font-size: .75rem; }
-@media (max-width: 40rem) { .blog-heading { flex-direction: column; align-items: flex-start; } }
 </style>

@@ -26,7 +26,7 @@ test('posting selects only unpublished standalone problems across pages and hand
     return route.fulfill(attempts === 1 ? { status: 409, json: {} } : { json: {} })
   })
   await page.goto('/problems')
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: '問題投稿', exact: true }).click()
   const select = page.getByLabel('投稿する問題')
   await expect(select.locator('option')).toHaveText(['問題を選択してください', '投稿する下書き'])
   await expect(page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true })).toBeDisabled()
@@ -43,7 +43,7 @@ test('posting selects only unpublished standalone problems across pages and hand
   await page.getByRole('button', { name: 'キャンセル' }).click()
   await expect(page.getByRole('dialog')).not.toBeVisible()
   expect(attempts).toBe(0)
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: '問題投稿', exact: true }).click()
   await select.selectOption(id)
   await page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('別の画面で更新されています')
@@ -53,14 +53,14 @@ test('posting selects only unpublished standalone problems across pages and hand
 
 test('posting has an empty state', async ({ page }) => {
   await page.goto('/problems')
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: '問題投稿', exact: true }).click()
   await expect(page.getByText('投稿できる未公開の問題はありません。')).toBeVisible()
   await expect(page.getByRole('link', { name: '新規問題を作成' })).toBeVisible()
 })
 
 test('Escape closes the modal and returns focus to the posting button', async ({ page }) => {
   await page.goto('/problems')
-  const trigger = page.getByRole('button', { name: '投稿', exact: true })
+  const trigger = page.getByRole('button', { name: '問題投稿', exact: true })
   await trigger.click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')

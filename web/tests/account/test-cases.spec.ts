@@ -39,7 +39,7 @@ test('test cases can be edited, restored, published and used for submission with
   await page.screenshot({ path: testInfo.outputPath('test-cases-mobile.png'), fullPage: true })
   await page.getByRole('button', { name: '問題管理', exact: true }).click()
   await page.goto('/problems')
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: '問題投稿', exact: true }).click()
   await page.getByLabel('投稿する問題').selectOption(id)
   await page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page).toHaveURL(`/problems/${id}`)

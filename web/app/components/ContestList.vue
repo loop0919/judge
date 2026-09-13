@@ -8,7 +8,7 @@ const { data, error, status } = await useFetch<ContestList>(endpoint, { query: {
 <template>
   <section :class="mine ? 'draft-library' : 'catalogue'">
     <header v-if="mine" class="draft-library-heading"><h2>作成したコンテスト</h2><NuxtLink class="editor-button primary" to="/my/contests/new">新規コンテスト</NuxtLink></header>
-    <h1 v-else>コンテスト</h1>
+    <header v-else class="catalogue-heading"><h1>コンテスト</h1><NuxtLink class="editor-button primary" to="/my/contests/new">新規コンテスト</NuxtLink></header>
     <p v-if="error" role="alert">コンテストを取得できませんでした。ページを再読み込みしてください。</p>
     <p v-else-if="!data" role="status">読み込み中…</p>
     <template v-else>

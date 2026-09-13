@@ -15,7 +15,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
 <template>
   <div class="catalogue">
     <ProblemPostDialog ref="postDialog" />
-    <header class="draft-library-heading"><h1>問題</h1><button type="button" class="editor-button primary" @click="postDialog?.open()">投稿</button></header>
+    <header class="catalogue-heading"><h1>問題</h1><button type="button" class="editor-button primary" @click="postDialog?.open()">問題投稿</button></header>
     <p v-if="!current.items.length" class="muted">公開された問題はまだありません。</p>
     <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="問題一覧" :aria-busy="loading">
       <table class="content-table">

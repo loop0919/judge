@@ -129,7 +129,7 @@ test('create, reorder and edit an unpublished contest; guests cannot inspect its
     if (width === 375) await page.screenshot({ path: testInfo.outputPath('my-contests-mobile.png'), fullPage: true })
   }
   await page.goto('/contests')
-  await expect(page.locator('main').getByRole('link', { name: /作成したコンテスト|新規コンテスト|コンテストを作成/ })).toHaveCount(0)
+  await expect(page.locator('main').getByRole('link', { name: '新規コンテスト', exact: true })).toHaveAttribute('href', '/my/contests/new')
   const guest = await browser.newContext({ baseURL: origin })
   const reader = await guest.newPage()
   await reader.goto(`/contests/${id}`)
