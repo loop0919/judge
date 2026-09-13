@@ -54,6 +54,8 @@ def validate_job(job, runtime):
         source = code.get('source')
         if not isinstance(source, str) or not source.strip() or len(source.encode()) > 65536 or '\0' in source:
             raise ValueError('judge code source')
+    if type(job.get('easyTest', False)) is not bool or (job.get('easyTest') and (job.get('generate') or job.get('validate'))):
+        raise ValueError('sample mode')
     base = job.get('generationBaseBytes', 0)
     if type(base) is not int or not 0 <= base <= TEST_SET_LIMIT:
         raise ValueError('generation budget')
@@ -138,6 +140,11 @@ def case_result(reply, index, case, generate=False, validate=False):
         except (UnicodeDecodeError, ValueError):
             item['verdict'] = 'RE'
     return item
+
+
+def sample_preview(data, limit):
+    text = data.decode('utf-8', errors='replace').replace('\0', '�').encode('utf-8')
+    return dict(text=text[:limit].decode('utf-8', errors='ignore'), truncated=len(text) > limit)
 
 
 def prepare_cgroup():
@@ -230,6 +237,12 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
                         return checker_error()
                     item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
+            if job.get('easyTest'):
+                limit = min(4096, (24 * 1024) // len(job['cases']) // 3)
+                actual = item.pop('sampleOutput') if job.get('interactor') else base64.b64decode(reply['output'], validate=True)
+                item['sampleDetails'] = dict(input=sample_preview(case['input'].encode(), limit),
+                                             expectedOutput=sample_preview(case['output'].encode(), limit),
+                                             actualOutput=sample_preview(actual, limit))
             if 'output' in item:
                 generated_bytes += len(item['output'].encode())
                 if generated_bytes > TEST_SET_LIMIT:

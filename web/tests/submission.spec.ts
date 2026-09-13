@@ -143,13 +143,18 @@ test('Sample validation polls inline and retains the source for a full submissio
     requests.push(route.request().postDataJSON())
     await route.fulfill({ status: 202, json: { ...item, easyTest: requests.length === 1 } })
   })
-  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: { ...item, status: 'DONE', result: { verdict: 'AC', passed: 1, total: 1, cases: [{ name: 'sample_1', verdict: 'AC' }] } } }))
+  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: { ...item, status: 'DONE', result: { verdict: 'AC', passed: 1, total: 1, cases: [{ name: 'sample_1', verdict: 'AC', sampleDetails: { input: { text: '1 2\n', truncated: false }, expectedOutput: { text: '3\n', truncated: false }, actualOutput: { text: '3\n', truncated: false } } }] } } }))
   await page.goto(`/problems/${problemId}`)
   const source = page.getByLabel('ソースコード', { exact: true })
   await source.fill('int main(){}')
   const help = page.getByRole('button', { name: 'サンプル検証の説明', exact: true })
   const tooltip = page.getByRole('tooltip').filter({ hasText: 'サンプルケースを検証する機能です。' })
   await expect(tooltip).toBeHidden()
+  const helpBox = await help.boundingBox()
+  const buttonBox = await page.getByRole('button', { name: 'サンプル検証', exact: true }).boundingBox()
+  expect(helpBox!.width).toBe(20)
+  expect(helpBox!.height).toBe(20)
+  expect(Math.abs(helpBox!.y + helpBox!.height - buttonBox!.y - buttonBox!.height)).toBeLessThan(1)
   await help.hover()
   await expect(tooltip).toBeVisible()
   await source.hover()
@@ -158,11 +163,43 @@ test('Sample validation polls inline and retains the source for a full submissio
   await expect(tooltip).toBeVisible()
   await page.getByRole('button', { name: 'サンプル検証', exact: true }).click()
   await expect(page.getByText('sample_1: AC', { exact: true })).toBeVisible()
+  const details = page.locator('.sample-case')
+  await expect(details.locator('dt')).toHaveText(['入力', '期待される出力', '実際の出力'])
+  await expect(details.locator('pre')).toHaveText(['1 2\n', '3\n', '3\n'])
   await expect(page).toHaveURL(`/problems/${problemId}`)
   await expect(source).toHaveText('int main(){}')
   await expect(source).toBeEditable()
+  await page.setViewportSize({ width: 375, height: 900 })
+  await help.hover()
+  await expect(tooltip).toBeVisible()
+  const tooltipBox = await tooltip.boundingBox()
+  expect(tooltipBox!.x).toBeGreaterThanOrEqual(0)
+  expect(tooltipBox!.x + tooltipBox!.width).toBeLessThanOrEqual(375)
+  await source.hover()
   expect(requests[0]).toEqual({ problemId, runtime: 'cpp17', source: 'int main(){}', easyTest: true })
   await page.getByRole('button', { name: '提出する', exact: true }).click()
   await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
   expect(requests[1]).toEqual({ problemId, runtime: 'cpp17', source: 'int main(){}' })
+})
+
+
+test('Sample validation detail displays empty and truncated output safely', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
+  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: {
+    id: submissionId, easyTest: true, problemId, problemVersion: 1, problemTitle: 'A + B', runtime: 'cpp17',
+    status: 'DONE', createdAt: '2026-09-01T00:00:00Z', result: {
+      verdict: 'WA', passed: 0, total: 1, cases: [{ name: 'sample_1', verdict: 'WA', sampleDetails: {
+        input: { text: '<script>alert(1)</script>', truncated: false },
+        expectedOutput: { text: '', truncated: false }, actualOutput: { text: 'partial', truncated: true },
+      } }],
+    },
+  } }))
+  await page.goto(`/my/submissions/${submissionId}`)
+  await expect(page.getByRole('heading', { name: 'サンプル検証の結果', exact: true })).toBeVisible()
+  const details = page.locator('.sample-case')
+  await expect(details.locator('pre')).toHaveText(['<script>alert(1)</script>', 'partial'])
+  await expect(details.getByText('（空）', { exact: true })).toBeVisible()
+  await expect(details.getByText('長いため、先頭部分のみ表示しています。')).toBeVisible()
+  await expect(details.locator('script')).toHaveCount(0)
 })

@@ -267,6 +267,14 @@ func Judge(ctx context.Context, source string, job Job) Result {
 			}
 			generatedBytes += int64(len(actual.output))
 		}
+		if job.EasyTest {
+			limit := min(4096, SamplePreviewBudget/len(job.Cases)/3)
+			r.Cases[i].SampleDetails = &SampleDetails{
+				Input:          samplePreview([]byte(c.Input), limit),
+				ExpectedOutput: samplePreview([]byte(c.Output), limit),
+				ActualOutput:   samplePreview(actual.output, limit),
+			}
+		}
 		r.Cases[i].Verdict = verdict
 		if verdict == "JE" {
 			r.Verdict = "JE"
@@ -299,4 +307,13 @@ func equalTokens(a, b []byte) bool {
 		}
 	}
 	return true
+}
+
+func samplePreview(data []byte, limit int) TextPreview {
+	text := strings.ReplaceAll(strings.ToValidUTF8(string(data), "�"), "\x00", "�")
+	truncated := len(text) > limit
+	if truncated {
+		text = strings.ToValidUTF8(text[:limit], "")
+	}
+	return TextPreview{Text: text, Truncated: truncated}
 }

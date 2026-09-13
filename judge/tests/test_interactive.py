@@ -11,7 +11,7 @@ import interactive
 
 
 class InteractiveTests(unittest.TestCase):
-    def run_pair(self, source, interactor, wall=3, statuses=None):
+    def run_pair(self, source, interactor, wall=3, statuses=None, capture=None):
         processes = [subprocess.Popen([sys.executable, '-c', code], stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
                      for code in (source, interactor)]
@@ -23,7 +23,7 @@ class InteractiveTests(unittest.TestCase):
             return dict(status='' if code == 0 else 'RE', exitCode=max(0, code),
                         signal=max(0, -code), overflow=False, oom=False) | (statuses or {}).get(i, {})
         try:
-            return interactive.relay(processes, observe, wall, log.append), ''.join(log)
+            return interactive.relay(processes, observe, wall, log.append, capture), ''.join(log)
         finally:
             for p in processes:
                 if p.poll() is None:
@@ -33,10 +33,12 @@ class InteractiveTests(unittest.TestCase):
                 p.stdout.close()
 
     def test_bidirectional_binary_data_and_eof(self):
+        captured = bytearray()
         result, log = self.run_pair(
             "import sys; x=sys.stdin.buffer.read(4); assert x==b'a\\x00\\r\\n'; sys.stdout.buffer.write(x); sys.stdout.flush(); assert sys.stdin.buffer.read()==b''",
-            "import sys; sys.stdout.buffer.write(b'a\\x00\\r\\n'); sys.stdout.flush(); assert sys.stdin.buffer.read(4)==b'a\\x00\\r\\n'")
+            "import sys; sys.stdout.buffer.write(b'a\\x00\\r\\n'); sys.stdout.flush(); assert sys.stdin.buffer.read(4)==b'a\\x00\\r\\n'", capture=captured.extend)
         self.assertEqual(result, 'AC')
+        self.assertEqual(captured, b'a\x00\r\n')
         self.assertIn('提出 → ジャッジ', log)
         self.assertIn('ジャッジ → 提出', log)
 

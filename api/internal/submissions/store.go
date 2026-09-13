@@ -35,14 +35,29 @@ type Job struct {
 	Cases               []Case                                                    `json:"cases"`
 }
 
+// Sample previews share a 24 KiB budget so escaped JSON fits in the result queue.
+const SamplePreviewBudget = 24 << 10
+
+type TextPreview struct {
+	Text      string `json:"text"`
+	Truncated bool   `json:"truncated"`
+}
+
+type SampleDetails struct {
+	Input          TextPreview `json:"input"`
+	ExpectedOutput TextPreview `json:"expectedOutput"`
+	ActualOutput   TextPreview `json:"actualOutput"`
+}
+
 type CaseResult struct {
-	OutputFile  *problems.TestFile `json:"outputFile,omitempty"`
-	Output      *string            `json:"output,omitempty"`
-	Name        string             `json:"name"`
-	Verdict     string             `json:"verdict"`
-	CPUTimeMS   *float64           `json:"cpuTimeMs,omitempty"`
-	WallTimeMS  *float64           `json:"wallTimeMs,omitempty"`
-	MemoryBytes *int64             `json:"memoryBytes,omitempty"`
+	SampleDetails *SampleDetails     `json:"sampleDetails,omitempty"`
+	OutputFile    *problems.TestFile `json:"outputFile,omitempty"`
+	Output        *string            `json:"output,omitempty"`
+	Name          string             `json:"name"`
+	Verdict       string             `json:"verdict"`
+	CPUTimeMS     *float64           `json:"cpuTimeMs,omitempty"`
+	WallTimeMS    *float64           `json:"wallTimeMs,omitempty"`
+	MemoryBytes   *int64             `json:"memoryBytes,omitempty"`
 }
 
 type Result struct {

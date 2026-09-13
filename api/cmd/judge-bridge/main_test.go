@@ -33,6 +33,19 @@ func TestResultValidation(t *testing.T) {
 	if !validResult(good) {
 		t.Fatal("zero CPU measurement is valid")
 	}
+	good.Cases[0].SampleDetails = &submissions.SampleDetails{Input: submissions.TextPreview{Text: "1 2\n"}}
+	if !validResult(good) {
+		t.Fatal("sample preview rejected")
+	}
+	good.Cases[0].SampleDetails.Input.Text = strings.Repeat("x", 4097)
+	if validResult(good) {
+		t.Fatal("unbounded preview accepted")
+	}
+	good.Cases[0].SampleDetails.Input.Text = "\x00"
+	if validResult(good) {
+		t.Fatal("NUL preview accepted")
+	}
+	good.Cases[0].SampleDetails = nil
 	empty := ""
 	good.Cases[0].Output = &empty
 	if !validResult(good) {

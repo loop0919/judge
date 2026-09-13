@@ -45,6 +45,9 @@ func (s *Store) FinishAttempt(ctx context.Context, id, attempt string, result Re
 	result.Cases = append([]CaseResult(nil), result.Cases...)
 	for i := range result.Cases {
 		c := &result.Cases[i]
+		if c.SampleDetails != nil && (!job.EasyTest || job.Generate || job.Validate || i >= len(job.Cases) || c.Name != job.Cases[i].Name) {
+			return testfiles.ErrInvalid
+		}
 		if !job.Generate {
 			if c.Output != nil || c.OutputFile != nil {
 				return testfiles.ErrInvalid

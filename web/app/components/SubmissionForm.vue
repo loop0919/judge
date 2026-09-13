@@ -102,7 +102,7 @@ async function submit(easyTest = false) {
     <section v-if="easyResult" class="easy-result" aria-labelledby="easy-result-title">
       <h3 id="easy-result-title">サンプル検証の結果</h3>
       <p role="status"><SubmissionStatus :item="easyResult" /><template v-if="easyResult.result"> — {{ easyResult.result.passed }} / {{ easyResult.result.total }} ケース合格</template></p>
-      <ul v-if="easyResult.result?.cases?.length"><li v-for="(item, index) in easyResult.result.cases" :key="index">{{ item.name }}: {{ item.verdict === 'SKIPPED' ? '未実行' : item.verdict }}</li></ul>
+      <SampleCaseResults v-if="easyResult.result?.cases?.length" :cases="easyResult.result.cases" />
       <pre v-if="easyResult.result?.compileLog">{{ easyResult.result.compileLog }}</pre>
       <NuxtLink :to="`/my/submissions/${easyResult.id}`" target="_blank" rel="noopener noreferrer">結果の詳細 ↗</NuxtLink>
     </section>
@@ -110,11 +110,11 @@ async function submit(easyTest = false) {
 </template>
 
 <style scoped>
-.sample-action { display: inline-flex; align-items: center; gap: 8px; }
+.sample-action { display: inline-flex; align-items: flex-end; gap: 8px; }
 .sample-help { position: relative; display: inline-flex; }
-.sample-help-button { width: 24px; height: 24px; padding: 0; border: 1px solid var(--color-muted); border-radius: 50%; background: transparent; color: var(--color-muted); font: inherit; cursor: help; }
+.sample-help-button { display: inline-flex; align-items: center; justify-content: center; flex: none; appearance: none; width: 20px; height: 20px; padding: 0; border: 1px solid var(--color-muted); border-radius: 50%; background: transparent; color: var(--color-muted); font: inherit; font-size: 12px; line-height: 1; cursor: help; }
 .sample-help-button:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
-.sample-tooltip { display: none; position: absolute; bottom: 100%; right: 0; width: max-content; max-width: 240px; padding: 6px 8px; border-radius: 4px; background: var(--color-ink); color: var(--color-paper); font-size: .75rem; z-index: 1; }
+.sample-tooltip { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 240px; padding: 6px 8px; border-radius: 4px; background: var(--color-ink); color: var(--color-paper); font-size: .75rem; z-index: 1; }
 .sample-help:hover .sample-tooltip, .sample-help:focus-within .sample-tooltip { display: block; }
 .easy-result { margin-top: 24px; }
 .easy-result pre { white-space: pre-wrap; overflow-wrap: anywhere; }

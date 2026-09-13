@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -58,7 +59,19 @@ func validResult(r submissions.Result) bool {
 	var generatedBytes int64
 	passed := 0
 	verdict := "AC"
+	previewBytes := 0
 	for _, c := range r.Cases {
+		if c.SampleDetails != nil {
+			for _, preview := range []submissions.TextPreview{c.SampleDetails.Input, c.SampleDetails.ExpectedOutput, c.SampleDetails.ActualOutput} {
+				if len(preview.Text) > 4096 || strings.ContainsRune(preview.Text, 0) {
+					return false
+				}
+				previewBytes += len(preview.Text)
+			}
+			if previewBytes > submissions.SamplePreviewBudget {
+				return false
+			}
+		}
 		if c.Output != nil && (c.Verdict != "AC" || *c.Output != "" || c.OutputFile != nil) {
 			return false
 		}
@@ -166,7 +179,7 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 		_, err = tx.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE id=$1`, id)
 		return err
 	}
-	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": runtime, "runtimeDigest": job.Image, "source": source, "checker": job.Checker, "interactor": job.Interactor, "generate": job.Generate, "validate": job.Validate, "generationBaseBytes": job.GenerationBaseBytes, "generationPrefix": job.GenerationPrefix, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
+	payload, err := json.Marshal(map[string]any{"submissionId": id, "attemptId": attempt, "runtime": runtime, "runtimeDigest": job.Image, "source": source, "checker": job.Checker, "interactor": job.Interactor, "easyTest": job.EasyTest, "generate": job.Generate, "validate": job.Validate, "generationBaseBytes": job.GenerationBaseBytes, "generationPrefix": job.GenerationPrefix, "cases": job.Cases, "timeLimitMs": job.TimeLimitMS, "memoryLimitMb": job.MemoryLimitMB})
 	if err != nil {
 		return err
 	}

@@ -104,7 +104,42 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual([compile_phase for _, compile_phase in calls], [True, False, False])
         self.assertNotIn('secret', str(calls))
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
+        self.assertTrue(all('sampleDetails' not in case for case in result['cases']))
         self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2), ('JUDGING', 2, 2)])
+
+    def test_sample_details_include_file_inputs_and_actual_output_on_failure(self):
+        import tempfile
+        job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                   easyTest=True, memoryLimitMb=512, timeLimitMs=1000,
+                   cases=[dict(name='sample_1', input='', output='', inputFile=dict(
+                       id='33333333-3333-4333-8333-333333333333', size=4, sha256='a' * 64,
+                       key='test-files/' + 'a' * 32 + '/33333333-3333-4333-8333-333333333333/33333333-3333-4333-8333-333333333333',
+                       versionId='v'))])
+        def execute(request, compile_phase=False):
+            if compile_phase:
+                return dict(compiled=True)
+            return dict(status='RE', oom=False, overflow=False, exitCode=1, signal=0,
+                        cpuTimeMs=1, wallTimeMs=1, memoryBytes=1024,
+                        output=base64.b64encode(b'partial\x00\xff').decode())
+        with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+            result = host.judge(job, 'sha256:test', load_file=lambda _: '1 2\n')
+        self.assertEqual(result['verdict'], 'RE')
+        self.assertEqual(result['cases'][0]['sampleDetails'], dict(
+            input=dict(text='1 2\n', truncated=False),
+            expectedOutput=dict(text='', truncated=False),
+            actualOutput=dict(text='partial��', truncated=False)))
+        self.assertNotIn('output', result['cases'][0])
+
+    def test_sample_preview_is_utf8_safe_and_queue_bounded(self):
+        import json
+        self.assertEqual(host.sample_preview('あい'.encode(), 4), dict(text='あ', truncated=True))
+        limit = (24 * 1024) // 100 // 3
+        preview = host.sample_preview(b'\x01' * 10000, limit)
+        result = dict(cases=[dict(sampleDetails=dict(input=preview, expectedOutput=preview, actualOutput=preview)) for _ in range(100)])
+        self.assertLess(len(json.dumps(result)), 200 * 1024)
+        self.assertTrue(preview['truncated'])
 
     def test_validation_uses_exit_status_and_does_not_save_output(self):
         import tempfile

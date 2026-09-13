@@ -215,3 +215,15 @@ int main(){return access("/submission/expected-output",F_OK)==-1 && access("/sub
 		})
 	}
 }
+
+func TestSamplePreview(t *testing.T) {
+	if got := samplePreview([]byte("あい"), 4); got.Text != "あ" || !got.Truncated {
+		t.Fatalf("UTF-8 boundary: %+v", got)
+	}
+	if got := samplePreview([]byte{'x', 0, 255}, 100); got.Text != "x��" || got.Truncated {
+		t.Fatalf("unsafe output: %+v", got)
+	}
+	if got := samplePreview(nil, 100); got.Text != "" || got.Truncated {
+		t.Fatalf("empty output: %+v", got)
+	}
+}
