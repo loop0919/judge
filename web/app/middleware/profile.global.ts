@@ -2,7 +2,7 @@ import { loginDestination } from '~~/shared/utils/login-destination'
 
 export default defineNuxtRouteMiddleware(async to => {
   if (import.meta.server) return
-  if (!(to.path === '/my' || to.path.startsWith('/my/') || to.path === '/problems/new' || to.path === '/problems/post' || to.path === '/blog/new' || to.path === '/onboarding')) return
+  if (!(to.path === '/my' || to.path.startsWith('/my/') || to.path === '/problems/new' || to.path === '/blog/new' || to.path === '/onboarding')) return
   const app = useNuxtApp()
   const { refreshAccount, refreshProfile } = useAccount()
   async function guard() {

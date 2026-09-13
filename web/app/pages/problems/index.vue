@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { z } from 'zod'
 import type { publicProblemListSchema } from '~~/shared/types/problem'
+const postDialog = ref<{ open: () => Promise<void> }>()
+const route = useRoute()
+onMounted(() => { if (route.query.post === '1') void postDialog.value?.open() })
 const config = useRuntimeConfig()
 const canonical = new URL('/problems', config.public.siteUrl).href
 const { data, error } = await useFetch('/api/problems')
@@ -11,7 +14,8 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
   <div class="catalogue">
-    <header class="draft-library-heading"><h1>問題</h1><NuxtLink class="editor-button primary" to="/problems/post">投稿</NuxtLink></header>
+    <ProblemPostDialog ref="postDialog" />
+    <header class="draft-library-heading"><h1>問題</h1><button type="button" class="editor-button primary" @click="postDialog?.open()">投稿</button></header>
     <p v-if="!current.items.length" class="muted">公開された問題はまだありません。</p>
     <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="問題一覧" :aria-busy="loading">
       <table class="content-table">

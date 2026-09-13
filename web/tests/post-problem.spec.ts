@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures/account'
 
-test('posting selects only unpublished standalone problems across pages and handles failures', async ({ page }) => {
+test('posting selects only unpublished standalone problems across pages and handles failures', async ({ page }, testInfo) => {
   await page.goto('/problems/new')
   await page.locator('#problem-title').fill('投稿する下書き')
   await page.locator('#problem-source').fill('問題本文')
@@ -26,23 +26,51 @@ test('posting selects only unpublished standalone problems across pages and hand
     return route.fulfill(attempts === 1 ? { status: 409, json: {} } : { json: {} })
   })
   await page.goto('/problems')
-  await page.getByRole('link', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: '投稿', exact: true }).click()
   const select = page.getByLabel('投稿する問題')
   await expect(select.locator('option')).toHaveText(['問題を選択してください', '投稿する下書き'])
-  await expect(page.getByRole('button', { name: '投稿', exact: true })).toBeDisabled()
+  await expect(page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true })).toBeDisabled()
+  await expect(page).toHaveURL('/problems')
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await expect(select).toHaveCSS('min-height', '44px')
+    const box = (await page.getByRole('dialog').boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(width)
+    await page.screenshot({ path: testInfo.outputPath(`post-modal-${width}.png`) })
+  }
   await select.selectOption(id)
-  page.once('dialog', dialog => dialog.dismiss())
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('button', { name: 'キャンセル' }).click()
+  await expect(page.getByRole('dialog')).not.toBeVisible()
   expect(attempts).toBe(0)
-  page.on('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await select.selectOption(id)
+  await page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('別の画面で更新されています')
-  await page.getByRole('button', { name: '投稿', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page).toHaveURL(`/problems/${id}`)
 })
 
 test('posting has an empty state', async ({ page }) => {
-  await page.goto('/problems/post')
+  await page.goto('/problems')
+  await page.getByRole('button', { name: '投稿', exact: true }).click()
   await expect(page.getByText('投稿できる未公開の問題はありません。')).toBeVisible()
   await expect(page.getByRole('link', { name: '新規問題を作成' })).toBeVisible()
+})
+
+test('Escape closes the modal and returns focus to the posting button', async ({ page }) => {
+  await page.goto('/problems')
+  const trigger = page.getByRole('button', { name: '投稿', exact: true })
+  await trigger.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).not.toBeVisible()
+  await expect(trigger).toBeFocused()
+})
+
+test('guests can log in and return to the posting modal', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: null } }))
+  await page.goto('/problems?post=1')
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'ログインして投稿する' })).toHaveAttribute('href', '/login?next=/problems?post=1')
 })
