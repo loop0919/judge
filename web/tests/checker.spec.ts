@@ -1,5 +1,33 @@
 import { test, expect } from './fixtures/account'
 
+for (const [method, label] of [['special', '検証コード'], ['interactive', '対話用ジャッジ']] as const) {
+  test(`${method} code survives switching to normal and back`, async ({ page }) => {
+    await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp17', label: 'C++17' }, { id: 'python314', label: 'Python' }] } }))
+    await page.goto('/problems/new?fresh=1')
+    await page.getByLabel('問題のタイトル').fill('判定方法の切り替え')
+    await page.getByRole('button', { name: '判定方法', exact: true }).click()
+    const selector = page.getByRole('combobox', { name: '判定方法', exact: true })
+    await selector.selectOption(method)
+    await page.getByLabel(`${label}の言語`).selectOption('python314')
+    for (const source of ['print(42)', 'print(43)']) {
+      await page.getByLabel(label, { exact: true }).fill(source)
+      await selector.selectOption('normal')
+      await expect(page.getByLabel(label, { exact: true })).toHaveCount(0)
+      const saved = page.waitForResponse(response => response.url().includes('/api/my/problems/') && response.request().method() === 'PUT')
+      await page.getByRole('button', { name: '保存', exact: true }).click()
+      const body = (await saved).request().postDataJSON()
+      expect(body.draft.checker).toBeNull()
+      expect(body.draft.interactor).toBeNull()
+      await expect(page.locator('.draft-status [role="status"]')).toHaveText('保存済み')
+      await page.getByRole('button', { name: '問題文', exact: true }).click()
+      await page.getByRole('button', { name: '判定方法', exact: true }).click()
+      await selector.selectOption(method)
+      await expect(page.getByLabel(`${label}の言語`)).toHaveValue('python314')
+      await expect(page.getByLabel(label, { exact: true })).toHaveText(source)
+    }
+  })
+}
+
 test('checker languages match submissions and settings survive saving and reload', async ({ page }, testInfo) => {
   await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp17', label: 'C++17' }, { id: 'python314', label: 'Python' }] } }))
   await page.goto('/problems/new')

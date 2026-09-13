@@ -6,10 +6,12 @@ const interactor = defineModel<ProblemDraft['interactor']>('interactor', { requi
 defineProps<{ disabled: boolean, problemId: string, published: boolean, save: () => Promise<boolean> }>()
 const { data: catalog } = useFetch('/api/runtimes')
 const available = computed(() => catalog.value?.items ?? [])
+let previousCode: ProblemDraft['checker'] = null
 const method = computed({
   get: () => interactor.value ? 'interactive' : checker.value ? 'special' : 'normal',
   set: value => {
-    const previous = interactor.value ?? checker.value ?? { runtime: available.value[0]?.id ?? 'cpp17', source: '' }
+    const previous = interactor.value ?? checker.value ?? previousCode ?? { runtime: available.value[0]?.id ?? 'cpp17', source: '' }
+    previousCode = previous
     checker.value = value === 'special' ? previous : null
     interactor.value = value === 'interactive' ? previous : null
   },
