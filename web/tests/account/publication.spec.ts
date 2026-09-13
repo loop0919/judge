@@ -28,7 +28,7 @@ test('problem publication is visible anonymously and private edits stay private'
   await reader.goto(`/problems/${id}`)
   await expect(reader.getByRole('heading', { level: 1 })).toHaveText('公開フロー確認')
   await expect(reader.locator('.katex')).toBeVisible()
-  await expect(reader.getByText('Lv.4 · 緑')).toBeVisible()
+  await expect(reader.getByText('Lv.4')).toBeVisible()
   const savedEditorURL = page.url()
   const favoritePage = await page.context().newPage()
   await favoritePage.goto(`/problems/${id}`)

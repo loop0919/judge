@@ -46,6 +46,6 @@ onBeforeUnmount(() => { requestVersion++ })
   </div>
 </template>
 <style scoped>
-.favorite-control { margin-block: 16px; font-size: .875rem; }
+.favorite-control { text-align: right; margin-block: 16px; font-size: .875rem; }
 .favorite-control button[aria-pressed="true"] { color: var(--color-accent); background: var(--color-accent-soft); }
 </style>

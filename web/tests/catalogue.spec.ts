@@ -20,7 +20,9 @@ for (const [path, api, label] of [['/problems', 'problems', '問題'], ['/blog',
     if (api === 'problems') {
       await expect(table).toContainText('2 秒')
       await expect(table).toContainText('256 MiB')
-      await expect(table).toContainText('Lv.10 · 金')
+      await expect(table.locator('.difficulty')).toHaveText('Lv.10')
+      await expect(table.locator('.difficulty-crown')).toHaveCount(1)
+      await expect(table.locator('.difficulty-dot')).toHaveCount(0)
       await expect(table.getByRole('cell', { name: '3', exact: true })).toBeVisible()
     }
     for (const width of [320, 375, 414, 768]) {
