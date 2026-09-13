@@ -589,6 +589,12 @@ func TestSubmissionsPostgres(t *testing.T) {
 		if strings.Contains(request("GET", "/my/submissions", owner, "", 200), "private-dialogue") {
 			t.Fatal("dialogue leaked through list")
 		}
+		if _, err = store.Pool().Exec(ctx, `UPDATE submissions SET job=jsonb_set(job,'{easyTest}','true') WHERE id=$1`, isub.ID); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(request("GET", "/my/submissions/"+isub.ID, owner, "", 200), "private-dialogue") {
+			t.Fatal("sample dialogue unavailable to submitter")
+		}
 	}
 	if _, err = queue.CreateRuntime(ctx, "alice", "99999999-9999-4999-8999-999999999999", interactiveID, "source", image, "cpp17-local", "python314"); !errors.Is(err, submissions.ErrNotReady) {
 		t.Fatal("local worker accepted interactive job", err)

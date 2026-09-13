@@ -216,7 +216,15 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     case[key] = load_file(case[key + 'File'])
             if job.get('interactor') is not None:
                 diagnostic(f"ケース{index + 1}:\n")
-                item = interactive.execute(job, case, checker_artifact, diagnostic)
+                case_log = bytearray()
+                log_limit = min(4096, (24 * 1024) // len(job['cases']))
+                def case_diagnostic(message):
+                    diagnostic(message)
+                    data = message.encode()
+                    case_log.extend(data[:max(0, log_limit + 1 - len(case_log))])
+                item = interactive.execute(job, case, checker_artifact, case_diagnostic)
+                if job.get('easyTest'):
+                    item['checkerLog'] = sample_preview(bytes(case_log), log_limit)
                 item['name'] = case.get('name') or f'ケース{index + 1}'
                 if item['verdict'] == 'JE':
                     return checker_error()
@@ -237,9 +245,9 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
                         return checker_error()
                     item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
-            if job.get('easyTest'):
+            if job.get('easyTest') and not job.get('interactor'):
                 limit = min(4096, (24 * 1024) // len(job['cases']) // 3)
-                actual = item.pop('sampleOutput') if job.get('interactor') else base64.b64decode(reply['output'], validate=True)
+                actual = base64.b64decode(reply['output'], validate=True)
                 item['sampleDetails'] = dict(input=sample_preview(case['input'].encode(), limit),
                                              expectedOutput=sample_preview(case['output'].encode(), limit),
                                              actualOutput=sample_preview(actual, limit))

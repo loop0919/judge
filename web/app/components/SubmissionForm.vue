@@ -102,7 +102,10 @@ async function submit(easyTest = false) {
     <section v-if="easyResult" class="easy-result" aria-labelledby="easy-result-title">
       <h3 id="easy-result-title">サンプル検証の結果</h3>
       <p role="status"><SubmissionStatus :item="easyResult" /><template v-if="easyResult.result"> — {{ easyResult.result.passed }} / {{ easyResult.result.total }} ケース合格</template></p>
-      <SampleCaseResults v-if="easyResult.result?.cases?.length" :cases="easyResult.result.cases" />
+      <SampleCaseResults v-if="easyResult.result?.cases?.length" :cases="easyResult.result.cases" :interactive="easyResult.result.interactive" />
+      <section v-if="easyResult.result?.interactive && easyResult.result.checkerLog && !easyResult.result.cases?.length">
+        <h4>ジャッジコードの診断</h4><pre>{{ easyResult.result.checkerLog }}</pre>
+      </section>
       <pre v-if="easyResult.result?.compileLog">{{ easyResult.result.compileLog }}</pre>
       <NuxtLink :to="`/my/submissions/${easyResult.id}`" target="_blank" rel="noopener noreferrer">結果の詳細 ↗</NuxtLink>
     </section>

@@ -46,6 +46,15 @@ func TestResultValidation(t *testing.T) {
 		t.Fatal("NUL preview accepted")
 	}
 	good.Cases[0].SampleDetails = nil
+	good.Cases[0].CheckerLog = &submissions.TextPreview{Text: "対話判定: AC"}
+	if !validResult(good) {
+		t.Fatal("interactive diagnostic rejected")
+	}
+	good.Cases[0].CheckerLog.Text = strings.Repeat("x", 4097)
+	if validResult(good) {
+		t.Fatal("unbounded interactive diagnostic accepted")
+	}
+	good.Cases[0].CheckerLog = nil
 	empty := ""
 	good.Cases[0].Output = &empty
 	if !validResult(good) {

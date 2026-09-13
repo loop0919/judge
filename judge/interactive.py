@@ -26,7 +26,7 @@ def failure(metrics):
     return None
 
 
-def relay(processes, observe, wall, diagnostic, capture=None):
+def relay(processes, observe, wall, diagnostic):
     """observe returns completed metrics or an early output-limit observation."""
     buffers = [bytearray(), bytearray()]
     totals = [0, 0]
@@ -66,8 +66,6 @@ def relay(processes, observe, wall, diagnostic, capture=None):
                     source.close()
                 elif data:
                     totals[i] += len(data)
-                    if i == 0 and capture is not None:
-                        capture(data)
                     diagnostic(('提出 → ジャッジ: ' if i == 0 else 'ジャッジ → 提出: ') + data.decode(errors='replace') + '\n')
                     if not target.closed:
                         buffers[i].extend(data)
@@ -135,11 +133,7 @@ def execute(job, case, artifact, diagnostic):
                 return dict(status='', exitCode=0, signal=0, oom=False, overflow=True)
             return None
 
-        sample_output = bytearray()
-        sample_limit = min(4096, (24 * 1024) // len(job['cases']) // 3) + 1 if job.get('easyTest') else 0
-        def capture(data):
-            sample_output.extend(data[:max(0, sample_limit - len(sample_output))])
-        verdict = relay(processes, observe, wall, diagnostic, capture if sample_limit else None)
+        verdict = relay(processes, observe, wall, diagnostic)
         # Capture natural exits before signalling the still-running peer.
         observed = [observe(i) for i in range(2)]
         for i, process in enumerate(processes):
@@ -150,7 +144,7 @@ def execute(job, case, artifact, diagnostic):
         if observed[0] is None or 'cpuTimeMs' not in observed[0]:
             observed[0] = sandbox.metadata(metas[0].read_text())
         diagnostic('対話判定: ' + verdict + '\nジャッジ標準エラー:\n' + stderr[1][:65536].decode(errors='replace') + '\n')
-        return dict(verdict=verdict, **({'sampleOutput': bytes(sample_output)} if sample_limit else {}), **{key: observed[0][key] for key in ('cpuTimeMs', 'wallTimeMs', 'memoryBytes')})
+        return dict(verdict=verdict, **{key: observed[0][key] for key in ('cpuTimeMs', 'wallTimeMs', 'memoryBytes')})
     finally:
         for process in processes:
             if process.poll() is None:

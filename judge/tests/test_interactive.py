@@ -11,7 +11,7 @@ import interactive
 
 
 class InteractiveTests(unittest.TestCase):
-    def run_pair(self, source, interactor, wall=3, statuses=None, capture=None):
+    def run_pair(self, source, interactor, wall=3, statuses=None):
         processes = [subprocess.Popen([sys.executable, '-c', code], stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
                      for code in (source, interactor)]
@@ -23,7 +23,7 @@ class InteractiveTests(unittest.TestCase):
             return dict(status='' if code == 0 else 'RE', exitCode=max(0, code),
                         signal=max(0, -code), overflow=False, oom=False) | (statuses or {}).get(i, {})
         try:
-            return interactive.relay(processes, observe, wall, log.append, capture), ''.join(log)
+            return interactive.relay(processes, observe, wall, log.append), ''.join(log)
         finally:
             for p in processes:
                 if p.poll() is None:
@@ -33,12 +33,10 @@ class InteractiveTests(unittest.TestCase):
                 p.stdout.close()
 
     def test_bidirectional_binary_data_and_eof(self):
-        captured = bytearray()
         result, log = self.run_pair(
             "import sys; x=sys.stdin.buffer.read(4); assert x==b'a\\x00\\r\\n'; sys.stdout.buffer.write(x); sys.stdout.flush(); assert sys.stdin.buffer.read()==b''",
-            "import sys; sys.stdout.buffer.write(b'a\\x00\\r\\n'); sys.stdout.flush(); assert sys.stdin.buffer.read(4)==b'a\\x00\\r\\n'", capture=captured.extend)
+            "import sys; sys.stdout.buffer.write(b'a\\x00\\r\\n'); sys.stdout.flush(); assert sys.stdin.buffer.read(4)==b'a\\x00\\r\\n'")
         self.assertEqual(result, 'AC')
-        self.assertEqual(captured, b'a\x00\r\n')
         self.assertIn('提出 → ジャッジ', log)
         self.assertIn('ジャッジ → 提出', log)
 
@@ -98,6 +96,7 @@ class InteractiveTests(unittest.TestCase):
         from test_checker import job
         request = job()
         request['interactor'] = request.pop('checker')
+        request['easyTest'] = True
         compiled = []
         def compile(request, compile_phase=False, **kwargs):
             self.assertTrue(compile_phase)
@@ -117,5 +116,11 @@ class InteractiveTests(unittest.TestCase):
             self.assertEqual(list(Path(tmp).iterdir()), [])
         self.assertEqual(compiled, ['cpp17-isolate', 'python314-isolate'])
         self.assertEqual(result['passed'], 2)
+        for case in result['cases']:
+            self.assertNotIn('sampleDetails', case)
+            self.assertNotIn('sampleOutput', case)
+            self.assertTrue(case['checkerLog']['truncated'])
+            self.assertLessEqual(len(case['checkerLog']['text'].encode()), 4096)
+            self.assertTrue(case['checkerLog']['text'].startswith('あ'))
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 7)
         self.assertLessEqual(len(result['checkerLog'].encode()), 16384)

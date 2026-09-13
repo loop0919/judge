@@ -61,6 +61,12 @@ func validResult(r submissions.Result) bool {
 	verdict := "AC"
 	previewBytes := 0
 	for _, c := range r.Cases {
+		if c.CheckerLog != nil {
+			if c.SampleDetails != nil || len(c.CheckerLog.Text) > 4096 || strings.ContainsRune(c.CheckerLog.Text, 0) {
+				return false
+			}
+			previewBytes += len(c.CheckerLog.Text)
+		}
 		if c.SampleDetails != nil {
 			for _, preview := range []submissions.TextPreview{c.SampleDetails.Input, c.SampleDetails.ExpectedOutput, c.SampleDetails.ActualOutput} {
 				if len(preview.Text) > 4096 || strings.ContainsRune(preview.Text, 0) {
@@ -68,9 +74,9 @@ func validResult(r submissions.Result) bool {
 				}
 				previewBytes += len(preview.Text)
 			}
-			if previewBytes > submissions.SamplePreviewBudget {
-				return false
-			}
+		}
+		if previewBytes > submissions.SamplePreviewBudget {
+			return false
 		}
 		if c.Output != nil && (c.Verdict != "AC" || *c.Output != "" || c.OutputFile != nil) {
 			return false

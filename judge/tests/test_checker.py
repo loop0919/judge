@@ -22,7 +22,7 @@ def job():
 
 
 class CheckerTests(unittest.TestCase):
-    def run_job(self, checked, submitted=None, compiled=True, checker_runtime='python314'):
+    def run_job(self, checked, submitted=None, compiled=True, checker_runtime='python314', easy_test=False):
         calls = []
         def execute(request, compile_phase=False, **kwargs):
             calls.append((request, compile_phase, kwargs))
@@ -36,6 +36,7 @@ class CheckerTests(unittest.TestCase):
             return dict(submitted or reply())
         request = job()
         request['checker']['runtime'] = checker_runtime
+        request['easyTest'] = easy_test
         with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
                 patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
                 patch.object(sandbox, 'META', Path(tmp) / 'meta'):
@@ -59,6 +60,14 @@ class CheckerTests(unittest.TestCase):
                     elif not compile:
                         self.assertNotIn('expected secret', str((request, kwargs)))
                         self.assertNotIn('assert True', str((request, kwargs)))
+
+    def test_sample_accepts_checker_verdict_despite_different_output(self):
+        result, _ = self.run_job(reply(), easy_test=True)
+        self.assertEqual(result['verdict'], 'AC')
+        for case in result['cases']:
+            self.assertEqual(case['verdict'], 'AC')
+            self.assertEqual(case['sampleDetails']['expectedOutput']['text'], 'expected secret')
+            self.assertEqual(case['sampleDetails']['actualOutput']['text'], '7\r\n')
 
     def test_assert_and_nonzero_are_wa_but_resource_failures_are_je(self):
         for changes, verdict in [({'exitCode': 1, 'status': 'RE'}, 'WA'),

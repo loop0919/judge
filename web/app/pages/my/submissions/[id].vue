@@ -90,8 +90,8 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
         </div>
         <p v-else class="muted">{{ item.status === 'DONE' ? 'この提出にはテストケースごとの結果が記録されていません。' : '採点が完了すると、テストケースごとの結果を表示します。' }}</p>
       </section>
-      <SampleCaseResults v-if="item.easyTest && item.result?.cases?.length" :cases="item.result.cases" />
-      <section v-if="item.result?.checkerLog" class="compile-log" aria-labelledby="checker-log-title"><h2 id="checker-log-title">ジャッジコードの診断（作問者のみ）</h2><pre>{{ item.result.checkerLog }}</pre></section>
+      <SampleCaseResults v-if="item.easyTest && item.result?.cases?.length" :cases="item.result.cases" :interactive="item.result.interactive" />
+      <section v-if="item.result?.checkerLog && !(item.easyTest && item.result.interactive && item.result.cases?.length)" class="compile-log" aria-labelledby="checker-log-title"><h2 id="checker-log-title">{{ item.easyTest && item.result.interactive ? 'ジャッジコードの診断' : 'ジャッジコードの診断（作問者のみ）' }}</h2><pre>{{ item.result.checkerLog }}</pre></section>
       <section v-if="item.result?.compileLog" class="compile-log" aria-labelledby="compile-title"><h2 id="compile-title">コンパイル診断</h2><pre>{{ item.result.compileLog }}</pre></section>
     </template>
     <p v-else-if="!message" role="status">読み込み中…</p>

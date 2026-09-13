@@ -50,6 +50,7 @@ type SampleDetails struct {
 }
 
 type CaseResult struct {
+	CheckerLog    *TextPreview       `json:"checkerLog,omitempty"`
 	SampleDetails *SampleDetails     `json:"sampleDetails,omitempty"`
 	OutputFile    *problems.TestFile `json:"outputFile,omitempty"`
 	Output        *string            `json:"output,omitempty"`
@@ -61,12 +62,13 @@ type CaseResult struct {
 }
 
 type Result struct {
-	CheckerLog string       `json:"checkerLog,omitempty"`
-	Cases      []CaseResult `json:"cases,omitempty"`
-	Verdict    string       `json:"verdict"`
-	Passed     int          `json:"passed"`
-	Total      int          `json:"total"`
-	CompileLog string       `json:"compileLog,omitempty"`
+	Interactive bool         `json:"interactive,omitempty"`
+	CheckerLog  string       `json:"checkerLog,omitempty"`
+	Cases       []CaseResult `json:"cases,omitempty"`
+	Verdict     string       `json:"verdict"`
+	Passed      int          `json:"passed"`
+	Total       int          `json:"total"`
+	CompileLog  string       `json:"compileLog,omitempty"`
 }
 
 type Progress struct {
@@ -156,7 +158,7 @@ func (s *Store) CreateTestRun(ctx context.Context, owner, id, problemID, source,
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
 	// Checker diagnostics can contain private tests and checker source.
-	privateColumns := strings.Replace(columns, "result,", `CASE WHEN EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=submissions.problem_id AND p.owner_id=$2) THEN result ELSE result-'checkerLog' END,`, 1)
+	privateColumns := strings.Replace(columns, "result,", `CASE WHEN (COALESCE((job->>'easyTest')::boolean,false) AND job->'interactor' IS NOT NULL AND job->'interactor' <> 'null'::jsonb) OR EXISTS(SELECT 1 FROM problem_drafts p WHERE p.id=submissions.problem_id AND p.owner_id=$2) THEN result ELSE result-'checkerLog' END,`, 1)
 	return scan(s.Pool.QueryRow(ctx, `SELECT `+privateColumns+` FROM submissions WHERE id=$1 AND owner_id=$2`, id, owner))
 }
 
