@@ -18,10 +18,6 @@ createServer(async (req, res) => {
   }
   else if (path === '/auth/me' || path.startsWith('/my/')) {
     if (req.headers.authorization !== 'Bearer valid-access') return res.writeHead(401).end('{}')
-    if (path === '/my/submissions' && req.method === 'POST') {
-      res.setHeader('Retry-After', '42')
-      return res.writeHead(429).end(JSON.stringify({ error: 'submission_rate_limited' }))
-    }
     if (path === '/auth/me') return res.end(JSON.stringify({ id: 'session-user' }))
     if (path === '/my/profile') return res.end(JSON.stringify({ profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-10T00:00:00Z' } }))
     if (path === '/my/problems/55555555-5555-4555-8555-555555555555') return res.end(JSON.stringify({
@@ -32,6 +28,11 @@ createServer(async (req, res) => {
     if (req.method === 'POST') {
       let raw = ''
       for await (const chunk of req) raw += chunk
+      // Keep successful submissions available to session-refresh tests.
+      if (path === '/my/submissions' && JSON.parse(raw).source === '// rate-limit-fixture') {
+        res.setHeader('Retry-After', '42')
+        return res.writeHead(429).end(JSON.stringify({ error: 'submission_rate_limited' }))
+      }
       return res.end(raw)
     }
     res.end(JSON.stringify({ items: [], nextCursor: '' }))

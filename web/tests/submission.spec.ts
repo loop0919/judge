@@ -275,7 +275,7 @@ test('history labels cover all runtimes, historical aliases and unknown IDs', as
 test('submission frequency limit preserves the wait time and styles both actions', async ({ page, context, request }) => {
   const response = await request.post('/api/my/submissions', {
     headers: { Cookie: 'openoj_access=valid-access', Origin: 'https://judge.example' },
-    data: { source: 'int main(){}' },
+    data: { source: '// rate-limit-fixture' },
   })
   expect(response.status()).toBe(429)
   expect(response.headers()['retry-after']).toBe('42')
@@ -286,13 +286,13 @@ test('submission frequency limit preserves the wait time and styles both actions
     await route.fulfill({ response: upstream })
   })
   await page.goto(`/problems/${problemId}`)
-  await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
+  await page.getByLabel('ソースコード', { exact: true }).fill('// rate-limit-fixture')
   for (const name of ['提出する', 'サンプル検証']) {
     await page.getByRole('button', { name, exact: true }).click()
     const alert = page.getByRole('region', { name: '提出', exact: true }).getByRole('alert')
     await expect(alert).toHaveText('提出頻度制限に到達しました。42秒後に再度試してください。')
     await expect(alert).toHaveCSS('background-color', 'rgb(255, 243, 242)')
     await expect(alert).toHaveCSS('border-inline-start-width', '3px')
-    await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('int main(){}')
+    await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('// rate-limit-fixture')
   }
 })
