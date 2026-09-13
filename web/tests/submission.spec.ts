@@ -12,7 +12,7 @@ test('language selection survives reloads and returning to the problem', async (
   await page.reload()
   await expect(language).toHaveValue('python314')
   await page.goto('/problems')
-  await page.getByRole('link', { name: 'A + B alice', exact: true }).click()
+  await page.getByRole('link', { name: 'A + B', exact: true }).click()
   await expect(language).toHaveValue('python314')
   await language.selectOption('cpp17')
   await page.reload()
@@ -124,11 +124,13 @@ for (const view of ['detail', 'history']) {
 
 test('unready judging settings explain why submission was rejected', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.route('**/api/my/favorites/*', route => route.fulfill({ status: 503, json: {} }))
   await page.route('**/api/my/submissions', route => route.fulfill({ status: 409, json: { data: { code: 'tests_not_ready' } } }))
   await page.goto(`/problems/${problemId}`)
   await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
   await page.getByRole('button', { name: '提出する', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('テストケース、検証コード、利用できる言語の設定を確認してください。')
+  await expect(page.getByRole('alert').filter({ hasText: 'お気に入りを取得できませんでした。' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '提出', exact: true }).getByRole('alert')).toContainText('テストケース、検証コード、利用できる言語の設定を確認してください。')
   await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('int main(){}')
   await expect(page.getByLabel('ソースコード', { exact: true })).toBeEditable()
 })
