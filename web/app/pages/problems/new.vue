@@ -364,7 +364,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <div class="field-heading"><label for="problem-title">問題のタイトル</label><span id="title-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.title ? errors.title : '' }}</span></div>
         <input id="problem-title" v-model="draft.title" maxlength="120" placeholder="例：A + B" :disabled="!ready || publishing" :aria-invalid="(showErrors || touched.title) && !!errors.title" aria-describedby="title-error" @blur="touched.title = true">
       </div>
-      <div class="field"><label for="problem-difficulty">難易度（作成者設定）</label><select id="problem-difficulty" v-model="draft.difficulty" :disabled="!ready || publishing"><option :value="null">未設定</option><option v-for="level in 10" :key="level" :value="level">Lv.{{ level }}</option></select></div>
+      <div class="field"><label for="problem-difficulty">難易度（作成者設定）</label><DifficultySelect id="problem-difficulty" v-model="draft.difficulty" label="難易度（作成者設定）" :disabled="!ready || publishing" /></div>
       <div>
         <div class="field-heading"><span class="limit-field-label" id="time-limit-label">実行時間制限 <span>ms</span></span></div>
         <LimitStepper id="time-limit" v-model="draft.timeLimitMs" :options="timeLimitOptions" :default-value="2000" :step="100" label="実行時間制限" labelledby="time-limit-label" :disabled="!ready || publishing" />
