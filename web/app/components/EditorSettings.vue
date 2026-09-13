@@ -11,7 +11,10 @@ const titleId = useId()
   </button>
   <Teleport to="body">
     <dialog ref="dialog" class="editor-settings-dialog" :aria-labelledby="titleId">
-      <h2 :id="titleId">エディタ設定</h2>
+      <header class="settings-heading">
+        <h2 :id="titleId">エディタ設定</h2>
+        <button class="editor-button settings-close" type="button" aria-label="エディタ設定を閉じる" @click="dialog?.close()"><span aria-hidden="true">×</span></button>
+      </header>
       <label>インデント方式
         <select v-model="settings.style" @change="saveSettings"><option value="space">space（スペース）</option><option value="tab">tab（タブ）</option></select>
       </label>
@@ -30,7 +33,9 @@ const titleId = useId()
 .settings-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .editor-settings-dialog { width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--color-line); border-radius: 8px; color: var(--color-ink); background: var(--color-paper); }
 .editor-settings-dialog::backdrop { background: var(--color-dialog-backdrop); }
-h2 { margin: 0 0 20px; font-size: 1.125rem; }
+.settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.settings-close { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; font-size: 1.5rem; }
+h2 { margin: 0; font-size: 1.125rem; }
 label { display: grid; gap: 8px; margin-block: 16px; font-size: .875rem; }
 select { width: 100%; padding: 8px; border: 1px solid var(--color-line); border-radius: 4px; color: var(--color-ink); background: var(--color-paper); font: inherit; }
 select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }

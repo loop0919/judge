@@ -109,7 +109,9 @@ test('settings work without local storage and the modal fits a narrow viewport',
   const bounds = (await dialog.boundingBox())!
   expect(bounds.x).toBeGreaterThanOrEqual(0)
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(320)
-  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  await dialog.getByRole('button', { name: 'エディタ設定を閉じる', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('button', { name: 'エディタ設定', exact: true })).toBeFocused()
   const editor = page.getByLabel('ソースコード', { exact: true })
   await editor.fill('x')
   await editor.press('Tab')
