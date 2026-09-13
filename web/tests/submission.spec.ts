@@ -132,3 +132,28 @@ test('unready judging settings explain why submission was rejected', async ({ pa
   await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('int main(){}')
   await expect(page.getByLabel('ソースコード', { exact: true })).toBeEditable()
 })
+
+
+test('Easy Test polls inline and retains the source for a full submission', async ({ page }) => {
+  await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'cpp17', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
+  const requests: Record<string, unknown>[] = []
+  await page.route('**/api/my/submissions', async route => {
+    requests.push(route.request().postDataJSON())
+    await route.fulfill({ status: 202, json: { ...item, easyTest: requests.length === 1 } })
+  })
+  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: { ...item, status: 'DONE', result: { verdict: 'AC', passed: 1, total: 1, cases: [{ name: 'sample_1', verdict: 'AC' }] } } }))
+  await page.goto(`/problems/${problemId}`)
+  const source = page.getByLabel('ソースコード', { exact: true })
+  await source.fill('int main(){}')
+  await page.getByRole('button', { name: 'Easy Test', exact: true }).click()
+  await expect(page.getByText('sample_1: AC', { exact: true })).toBeVisible()
+  await expect(page).toHaveURL(`/problems/${problemId}`)
+  await expect(source).toHaveText('int main(){}')
+  await expect(source).toBeEditable()
+  expect(requests[0]).toEqual({ problemId, runtime: 'cpp17', source: 'int main(){}', easyTest: true })
+  await page.getByRole('button', { name: '提出する', exact: true }).click()
+  await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
+  expect(requests[1]).toEqual({ problemId, runtime: 'cpp17', source: 'int main(){}' })
+})

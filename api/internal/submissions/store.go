@@ -20,6 +20,7 @@ type Case = problems.TestCase
 const GenerationOutputLimit = 512 << 20
 
 type Job struct {
+	EasyTest            bool                                                      `json:"easyTest,omitempty"`
 	Interactor          *problems.Generator                                       `json:"interactor,omitempty"`
 	Checker             *problems.Generator                                       `json:"checker,omitempty"`
 	GenerationBaseBytes int64                                                     `json:"generationBaseBytes,omitempty"`
@@ -60,6 +61,7 @@ type Progress struct {
 }
 
 type Submission struct {
+	EasyTest       bool      `json:"easyTest"`
 	ID             string    `json:"id"`
 	ProblemID      string    `json:"problemId"`
 	ProblemVersion int64     `json:"problemVersion"`
@@ -74,12 +76,12 @@ type Submission struct {
 
 type Store struct{ Pool *pgxpool.Pool }
 
-const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at,progress`
+const columns = `id,problem_id,problem_version,problem_title,runtime,source,status,result,created_at,progress,COALESCE((job->>'easyTest')::boolean,false)`
 
 func scan(row pgx.Row) (Submission, error) {
 	var s Submission
 	var result, progress []byte
-	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress)
+	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress, &s.EasyTest)
 	if err == nil && result != nil {
 		err = json.Unmarshal(result, &s.Result)
 	}
@@ -95,13 +97,18 @@ func (s *Store) Create(ctx context.Context, owner, id, problemID, source, image 
 }
 
 func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source, image, runtime string, checkerRuntimes ...string) (Submission, error) {
+	return s.CreateTestRun(ctx, owner, id, problemID, source, image, runtime, false, checkerRuntimes...)
+}
+
+// CreateTestRun selects sample cases inside the same statement that pins the problem version.
+func (s *Store) CreateTestRun(ctx context.Context, owner, id, problemID, source, image, runtime string, easyTest bool, checkerRuntimes ...string) (Submission, error) {
 	if len(checkerRuntimes) == 0 {
 		checkerRuntimes = []string{"cpp17"}
 	}
 	result, err := scan(s.Pool.QueryRow(ctx, `INSERT INTO submissions
   (id,owner_id,problem_id,problem_version,problem_title,runtime,source,job)
   SELECT $1,$2,id,selected_version,selected_draft->>'title',$6,$4,
-  jsonb_build_object('image',$5::text,'cases',selected_draft->'testCases','checker',selected_draft->'checker','interactor',selected_draft->'interactor',
+  jsonb_build_object('image',$5::text,'easyTest',$8::boolean,'cases',selected_cases,'checker',selected_draft->'checker','interactor',selected_draft->'interactor',
   'timeLimitMs',(selected_draft->>'timeLimitMs')::int,
   'memoryLimitMb',(selected_draft->>'memoryLimitMb')::int)
   FROM (
@@ -109,7 +116,12 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
       CASE WHEN published_draft IS NULL THEN version ELSE published_version END AS selected_version
     FROM problem_drafts WHERE id=$3 AND (published_draft IS NOT NULL OR owner_id=$2)
   ) problem
-  WHERE jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) > 0
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(jsonb_agg(c ORDER BY ordinal), '[]'::jsonb) AS selected_cases
+    FROM jsonb_array_elements(COALESCE(selected_draft->'testCases','[]'::jsonb)) WITH ORDINALITY AS cases(c, ordinal)
+    WHERE NOT $8::boolean OR starts_with(c->>'name', 'sample_')
+  ) tests
+  WHERE jsonb_array_length(selected_cases) > 0 AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) > 0
   AND jsonb_array_length(COALESCE(selected_draft->'testCases','[]'::jsonb)) <= 100
   AND ($6 = 'cpp17-local' OR (selected_draft->>'memoryLimitMb')::int = 512)
   AND (COALESCE(selected_draft->'checker','null'::jsonb) = 'null'::jsonb OR
@@ -120,7 +132,7 @@ func (s *Store) CreateRuntime(ctx context.Context, owner, id, problemID, source,
     ($6 <> 'cpp17-local' AND COALESCE(selected_draft->'checker','null'::jsonb) = 'null'::jsonb AND
      selected_draft->'interactor'->>'runtime'=ANY($7::text[]) AND
      length(btrim(selected_draft->'interactor'->>'source', E' \t\r\n'))>0))
-  RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes))
+  RETURNING `+columns, id, owner, problemID, source, image, runtime, checkerRuntimes, easyTest))
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = ErrNotReady
 	}
@@ -134,7 +146,7 @@ func (s *Store) Get(ctx context.Context, owner, id string) (Submission, error) {
 }
 
 func (s *Store) List(ctx context.Context, owner string) ([]Submission, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 AND NOT COALESCE((job->>'generate')::boolean,false) AND NOT COALESCE((job->>'validate')::boolean,false) ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
+	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE owner_id=$1 AND NOT COALESCE((job->>'easyTest')::boolean,false) AND NOT COALESCE((job->>'generate')::boolean,false) AND NOT COALESCE((job->>'validate')::boolean,false) ORDER BY created_at DESC,id DESC LIMIT 50`, owner)
 	if err != nil {
 		return nil, err
 	}

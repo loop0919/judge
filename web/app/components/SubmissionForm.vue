@@ -22,30 +22,50 @@ watch(available, items => {
   if (!items.some(item => item.id === runtime.value)) runtime.value = items[0]?.id ?? ''
 }, { immediate: true })
 const sending = ref(false)
+const runningEasyTest = ref(false)
 const message = ref('')
-async function submit() {
+const easyResult = ref<Submission | null>(null)
+let disposed = false
+onBeforeUnmount(() => { disposed = true })
+watch([source, runtime, () => props.problemId], () => { easyResult.value = null })
+async function submit(easyTest = false) {
   if (props.disabled || sending.value || !available.value.some(item => item.id === runtime.value)) return
   if (!source.value.trim() || new TextEncoder().encode(source.value).length > 65536) {
     message.value = 'ソースコードを1〜65,536バイトで入力してください。'
     return
   }
+  runningEasyTest.value = easyTest
   sending.value = true
   message.value = ''
+  easyResult.value = null
   try {
     if (props.beforeSubmit && !await props.beforeSubmit()) {
       message.value = '下書きを保存できませんでした。保存内容を確認してください。'
       return
     }
-    const result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: runtime.value, source: source.value } })
+    let result = await $fetch<Submission>('/api/my/submissions', { method: 'POST', body: { problemId: props.problemId, runtime: runtime.value, source: source.value, easyTest: easyTest || undefined } })
+    if (easyTest) {
+      easyResult.value = result
+      const deadline = Date.now() + 60 * 60 * 1000
+      while (!disposed && result.status !== 'DONE') {
+        if (Date.now() > deadline) throw new Error('timeout')
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        if (disposed) return
+        result = await $fetch<Submission>(`/api/my/submissions/${result.id}`)
+        if (disposed) return
+        easyResult.value = result
+      }
+      return
+    }
     await navigateTo(`/my/submissions/${result.id}`)
   } catch (error) {
     const failure = error as { statusCode?: number, data?: { data?: { code?: string } } }
     const code = failure.data?.data?.code
     if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
     else if (code === 'profile_required') message.value = 'プロフィールを登録してから提出してください。'
-    else if (code === 'tests_not_ready') message.value = 'テストケース、検証コード、利用できる言語の設定を確認してください。'
+    else if (code === 'tests_not_ready') message.value = easyTest ? 'sample_ で始まるテストケースがあることと、検証コード・言語の設定を確認してください。' : 'テストケース、検証コード、利用できる言語の設定を確認してください。'
     else if (code === 'judging_unavailable') message.value = 'ジャッジが設定されていません。'
-    else message.value = '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
+    else message.value = easyTest ? 'Easy Test の結果を確認できませんでした。再実行するか、結果の詳細を確認してください。' : '提出を確認できませんでした。再送する前に提出履歴を確認してください。'
   } finally { sending.value = false }
 }
 </script>
@@ -59,7 +79,7 @@ async function submit() {
   <section v-else class="submission-form" aria-labelledby="submission-title">
     <h2 id="submission-title">提出</h2>
     <p class="muted">ソースコードは64 KiBまで</p>
-    <form @submit.prevent="submit">
+    <form @submit.prevent="submit()">
       <label for="submission-language">言語</label>
       <select id="submission-language" v-model="runtime" :disabled="sending" @change="rememberRuntime">
         <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
@@ -67,14 +87,25 @@ async function submit() {
       <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
       <p v-if="message" role="alert">{{ message }}</p>
+      <p class="muted">Easy Test は sample_ で始まるケースのみを実行します。本提出の合格を保証するものではありません。</p>
       <div class="submission-actions">
-        <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending ? '提出中…' : '提出する' }}</button>
+        <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'Easy Test 実行中…' : 'Easy Test' }}</button>
+        <button class="editor-button primary" type="submit" :disabled="disabled || sending || !source.trim() || !available.length" :aria-busy="sending">{{ sending && !runningEasyTest ? '提出中…' : '提出する' }}</button>
       </div>
     </form>
+    <section v-if="easyResult" class="easy-result" aria-labelledby="easy-result-title">
+      <h3 id="easy-result-title">Easy Test の結果</h3>
+      <p role="status"><SubmissionStatus :item="easyResult" /><template v-if="easyResult.result"> — {{ easyResult.result.passed }} / {{ easyResult.result.total }} ケース合格</template></p>
+      <ul v-if="easyResult.result?.cases?.length"><li v-for="(item, index) in easyResult.result.cases" :key="index">{{ item.name }}: {{ item.verdict === 'SKIPPED' ? '未実行' : item.verdict }}</li></ul>
+      <pre v-if="easyResult.result?.compileLog">{{ easyResult.result.compileLog }}</pre>
+      <NuxtLink :to="`/my/submissions/${easyResult.id}`" target="_blank" rel="noopener noreferrer">結果の詳細 ↗</NuxtLink>
+    </section>
   </section>
 </template>
 
 <style scoped>
+.easy-result { margin-top: 24px; }
+.easy-result pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .submission-form { margin-top: 40px; }
 .submission-login { margin-top: 40px; padding: 24px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-surface); }
 .submission-login h2 { margin-bottom: 8px; }

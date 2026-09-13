@@ -168,6 +168,39 @@ func TestSubmissionsPostgres(t *testing.T) {
 		}
 		return w.Body.String()
 	}
+	// Easy Test uses a literal prefix, preserves order, and never enters submission history.
+	const easyProblem = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	_, err = store.Save(ctx, "alice", easyProblem, 0, problems.Draft{Title: "Easy", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{
+		{Name: "sample_2", Input: "2", Output: "2"}, {Name: "sampleX1"}, {Name: "hidden"}, {Name: "sample_1", Input: "1", Output: "1"}, {Name: "Sample_3"}, {},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	easyBody := `{"problemId":"` + easyProblem + `","runtime":"cpp17","source":"source","easyTest":true}`
+	request("POST", "/my/submissions", "bob", easyBody, 409)
+	request("POST", "/my/submissions", "alice", strings.TrimSuffix(easyBody, "}")+`,"generation":{"mode":"input","start":1,"count":1}}`, 400)
+	request("POST", "/my/submissions", "alice", strings.Replace(easyBody, easyProblem, id, 1), 409)
+	var easy submissions.Submission
+	if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "alice", easyBody, 202)), &easy); err != nil || !easy.EasyTest {
+		t.Fatalf("easy test: %+v %v", easy, err)
+	}
+	var rawJob []byte
+	if err := store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, easy.ID).Scan(&rawJob); err != nil {
+		t.Fatal(err)
+	}
+	var easyJob submissions.Job
+	if err := json.Unmarshal(rawJob, &easyJob); err != nil || !easyJob.EasyTest || len(easyJob.Cases) != 2 || easyJob.Cases[0].Name != "sample_2" || easyJob.Cases[1].Name != "sample_1" {
+		t.Fatalf("wrong sample selection: %s %v", rawJob, err)
+	}
+	if got := request("GET", "/my/submissions", "alice", "", 200); strings.Contains(got, easy.ID) {
+		t.Fatal("easy test in submission history")
+	}
+	request("GET", "/my/submissions/"+easy.ID, "alice", "", 200)
+	request("GET", "/my/submissions/"+easy.ID, "bob", "", 404)
+	// Remove this queued test so the existing worker assertions below retain their ordering.
+	if _, err := store.Pool().Exec(ctx, `DELETE FROM submissions WHERE id=$1`, easy.ID); err != nil {
+		t.Fatal(err)
+	}
 	body := `{"problemId":"` + id + `","runtime":"cpp17-local","source":"#include <cstdio>\nint main(){puts(\"3\");}"}`
 	request("POST", "/my/submissions", "", body, 401)
 	request("POST", "/my/submissions", "alice", strings.Replace(body, "cpp17-local", "python", 1), 400)

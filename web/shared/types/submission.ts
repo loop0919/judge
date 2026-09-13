@@ -1,6 +1,7 @@
 import type { TestFile } from '../../app/utils/problem-draft'
 
 export type Submission = {
+  easyTest?: boolean
   id: string
   problemId: string
   problemVersion: number
