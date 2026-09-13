@@ -5,6 +5,11 @@ definePageMeta({ key: route => String(route.params.id) })
 useResponseHeader('Cache-Control').value = 'no-store'
 useResponseHeader('Vary').value = 'Cookie'
 const route = useRoute()
+const views = { overview: '概要', problems: '問題', standings: '順位表', submissions: '提出一覧' }
+const activeView = computed(() => {
+  const view = route.query.view
+  return view === 'problems' || view === 'standings' || view === 'submissions' ? view : 'overview'
+})
 const { user } = useAccount()
 const base = `/api/contests/${encodeURIComponent(String(route.params.id))}`
 const { data: contest, error, refresh } = await useFetch<Contest>(base)
@@ -15,7 +20,7 @@ const submissions = ref<{ items: Submission[], hasMore: boolean } | null>(null)
 const submissionsError = ref('')
 const offset = ref(0)
 async function loadSubmissions() {
-  if (contest.value?.status !== 'ended') return
+  if (activeView.value !== 'submissions' || contest.value?.status !== 'ended') return
   try { submissions.value = await $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query: { offset: offset.value } }); submissionsError.value = '' }
   catch { submissionsError.value = '提出一覧を取得できませんでした。' }
 }
@@ -27,7 +32,7 @@ async function update() {
   finally { updating.value = false }
 }
 watch(() => user.value?.id, () => { void refresh() })
-watch(offset, () => { void loadSubmissions() })
+watch([offset, activeView], () => { void loadSubmissions() })
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => { void loadSubmissions(); timer = setInterval(() => { if (!document.hidden) void update() }, 15000) })
 onBeforeUnmount(() => clearInterval(timer))
@@ -36,6 +41,9 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
 <template>
   <div v-if="contest" class="problem-page contest-page">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/contests">コンテスト</NuxtLink><span aria-hidden="true">/</span><span>{{ contest.title }}</span></nav>
+    <nav class="problem-menu" aria-label="コンテストメニュー">
+      <NuxtLink v-for="(label, view) in views" :key="view" :to="{ path: `/contests/${contest.id}`, query: view === 'overview' ? {} : { view } }" :aria-current="activeView === view ? 'page' : undefined">{{ label }}</NuxtLink>
+    </nav>
     <header class="problem-header">
       <div class="contest-heading">
         <h1>{{ contest.title }}</h1>
@@ -46,16 +54,10 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
       <p class="schedule-timezone muted">日時は日本時間で表示しています。</p>
       <p class="contest-scoring muted">誤答ペナルティ {{ contest.penaltyMinutes }} 分 · 部分点なし</p>
     </header>
-    <nav class="problem-menu" aria-label="コンテストメニュー">
-      <a v-if="contest.description" href="#overview" :aria-current="!route.hash || route.hash === '#overview' ? 'location' : undefined">概要</a>
-      <a href="#problems" :aria-current="route.hash === '#problems' || (!contest.description && !route.hash) ? 'location' : undefined">問題</a>
-      <a href="#standings" :aria-current="route.hash === '#standings' ? 'location' : undefined">順位表</a>
-      <a v-if="contest.status === 'ended'" href="#submissions" :aria-current="route.hash === '#submissions' ? 'location' : undefined">提出一覧</a>
-    </nav>
-    <section v-if="contest.description" id="overview" class="contest-section contest-description" aria-labelledby="overview-title">
-      <h2 id="overview-title">概要</h2><ProblemMarkdown :source="contest.description" />
+    <section v-if="activeView === 'overview'" id="overview" class="contest-section contest-description" aria-labelledby="overview-title">
+      <h2 id="overview-title">概要</h2><ProblemMarkdown v-if="contest.description" :source="contest.description" /><p v-else class="muted">コンテストの説明はまだありません。</p>
     </section>
-    <section id="problems" class="contest-section" aria-labelledby="problems-title">
+    <section v-if="activeView === 'problems'" id="problems" class="contest-section" aria-labelledby="problems-title">
       <h2 id="problems-title">問題</h2>
       <p v-if="contest.status === 'scheduled'" class="notice">問題は開始時刻に公開されます。事前に閲覧できるのは作成者と、その問題のテスターです。</p>
       <p v-if="contest.status === 'ended'" class="notice">コンテストは終了しました。以降の提出は練習扱いです。</p>
@@ -63,7 +65,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
         <table class="content-table contest-problems"><thead><tr><th scope="col">#</th><th scope="col">問題</th><th scope="col">配点</th></tr></thead><tbody><tr v-for="(p, index) in contest.problems" :key="p.id"><td>{{ index + 1 }}</td><th scope="row"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ p.title }}</NuxtLink></th><td>{{ p.points }} 点</td></tr></tbody></table>
       </div>
     </section>
-    <section id="standings" class="contest-section" aria-labelledby="standings-title">
+    <section v-if="activeView === 'standings'" id="standings" class="contest-section" aria-labelledby="standings-title">
       <header class="contest-section-heading"><h2 id="standings-title">公式順位表</h2><button class="editor-button" :disabled="updating" :aria-busy="updating" @click="update">{{ updating ? '更新中…' : '今すぐ更新' }}</button></header>
       <p v-if="user && !contest.official" class="notice">作成者・テスターとしての提出は公式順位の対象外です。</p>
       <div class="standings-description muted"><p>同点の場合は、最後の得点獲得までの経過時間と誤答ペナルティの合計で比較します。正解した問題の初回正解前の誤答のみ加算し、コンパイルエラーは除外します。</p><p>15秒ごとに更新。終了前に受け付けた提出は、終了後に判定されても反映されます。</p></div>
@@ -75,10 +77,14 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
         </table>
       </div>
     </section>
-    <section v-if="contest.status === 'ended'" id="submissions" class="contest-section" aria-labelledby="submissions-title">
-      <h2 id="submissions-title">提出一覧</h2><p class="muted">終了後は提出コードを閲覧できます。練習提出も掲載します。</p>
+    <section v-if="activeView === 'submissions'" id="submissions" class="contest-section" aria-labelledby="submissions-title">
+      <h2 id="submissions-title">提出一覧</h2>
+      <p v-if="contest.status !== 'ended'" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。</p>
+      <template v-else><p class="muted">終了後は提出コードを閲覧できます。練習提出も掲載します。</p>
       <p v-if="submissionsError" class="field-error" role="alert">{{ submissionsError }}</p>
+      <p v-if="!submissions && !submissionsError" class="muted" role="status">提出一覧を読み込み中…</p>
       <template v-if="submissions"><p v-if="!submissions.items.length" class="contest-empty muted">提出はまだありません。</p><div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0"><table class="content-table"><thead><tr><th scope="col">問題</th><th scope="col">ユーザー</th><th scope="col">結果</th><th scope="col">提出日時（日本時間）</th></tr></thead><tbody><tr v-for="s in submissions.items" :key="s.id"><th scope="row"><NuxtLink :to="`/contests/${contest.id}/submissions/${s.id}`">{{ s.problemTitle }}</NuxtLink></th><td>{{ s.author }}</td><td><SubmissionStatus :item="s" /></td><td>{{ contestDate(s.createdAt) }}<span v-if="new Date(s.createdAt) >= new Date(contest.endsAt)"> · 練習</span></td></tr></tbody></table></div><ContentPagination :index="offset / 50" :has-next="submissions.hasMore" :loading="updating" @move="direction => offset += direction * 50" /></template>
+      </template>
     </section>
   </div>
 </template>
@@ -95,8 +101,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
 .contest-schedule div { flex-wrap: wrap; gap: 4px 12px; }
 .schedule-timezone { margin: 8px 0 12px; }
 .contest-scoring { margin: 0; }
-.contest-section { padding-block: 32px; scroll-margin-top: 24px; }
-.contest-section + .contest-section { border-top: 1px solid var(--color-line); }
+.contest-section { padding-block: 32px; }
 .contest-section > h2, .contest-section-heading { margin: 0 0 20px; }
 .contest-description, .standings-description { max-width: 52rem; }
 .contest-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }

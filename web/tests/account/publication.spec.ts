@@ -7,7 +7,7 @@ async function login(page: Page) {
   await expect(page).toHaveURL('/my')
   page.on('dialog', dialog => dialog.accept())
 }
-test('problem publication is visible anonymously and private edits stay private', async ({ page, browser }) => {
+test('problem publication is visible anonymously and private edits stay private', async ({ page, browser }, testInfo) => {
   await login(page)
   await page.goto('/problems/new')
   await page.locator('#problem-title').fill('公開フロー確認')
@@ -30,6 +30,11 @@ test('problem publication is visible anonymously and private edits stay private'
   await expect(reader.getByRole('heading', { level: 1 })).toHaveText('公開フロー確認')
   await expect(reader.locator('.katex')).toBeVisible()
   await expect(reader.getByText('Lv.4')).toBeVisible()
+  for (const width of [320, 375, 414, 768]) {
+    await reader.setViewportSize({ width, height: 900 })
+    expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await reader.screenshot({ path: testInfo.outputPath(`problem-${width}.png`), fullPage: true })
+  }
   const savedEditorURL = page.url()
   const favoritePage = await page.context().newPage()
   await favoritePage.goto(`/problems/${id}`)

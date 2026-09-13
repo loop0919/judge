@@ -16,6 +16,11 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 <template>
   <div v-if="problem" class="problem-page">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="problem.isPrivate ? '/my' : '/problems'">{{ problem.isPrivate ? 'マイページ' : '問題' }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav>
+    <nav class="problem-menu" aria-label="問題メニュー">
+      <NuxtLink :to="`/problems/${problem.id}`" :aria-current="showingEditorial ? undefined : 'page'">問題</NuxtLink>
+      <NuxtLink :to="{ path: `/problems/${problem.id}`, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink>
+      <NuxtLink v-if="user" to="/my/submissions">提出履歴</NuxtLink>
+    </nav>
     <header class="problem-header">
       <h1>{{ problem.title }}</h1>
       <p v-if="problem.isPrivate" class="muted">非公開 · 作成者本人のみ閲覧・提出できます。</p>
@@ -28,11 +33,6 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
       </div>
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>
     </header>
-    <nav class="problem-menu" aria-label="問題メニュー">
-      <NuxtLink :to="`/problems/${problem.id}`" :aria-current="showingEditorial ? undefined : 'page'">問題</NuxtLink>
-      <NuxtLink :to="{ path: `/problems/${problem.id}`, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink>
-      <NuxtLink v-if="user" to="/my/submissions">提出履歴</NuxtLink>
-    </nav>
     <article class="problem-body" aria-label="問題詳細">
       <template v-if="showingEditorial">
         <ProblemMarkdown v-if="problem.editorial" :source="problem.editorial" />
