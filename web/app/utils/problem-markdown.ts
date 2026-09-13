@@ -31,6 +31,30 @@ const markdown = new MarkdownIt({ html: false, linkify: false, typographer: fals
   })
   .use(container, 'details')
 
+// Discard comments without allowing general HTML; code rules keep literal examples intact.
+markdown.block.ruler.before('html_block', 'html_comment', (state, startLine, endLine, silent) => {
+  const start = state.bMarks[startLine]! + state.tShift[startLine]!
+  if (state.sCount[startLine]! - state.blkIndent >= 4 || !state.src.startsWith('<!--', start)) return false
+  if (silent) return true
+  let nextLine = startLine
+  while (nextLine < endLine) {
+    if (nextLine > startLine && state.sCount[nextLine]! < state.blkIndent && !state.isEmpty(nextLine)) break
+    const line = state.src.slice(state.bMarks[nextLine]! + state.tShift[nextLine]!, state.eMarks[nextLine])
+    nextLine++
+    if (line.includes('-->')) break
+  }
+  state.line = nextLine
+  return true
+}, { alt: ['paragraph', 'reference', 'blockquote', 'list'] })
+
+markdown.inline.ruler.before('html_inline', 'html_comment', (state) => {
+  if (!state.src.startsWith('<!--', state.pos)) return false
+  const end = state.src.indexOf('-->', state.pos + 4)
+  if (end < 0 || end + 3 > state.posMax) return false
+  state.pos = end + 3
+  return true
+})
+
 markdown.inline.ruler.before('text', 'colored_text', (state, silent) => {
   if (state.src[state.pos] !== '%') return false
   const match = /^%([^%\r\n]+)%\{([a-zA-Z]+|#(?:[\da-fA-F]{8}|[\da-fA-F]{6}|[\da-fA-F]{4}|[\da-fA-F]{3}))\}/.exec(state.src.slice(state.pos, state.posMax))

@@ -2,6 +2,20 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('HTML comments are hidden while code examples and escaped comments stay visible', () => {
+  for (const label of ['問題文', '解説', '記事', 'コンテストの概要']) {
+    expect(renderProblemMarkdown(`<!-- ここに${label}を記載 -->\n`)).toBe('')
+  }
+  expect(renderProblemMarkdown('## 問題文\n\n<!-- メモ\n\n## 非表示\n<script>alert(1)</script>\n-->\n\n本文'))
+    .toBe('<h2>問題文</h2>\n<p>本文</p>\n')
+  expect(renderProblemMarkdown('前<!-- メモ -->後')).toBe('<p>前後</p>\n')
+  expect(renderProblemMarkdown('本文\n<!-- 未完了\n\nメモ')).toBe('<p>本文</p>\n')
+  expect(renderProblemMarkdown('> <!-- メモ -->\n> 本文')).toBe('<blockquote>\n<p>本文</p>\n</blockquote>\n')
+  for (const source of ['`<!-- メモ -->`', '```text\n<!-- メモ -->\n```', '    <!-- メモ -->', '\\<!-- メモ -->', '&lt;!-- メモ --&gt;']) {
+    expect(renderProblemMarkdown(source)).toContain('&lt;!-- メモ --&gt;')
+  }
+})
+
 test('colored text supports names and hex colors while preserving Markdown boundaries', () => {
   expect(renderProblemMarkdown('本文%赤文字ですよ%{red}と%白い文字%{#FFFFFF}です。'))
     .toContain('本文<span style="color: red">赤文字ですよ</span>と<span style="color: #FFFFFF">白い文字</span>です。')
