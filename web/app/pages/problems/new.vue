@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { accountProblemSchema, accountError } from '~/utils/account-problems'
-import { draftErrors, emptyGenerators, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase, type ProblemDraft } from '~/utils/problem-draft'
+import { draftErrors, emptyGenerators, initialEditorialMarkdown, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase, type ProblemDraft } from '~/utils/problem-draft'
 import { uploadTestFile } from '~/utils/test-files'
 
 import { readProblemCache, writeProblemCache, removeProblemCache } from '~/utils/problem-cache'
@@ -39,7 +39,7 @@ const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非�
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | ShareOJ', robots: 'noindex, nofollow' })
 const section = ref<'statement' | 'editorial' | 'tests' | 'generators' | 'checker' | 'management'>('statement')
-const draft = reactive({ checker: null as ProblemDraft['checker'], interactor: null as ProblemDraft['interactor'], difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const draft = reactive({ checker: null as ProblemDraft['checker'], interactor: null as ProblemDraft['interactor'], difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: initialEditorialMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const activeMarkdown = computed({
   get: () => section.value === 'editorial' ? draft.editorial : draft.markdown,
   set: value => { if (section.value === 'editorial') draft.editorial = value; else draft.markdown = value },
@@ -211,7 +211,7 @@ onMounted(async () => {
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { checker: null, interactor: null, difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
+      Object.assign(draft, { checker: null, interactor: null, difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: initialEditorialMarkdown, generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
       renderedSource.value = activeMarkdown.value
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
