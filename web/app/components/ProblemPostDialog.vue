@@ -48,7 +48,7 @@ async function post() {
 <template>
   <Teleport to="body">
     <dialog ref="dialog" class="problem-post-dialog" aria-labelledby="post-title" aria-describedby="post-description" @cancel="busy && $event.preventDefault()">
-      <header><h2 id="post-title">問題を投稿</h2><button type="button" class="editor-button close-button" aria-label="閉じる" :disabled="busy" @click="dialog?.close()">×</button></header>
+      <header><h2 id="post-title">問題を投稿</h2><button type="button" class="editor-button close-button" aria-label="閉じる" :disabled="busy" @click="dialog?.close()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
       <p id="post-description">未公開の問題を選んで投稿します。コンテストに登録した問題は選べません。</p>
       <p v-if="loading" role="status">問題を読み込んでいます…</p>
       <p v-if="message" role="alert" class="editor-error">{{ message }}</p>
@@ -70,7 +70,7 @@ async function post() {
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 h2 { margin: 0; font-size: 1.25rem; }
 p { margin: 0 0 20px; font-size: .875rem; line-height: 1.8; }
-.close-button { width: 36px; height: 36px; padding: 0; font-size: 1.5rem; }
+.close-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; padding: 0; border: 0; background: transparent; }
 label { display: block; margin-bottom: 8px; font-size: .875rem; font-weight: 600; }
 select { display: block; width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: inherit; font-size: .875rem; }
 select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
