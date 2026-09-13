@@ -117,3 +117,57 @@ test('500,000 ten-digit integers are stored as an immutable large test file', as
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
   await expect(page.locator('.test-data-editor').first().locator('.pane-heading span')).toContainText(`${size.toLocaleString('en-US')} / 16,777,216 bytes`)
 })
+
+test('bulk folder import pairs names, persists data, and rejects invalid batches atomically', async ({ page }) => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const root = await mkdtemp(join(tmpdir(), 'judge-cases-'))
+  let batch = 0
+  async function select(inputs: Record<string, string | Buffer>, outputs: Record<string, string | Buffer>) {
+    for (const [label, files] of [['入力フォルダ', inputs], ['期待出力フォルダ', outputs]] as const) {
+      const directory = join(root, String(batch++))
+      await mkdir(directory)
+      for (const [name, content] of Object.entries(files)) await writeFile(join(directory, name), content)
+      await page.getByLabel(label, { exact: true }).setInputFiles(directory)
+    }
+    await page.getByRole('button', { name: '一括追加', exact: true }).click()
+  }
+  try {
+    await page.goto('/problems/new')
+    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+    await page.getByText('フォルダから一括追加', { exact: true }).click()
+    await select({ 'sum.txt': '3 5\n', 'empty.txt': '' }, { 'empty.txt': '', 'sum.txt': '8\n' })
+    await expect(page.locator('.case-files li')).toHaveCount(2)
+    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+    await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
+    await expect(page.getByLabel('出力', { exact: true })).toHaveText('8')
+    await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
+    await page.reload()
+    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+    await expect(page.locator('.case-files li')).toHaveCount(2)
+    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+    await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
+    await page.getByText('フォルダから一括追加', { exact: true }).click()
+    const batches = [
+      { inputs: { 'sum.txt': '9' }, outputs: { 'sum.txt': '9' }, error: '重複' },
+      { inputs: { 'missing.txt': '1' }, outputs: { 'other.txt': '' }, error: '両方' },
+      { inputs: { 'bad.txt': Buffer.from([0xff]) }, outputs: { 'bad.txt': '' }, error: 'UTF-8' },
+      { inputs: { 'bad.txt': '\0' }, outputs: { 'bad.txt': '' }, error: '使用できない文字' },
+      { inputs: { 'bad.csv': '' }, outputs: { 'bad.txt': '' }, error: '.txt' },
+      { inputs: { 'big.txt': Buffer.alloc(16 * 1024 * 1024 + 1) }, outputs: { 'big.txt': '' }, error: '16 MiB' },
+      { inputs: Object.fromEntries(Array.from({ length: 99 }, (_, i) => [`case${i}.txt`, ''])), outputs: Object.fromEntries(Array.from({ length: 99 }, (_, i) => [`case${i}.txt`, ''])), error: '100件' },
+    ]
+    for (const item of batches) {
+      await select(item.inputs, item.outputs)
+      await expect(page.locator('.test-case-editor [role=alert]')).toContainText(item.error)
+      await expect(page.locator('.case-files li')).toHaveCount(2)
+      await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
+    }
+    await select({ 'next.txt': '2' }, { 'next.txt': '4' })
+    await expect(page.locator('.case-files li')).toHaveCount(3)
+    await expect(page.locator('.test-case-editor [role=alert]')).toHaveCount(0)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

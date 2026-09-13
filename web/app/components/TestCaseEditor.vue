@@ -1,10 +1,43 @@
 <script setup lang="ts">
 import { testCaseError, type TestCase } from '~/utils/problem-draft'
 import { downloadTestFile } from '~/utils/test-files'
+import { importTestCases } from '~/utils/import-test-cases'
 const cases = defineModel<TestCase[]>({ required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string }>()
 const error = computed(() => testCaseError(cases.value))
 const selected = ref(0)
+const inputFiles = ref<File[]>([])
+const outputFiles = ref<File[]>([])
+function selectFolder(event: Event, key: 'input' | 'output') {
+  const files = Array.from((event.target as HTMLInputElement).files ?? [])
+  if (key === 'input') inputFiles.value = files
+  else outputFiles.value = files
+  importError.value = ''
+  importStatus.value = ''
+}
+const importing = ref(false)
+const importError = ref('')
+const importStatus = ref('')
+async function importFiles() {
+  if (props.disabled || importing.value || !inputFiles.value.length || !outputFiles.value.length) return
+  importing.value = true
+  importError.value = ''
+  importStatus.value = ''
+  try {
+    const imported = await importTestCases(inputFiles.value, outputFiles.value, cases.value)
+    if (props.disabled) throw new Error('現在は取り込めません。もう一度選択してください。')
+    const validation = testCaseError([...cases.value, ...imported])
+    if (validation) throw new Error(validation)
+    const first = cases.value.length
+    cases.value = [...cases.value, ...imported]
+    selected.value = first
+    importStatus.value = `${imported.length}件のテストケースを追加しました。`
+  } catch (error) {
+    importError.value = error instanceof Error ? error.message : 'ファイルを読み込めませんでした。'
+  } finally {
+    importing.value = false
+  }
+}
 const current = computed(() => cases.value[selected.value])
 const loading = reactive({ input: false, output: false })
 const loadError = reactive({ input: '', output: '' })
@@ -46,8 +79,16 @@ function add() {
       <h1 id="test-cases-title">テストケース <span>{{ cases.length }} / 100件</span></h1>
     </header>
     <div class="case-notes">
+      <details class="bulk-import"><summary>フォルダから一括追加</summary>
+        <p>入力用・期待出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は追加できません。</p>
+        <label>入力フォルダ<input type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'input')"></label>
+        <label>期待出力フォルダ<input type="file" webkitdirectory multiple aria-label="期待出力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'output')"></label>
+        <button type="button" class="editor-button" :disabled="disabled || importing || cases.length >= 100 || !inputFiles.length || !outputFiles.length" @click="importFiles">{{ importing ? '読み込み中…' : '一括追加' }}</button>
+      </details>
       <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・期待出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
     </div>
+    <p v-if="importError" class="editor-error" role="alert">{{ importError }}</p>
+    <p v-if="importStatus" class="case-notes" role="status">{{ importStatus }}</p>
     <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
     <div class="case-workspace">
       <nav class="case-files" aria-label="テストケース一覧">
@@ -87,6 +128,8 @@ function add() {
 .case-toolbar h1 span { margin-left: 12px; font-size: .75rem; font-weight: normal; color: var(--color-muted); }
 .case-toolbar button { white-space: nowrap; }
 .case-notes { padding: 8px 16px; font-size: .75rem; color: var(--color-muted); border-bottom: 1px solid var(--color-line); max-height: 25%; overflow-y: auto; }
+.bulk-import label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.bulk-import input { max-width: 100%; min-width: 0; }
 .case-notes p { margin: 0; }
 .case-notes details { margin-top: 4px; }
 .case-notes summary { cursor: pointer; }
