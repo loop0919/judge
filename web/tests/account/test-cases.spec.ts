@@ -51,7 +51,7 @@ test('test cases can be edited, restored, published and used for submission with
   await expect(page.locator('#case-output-1')).toHaveCount(0)
   await expect(page.getByRole('status')).toHaveText('保存済み')
   const privateResponse = await page.request.get(`/api/my/problems/${id}`)
-  expect((await privateResponse.json()).draft.testCases).toEqual([{ name: '通常ケース', input: '3 5\n', output: '8\n' }])
+  expect((await privateResponse.json()).draft.testCases).toEqual([{ name: '通常ケース', isSample: false, input: '3 5\n', output: '8\n' }])
   await page.getByRole('button', { name: '問題管理', exact: true }).click()
   await page.getByRole('button', { name: '一括削除', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('保存済み')
