@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 
 export function useMarkdownEditor(markdown: Ref<string>) {
-  const { settings, indentation } = useEditorSettings()
+  const { settings, indentation } = useEditorSettings('markdown')
   const mode = ref<'edit' | 'split' | 'preview'>('split')
   const workspace = ref<HTMLElement>()
   const splitPercent = ref(50)

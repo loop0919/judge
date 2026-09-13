@@ -6,10 +6,15 @@ for (const [path, selector] of [['/problems/new', '#problem-source'], ['/blog/ne
   test(`Markdown indentation and settings work in ${path}`, async ({ page }) => {
     await page.goto(path!)
     const editor = page.locator(selector!)
+    const toolbar = page.locator('.editor-toolbar')
+    const settingsButton = page.getByRole('button', { name: 'エディタ設定', exact: true })
+    const toolbarBox = (await toolbar.boundingBox())!
+    const settingsBox = (await settingsButton.boundingBox())!
+    expect(Math.abs(toolbarBox.x + toolbarBox.width - settingsBox.x - settingsBox.width - 8)).toBeLessThan(2)
     await editor.fill('one\ntwo\nthree')
     await editor.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(0, 8))
     await editor.press('Tab')
-    await expect(editor).toHaveValue('    one\n    two\nthree')
+    await expect(editor).toHaveValue('  one\n  two\nthree')
     await editor.press('Shift+Tab')
     await expect(editor).toHaveValue('one\ntwo\nthree')
     await editor.fill('  one')
@@ -17,11 +22,11 @@ for (const [path, selector] of [['/problems/new', '#problem-source'], ['/blog/ne
     await editor.press('Shift+Tab')
     await expect(editor).toHaveValue('one')
     await editor.press('Tab')
-    await expect(editor).toHaveValue('    one')
+    await expect(editor).toHaveValue('  one')
     await page.getByRole('button', { name: 'エディタ設定', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'エディタ設定' })
     await expect(dialog.getByLabel('インデント方式')).toHaveValue('space')
-    await expect(dialog.getByLabel('インデント幅')).toHaveValue('4')
+    await expect(dialog.getByLabel('インデント幅')).toHaveValue('2')
     await dialog.getByLabel('インデント方式').selectOption('tab')
     await dialog.getByLabel('インデント幅').selectOption('8')
     await dialog.press('Escape')
@@ -40,7 +45,7 @@ for (const [path, selector] of [['/problems/new', '#problem-source'], ['/blog/ne
   })
 }
 
-test('source settings apply immediately, persist and are shared with Markdown', async ({ page }) => {
+test('source and Markdown settings apply immediately and persist independently', async ({ page }) => {
   await page.goto(problem)
   const editor = page.getByLabel('ソースコード', { exact: true })
   await editor.fill('int main(){}')
@@ -74,8 +79,22 @@ test('source settings apply immediately, persist and are shared with Markdown', 
   const markdown = page.getByLabel('本文（Markdown）')
   await markdown.fill('x')
   await markdown.press('Tab')
-  await expect(markdown).toHaveValue('\tx')
+  await expect(markdown).toHaveValue('  x')
   await expect(markdown).toHaveCSS('tab-size', '2')
+  await page.getByRole('button', { name: 'エディタ設定', exact: true }).click()
+  await dialog.getByLabel('インデント幅').selectOption('8')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  await page.reload()
+  await markdown.fill('x')
+  await markdown.press('Tab')
+  await expect(markdown).toHaveValue('        x')
+  await page.goto(problem)
+  await editor.fill('x')
+  await editor.press('Tab')
+  expect(await editor.textContent()).toBe('\tx')
+  await page.getByRole('button', { name: 'エディタ設定', exact: true }).click()
+  await expect(dialog.getByLabel('インデント方式')).toHaveValue('tab')
+  await expect(dialog.getByLabel('インデント幅')).toHaveValue('2')
 })
 
 test('settings work without local storage and the modal fits a narrow viewport', async ({ page }) => {
@@ -95,4 +114,19 @@ test('settings work without local storage and the modal fits a narrow viewport',
   await editor.fill('x')
   await editor.press('Tab')
   expect(await editor.textContent()).toBe('        x')
+})
+
+
+test('legacy shared settings are retained only for the code editor', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('openoj.editor-settings', JSON.stringify({ style: 'tab', width: 4 })))
+  await page.goto('/problems/new')
+  const markdown = page.locator('#problem-source')
+  await markdown.fill('x')
+  await markdown.press('Tab')
+  await expect(markdown).toHaveValue('  x')
+  await page.goto(problem)
+  const code = page.getByLabel('ソースコード', { exact: true })
+  await code.fill('x')
+  await code.press('Tab')
+  expect(await code.textContent()).toBe('\tx')
 })

@@ -11,7 +11,7 @@ const props = defineProps<{ disabled?: boolean, readonly?: boolean, label?: stri
 const labelId = useId()
 const container = ref<HTMLDivElement>()
 const bytes = computed(() => new TextEncoder().encode(source.value).length)
-const { settings, indentation } = useEditorSettings()
+const { settings, indentation } = useEditorSettings('code')
 const indentConfig = new Compartment()
 const indentExtensions = () => [indentUnit.of(indentation.value), EditorState.tabSize.of(settings.value.width)]
 const editable = new Compartment()
@@ -59,7 +59,7 @@ onBeforeUnmount(() => editor?.destroy())
   <div class="source-code-editor" :class="{ 'is-disabled': disabled, 'is-readonly': readonly }">
     <div class="pane-heading">
       <span :id="labelId">{{ label || 'ソースコード' }}</span>
-      <div class="source-editor-actions"><span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span><EditorSettings v-if="!readonly" :disabled="disabled" /></div>
+      <div class="source-editor-actions"><span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span><EditorSettings kind="code" v-if="!readonly" :disabled="disabled" /></div>
     </div>
     <div ref="container" class="code-surface" />
   </div>
@@ -68,7 +68,7 @@ onBeforeUnmount(() => editor?.destroy())
 <style scoped>
 .source-code-editor { min-width: 0; margin-top: 20px; border: 1px solid var(--color-line); border-radius: 4px; overflow: hidden; }
 .pane-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--color-line); font-size: .875rem; }
-.source-editor-actions { display: flex; align-items: center; gap: 8px; }
+.source-editor-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .byte-count { font-size: .75rem; color: var(--color-muted); }
 .code-surface { position: relative; height: 384px; min-height: 180px; overflow: hidden; resize: vertical; }
 .code-surface:focus-within::after { content: ""; position: absolute; inset: 0; z-index: 10; border: 2px solid var(--color-accent); pointer-events: none; }

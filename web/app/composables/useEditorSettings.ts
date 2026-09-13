@@ -1,12 +1,12 @@
-export function useEditorSettings() {
-  const settings = useState('editor-settings', () => ({ style: 'space' as 'space' | 'tab', width: 4 }))
-  const loaded = useState('editor-settings-loaded', () => false)
-  const storageKey = 'openoj.editor-settings'
+export function useEditorSettings(kind: 'code' | 'markdown') {
+  const settings = useState(`editor-settings-${kind}`, () => ({ style: 'space' as 'space' | 'tab', width: kind === 'markdown' ? 2 : 4 }))
+  const loaded = useState(`editor-settings-${kind}-loaded`, () => false)
+  const storageKey = `openoj.editor-settings.${kind}`
   onMounted(() => {
     if (loaded.value) return
     loaded.value = true
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null')
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? (kind === 'code' ? localStorage.getItem('openoj.editor-settings') : null) ?? 'null')
       if (saved && ['space', 'tab'].includes(saved.style) && Number.isInteger(saved.width) && saved.width >= 1 && saved.width <= 8) {
         settings.value = { style: saved.style, width: saved.width }
       }
