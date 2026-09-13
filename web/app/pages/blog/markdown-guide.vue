@@ -12,6 +12,17 @@ const input = ['```input', '$T$', '$\\mathrm{case}_1$', '$\\mathrm{case}_2$', '$
 const arrayInput = ['```input', '$N$', '$A_1 \\quad A_2 \\quad \\cdots \\quad A_N$', '```'].join('\n')
 const math = ['```math', '\\sum_{i=1}^{N} i = \\frac{N(N+1)}{2}', '```'].join('\n')
 const details = [':::details ヒント', 'ここに **ヒント** や数式 $A + B$ を書けます。', ':::'].join('\n')
+const programLanguages = [
+  ':::details 対応言語と指定する言語名',
+  '| 言語 | コードブロックに指定する言語名 |',
+  '| --- | --- |',
+  '| Python | `py` または `python` |',
+  '| C++ | `cpp` または `c++` |',
+  '| C | `c` |',
+  '| Rust | `rust` または `rs` |',
+  '| 色分けなし | `text` または言語名を省略 |',
+  ':::',
+].join('\n')
 const program = ['```py', 'a, b = map(int, input().split())', 'print(a + b)', '```'].join('\n')
 const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例 1', '', '```text', '8', '```'].join('\n')
 </script>
@@ -26,7 +37,7 @@ const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例
     <section id="input-format"><h2>改行を保った入力形式を書く</h2><p>コードブロックの言語名を <code>input</code> にすると、改行を保ちながら、その中の <code>$...$</code> を数式として表示します。数式の外側には通常の文字も書けます。</p><pre><code>{{ input }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="input" /></div><p>同じ行に変数を並べるときは、数式内の <code>\quad</code> で間隔を空けます。横方向の省略記号は <code>\cdots</code>、縦方向は <code>\vdots</code> です。</p><pre><code>{{ arrayInput }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="arrayInput" /></div></section>
     <section id="display-math"><h2>独立した数式を書く</h2><p><code>math</code> コードブロックには、LaTeX の数式を直接書きます。ブロック内をさらに <code>$</code> で囲む必要はありません。</p><pre><code>{{ math }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="math" /></div><p><code>$$...$$</code> で独立した数式を書くこともできます。複数行の数式を整列させたいときは、数式内で <code>\begin{aligned} ... \end{aligned}</code> を使えます。</p></section>
     <section id="samples"><h2>入出力例は文字列のまま書く</h2><p>具体的な入力値や出力値は <code>text</code> コードブロックに入れます。通常のコードブロックでは <code>$...$</code> も数式に変換されません。インラインコードも同様です。</p><pre><code>{{ code }}</code></pre></section>
-    <section id="programs"><h2>プログラムを書く</h2><p>バッククォート3つに言語名を続けた <code>```py</code> などで書き始め、次の行からプログラムを書きます。最後は <code>```</code> だけの行で閉じます。改行や字下げを保ち、対応する言語ではコードの色分けと行番号が表示されます。</p><pre><code>{{ program }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="program" /></div><p>色分けに対応する言語名は Python が <code>py</code> または <code>python</code>、C++ が <code>cpp</code> または <code>c++</code>、C が <code>c</code>、Rust が <code>rust</code> または <code>rs</code> です。色分けが不要なら <code>text</code> を指定するか、言語名を省略してください。</p></section>
+    <section id="programs"><h2>プログラムを書く</h2><p>バッククォート3つに言語名を続けた <code>```py</code> などで書き始め、次の行からプログラムを書きます。最後は <code>```</code> だけの行で閉じます。改行や字下げを保ち、対応する言語ではコードの色分けと行番号が表示されます。</p><pre><code>{{ program }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="program" /></div><ProblemMarkdown :source="programLanguages" /></section>
     <section id="details"><h2>内容を折りたたむ</h2><p><code>:::details タイトル</code> と <code>:::</code> で本文を囲むと、タイトルをクリックして開閉できます。本文には Markdown、数式、コードブロックを使えます。問題文・ブログの両方で利用できます。</p><pre><code>{{ details }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="details" /></div></section>
     <section id="judge-status"><h2>ジャッジステータスを表示する</h2><p><code>:AC:</code> や <code>:RE:</code> のように大文字のステータスをコロンで囲むと、バッジとして表示します。問題文・解説・ブログで利用できます。コードや数式の中では変換されません。</p><pre><code>:AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown source=":AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:" /></div></section>
     <section id="drafts"><h2>問題を保存する</h2><p>ログインして編集した問題は自動保存されます。「保存」ボタンでも保存できます。</p><p>保存した問題は「自分の問題」から一覧で確認し、別の端末でも編集を再開できます。「新しい問題を作成」から別の問題を作成できます。</p><p>保存しても、問題は公開されません。</p></section>
