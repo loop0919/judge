@@ -30,7 +30,7 @@ test('owner can read a private problem and editorial, then submit', async ({ pag
   await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
   await page.getByRole('button', { name: '提出する', exact: true }).click()
   await expect(page).toHaveURL('/my/submissions/private-submission')
-  await expect(page.getByRole('status')).toHaveText('完了（AC）：正解')
+  await expect(page.getByRole('status')).toHaveText('AC：正解')
 })
 
 test('private content is unavailable without a session and unknown owner resources stay hidden', async ({ context }) => {

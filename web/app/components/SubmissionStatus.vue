@@ -5,7 +5,7 @@ const { item } = defineProps<{ item: Submission }>()
 const tooltipId = useId()
 const pending = computed(() => item.status !== 'DONE')
 const label = computed(() => {
-  if (!pending.value) return item.result ? `完了（${item.result.verdict}）` : '完了'
+  if (!pending.value) return item.result?.verdict ?? '完了'
   if (item.status === 'RUNNING' && item.progress?.phase === 'JUDGING') return `${item.progress.completed}/${item.progress.total}`
   return 'WJ'
 })

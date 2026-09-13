@@ -2,6 +2,18 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('judge status shortcodes reuse badges and respect Markdown boundaries', () => {
+  for (const verdict of ['AC', 'WA', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'JE', 'WJ']) {
+    expect(renderProblemMarkdown(`結果は:${verdict}:です。`)).toContain(
+      `<span class="verdict-badge"${verdict === 'WJ' ? '' : ` data-verdict="${verdict}"`}>${verdict}</span>`,
+    )
+  }
+  expect(renderProblemMarkdown('**:AC:**:RE:')).toContain('</span></strong><span class="verdict-badge" data-verdict="RE">')
+  for (const source of ['`:AC:`', '```text\n:RE:\n```', '```input\n:AC:\n```', '$:AC:$', '\\:AC:', ':UNKNOWN: :ac:', '[link](https://example.com/:AC:)']) {
+    expect(renderProblemMarkdown(source)).not.toContain('verdict-badge')
+  }
+})
+
 test('details render Markdown while preserving code fences and escaping titles', () => {
   expect(renderProblemMarkdown(':::details タイトル\n内容\n:::')).toBe('<details><summary>タイトル</summary>\n<p>内容</p>\n</details>\n')
   const html = renderProblemMarkdown([

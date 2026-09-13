@@ -31,6 +31,22 @@ const markdown = new MarkdownIt({ html: false, linkify: false, typographer: fals
   })
   .use(container, 'details')
 
+markdown.inline.ruler.before('text', 'judge_status', (state, silent) => {
+  if (state.src[state.pos] !== ':') return false
+  const match = /^:(AC|WA|TLE|MLE|OLE|RE|CE|JE|WJ):/.exec(state.src.slice(state.pos))
+  if (!match) return false
+  if (!silent) {
+    const token = state.push('judge_status', 'span', 0)
+    token.content = match[1]!
+  }
+  state.pos += match[0].length
+  return true
+})
+markdown.renderer.rules.judge_status = (tokens, index) => {
+  const verdict = tokens[index]!.content
+  return `<span class="verdict-badge"${verdict === 'WJ' ? '' : ` data-verdict="${verdict}"`}>${verdict}</span>`
+}
+
 markdown.renderer.rules.container_details_open = (tokens, index) => {
   const title = tokens[index]!.info.trim().slice('details'.length).trim() || '詳細'
   return `<details><summary>${markdown.utils.escapeHtml(title)}</summary>\n`

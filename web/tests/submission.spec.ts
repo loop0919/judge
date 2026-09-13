@@ -72,7 +72,7 @@ test('C++ submission opens its result and polls until completion', async ({ page
   expect(await keyword.evaluate(element => getComputedStyle(element).color !== getComputedStyle(element.closest('.cm-content')!).color)).toBe(true)
   await page.getByRole('button', { name: '提出する', exact: true }).click()
   await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
-  await expect(page.getByRole('status')).toHaveText('完了（AC）：正解')
+  await expect(page.getByRole('status')).toHaveText('AC：正解')
   await expect(page.getByRole('row', { name: '正解したケース 2 / 2' })).toBeVisible()
   await expect(page.getByRole('row', { name: '問題の版', exact: false })).toHaveCount(0)
   await expect(page.getByRole('table', { name: 'テストケースごとの結果' }).getByRole('row', { name: 'sample AC' })).toBeVisible()
@@ -111,7 +111,7 @@ for (const view of ['detail', 'history']) {
     await badge.focus()
     await expect(page.getByRole('tooltip')).toHaveText('ジャッジ中')
     await expect(badge).toHaveAccessibleDescription('ジャッジ中')
-    for (const [index, label] of ['WJ', 'WJ', '0/4', '2/4', '完了（AC）'].entries()) {
+    for (const [index, label] of ['WJ', 'WJ', '0/4', '2/4', 'AC'].entries()) {
       await expect.poll(() => reads).toBeGreaterThanOrEqual(index + 1)
       await expect(badge).toHaveText(label)
     }
