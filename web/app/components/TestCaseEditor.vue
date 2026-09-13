@@ -62,7 +62,7 @@ async function load(key: 'input' | 'output') {
 }
 watch([selected, () => current.value?.inputFile?.id, () => current.value?.outputFile?.id], () => { void load('input'); void load('output') }, { immediate: true })
 function remove() {
-  if (current.value && window.confirm(`「${fileName(current.value, selected.value)}」の入力と期待出力を削除しますか？`)) cases.value.splice(selected.value, 1)
+  if (current.value && window.confirm(`「${fileName(current.value, selected.value)}」の入力と出力を削除しますか？`)) cases.value.splice(selected.value, 1)
 }
 function add() {
   if (props.disabled || cases.value.length >= 100) return
@@ -81,12 +81,12 @@ function add() {
     </header>
     <div class="case-notes">
       <details class="bulk-import"><summary>フォルダから一括追加</summary>
-        <p>入力用・期待出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は入力・期待出力を上書きし、新しい名前は追加します。</p>
+        <p>入力用・出力用のフォルダをそれぞれ選択してください。同名の .txt ファイルをペアにして追加します（UTF-8形式）。既存ケースと同じ名前は入力・出力を上書きし、新しい名前は追加します。</p>
         <label>入力フォルダ<input type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'input')"></label>
-        <label>期待出力フォルダ<input type="file" webkitdirectory multiple aria-label="期待出力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'output')"></label>
+        <label>出力フォルダ<input type="file" webkitdirectory multiple aria-label="出力フォルダ" :disabled="disabled || importing" @change="selectFolder($event, 'output')"></label>
         <button type="button" class="editor-button" :disabled="disabled || importing || !inputFiles.length || !outputFiles.length" @click="importFiles">{{ importing ? '読み込み中…' : '一括追加' }}</button>
       </details>
-      <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・期待出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
+      <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
     </div>
     <p v-if="importError" class="editor-error" role="alert">{{ importError }}</p>
     <p v-if="importStatus" class="case-notes" role="status">{{ importStatus }}</p>
@@ -107,7 +107,7 @@ function add() {
       <div v-if="current" class="case-detail">
         <div class="case-name">
           <label :for="`case-name-${selected}`">テストケース名</label>
-          <input :id="`case-name-${selected}`" v-model="current.name" :aria-label="`テストケース名 ${selected + 1}`" :placeholder="`ケース${selected + 1}`" :disabled="disabled" autocomplete="off" title="64文字まで。入力と期待出力に同じ名前を使用します。" />
+          <input :id="`case-name-${selected}`" v-model="current.name" :aria-label="`テストケース名 ${selected + 1}`" :placeholder="`ケース${selected + 1}`" :disabled="disabled" autocomplete="off" title="64文字まで。入力と出力に同じ名前を使用します。" />
           <button type="button" class="editor-button case-delete" :disabled="disabled" :aria-label="`ケース${selected + 1}を削除`" title="選択中のケースの入力と出力を削除" @click="remove"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" /></svg>削除</button>
         </div>
         <div :key="selected" class="case-fields">
@@ -115,7 +115,7 @@ function add() {
           <TestDataEditor :id="`case-output-${selected}`" v-model="current.output" label="出力" :disabled="disabled" :stored-bytes="current.outputFile?.size" :loading="loading.output" :error="loadError.output" @update:model-value="current._outputDirty = true" />
         </div>
       </div>
-      <div v-else class="empty-editor"><p>テストケースを追加して、入力と期待出力を登録してください。</p><p class="muted">空の入力や期待出力も登録できます。</p></div>
+      <div v-else class="empty-editor"><p>テストケースを追加して、入力と出力を登録してください。</p><p class="muted">空の入力や出力も登録できます。</p></div>
     </div>
   </section>
 </template>

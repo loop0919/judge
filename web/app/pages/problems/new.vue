@@ -365,6 +365,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <div class="field-heading"><label for="problem-title">問題のタイトル</label><span id="title-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.title ? errors.title : '' }}</span></div>
         <input id="problem-title" v-model="draft.title" maxlength="120" placeholder="例：A + B" :disabled="!ready || publishing" :aria-invalid="(showErrors || touched.title) && !!errors.title" aria-describedby="title-error" @blur="touched.title = true">
       </div>
+      <div class="field"><label for="problem-difficulty">難易度（作問者設定）</label><select id="problem-difficulty" v-model="draft.difficulty" :disabled="!ready || publishing"><option :value="null">未設定</option><option v-for="(grade, index) in difficultyGrades" :key="grade" :value="index + 1">Lv.{{ index + 1 }} · {{ grade }}</option></select></div>
       <div>
         <div class="field-heading"><span class="limit-field-label" id="time-limit-label">実行時間制限 <span>ms</span></span></div>
         <LimitStepper id="time-limit" v-model="draft.timeLimitMs" :options="timeLimitOptions" :default-value="2000" :step="100" label="実行時間制限" labelledby="time-limit-label" :disabled="!ready || publishing" />
@@ -373,7 +374,6 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
         <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="512" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
       </div>
-      <div class="field"><label for="problem-difficulty">難易度（作問者設定）</label><select id="problem-difficulty" v-model="draft.difficulty" :disabled="!ready || publishing"><option :value="null">未設定</option><option v-for="(grade, index) in difficultyGrades" :key="grade" :value="index + 1">Lv.{{ index + 1 }} · {{ grade }}</option></select></div>
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
       <section id="source-pane" class="source-pane" aria-label="Markdown 編集">
@@ -423,3 +423,9 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     <div class="draft-status"><span role="status">{{ status }}</span><span>{{ saveLocation }}</span></div>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 60rem) {
+  .editor-main .author-fields { grid-template-columns: minmax(0, 1fr) 160px 140px 140px; }
+}
+</style>

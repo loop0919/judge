@@ -130,7 +130,7 @@ async function generate() {
         <label>{{ mode === 'validation' ? '検証件数' : '生成件数' }}<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
       </div>
       <p v-if="mode === 'input'">ケース番号を標準入力で受け取り、標準出力から新規ケースの入力を作成します。</p>
-      <p v-else-if="mode === 'output'">指定した既存ケースの入力を読み、標準出力で期待出力を置き換えます。</p>
+      <p v-else-if="mode === 'output'">指定した既存ケースの入力を読み、標準出力で出力を置き換えます。</p>
       <p v-else>既存ケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
       <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
       <SourceCodeEditor v-model="program.source" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />

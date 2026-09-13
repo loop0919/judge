@@ -32,7 +32,7 @@ export function testCaseError(cases: TestCase[]) {
       const value = item[key]
       const size = file && !dirty ? file.size : encoder.encode(value).length
       if (value.includes('\0')) return `ケース${index + 1}に使用できない文字が含まれています。`
-      if (size > testFileLimit) return `ケース${index + 1}の入力と期待出力は、それぞれ16 MiB以内にしてください。`
+      if (size > testFileLimit) return `ケース${index + 1}の入力と出力は、それぞれ16 MiB以内にしてください。`
       total += size
     }
   }

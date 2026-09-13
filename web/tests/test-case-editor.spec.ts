@@ -29,6 +29,17 @@ for (const width of [320, 375, 414, 768, 1280]) {
   test(`one file selection switches both editors at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/problems/new')
+    const title = page.locator('#problem-title')
+    const difficulty = page.getByLabel('難易度（作問者設定）')
+    const time = page.locator('#time-limit')
+    await expect(difficulty).toBeEnabled()
+    expect(await title.evaluate(element => !!(element.compareDocumentPosition(document.querySelector('#problem-difficulty')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
+    expect(await difficulty.evaluate(element => !!(element.compareDocumentPosition(document.querySelector('#time-limit')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
+    if (width === 1280) {
+      expect((await title.boundingBox())!.x).toBeLessThan((await difficulty.boundingBox())!.x)
+      expect((await difficulty.boundingBox())!.x).toBeLessThan((await time.boundingBox())!.x)
+      expect((await difficulty.boundingBox())!.y).toBe((await time.locator('..').boundingBox())!.y)
+    }
     await page.getByRole('button', { name: 'テストケース', exact: true }).click()
     await page.getByRole('button', { name: 'テストケースを追加' }).click()
     await page.getByLabel('テストケース名 1', { exact: true }).fill('sample.txt')
@@ -43,6 +54,12 @@ for (const width of [320, 375, 414, 768, 1280]) {
     await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
     await expect(page.getByLabel('出力', { exact: true })).toHaveText('8')
     await expect(page.locator('.test-data-editor .cm-editor')).toHaveCount(2)
+    await expect(page.getByRole('button', { name: 'ファイルを選択', exact: true })).toHaveCount(2)
+    for (const input of await page.locator('.test-data-editor input[type=file]').all()) await expect(input).toBeHidden()
+    const chooserPromise = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'ファイルを選択', exact: true }).first().click()
+    await (await chooserPromise).setFiles({ name: 'sample.txt', mimeType: 'text/plain', buffer: Buffer.from('3 5') })
+    await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
     await files.getByRole('button', { name: 'large.txt', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(page.getByLabel('入力', { exact: true })).toHaveText('100 200')
@@ -56,7 +73,7 @@ for (const width of [320, 375, 414, 768, 1280]) {
     await expect(page.getByLabel('出力', { exact: true })).toHaveText('8')
     await page.getByRole('button', { name: 'ケース1を削除' }).click()
     await expect(page.locator('.test-data-editor .cm-editor')).toHaveCount(0)
-    await expect(page.getByText('テストケースを追加して、入力と期待出力を登録してください。')).toBeVisible()
+    await expect(page.getByText('テストケースを追加して、入力と出力を登録してください。')).toBeVisible()
   })
 }
 
@@ -125,7 +142,7 @@ test('bulk folder import pairs names, persists data, and rejects invalid batches
   const root = await mkdtemp(join(tmpdir(), 'judge-cases-'))
   let batch = 0
   async function select(inputs: Record<string, string | Buffer>, outputs: Record<string, string | Buffer>) {
-    for (const [label, files] of [['入力フォルダ', inputs], ['期待出力フォルダ', outputs]] as const) {
+    for (const [label, files] of [['入力フォルダ', inputs], ['出力フォルダ', outputs]] as const) {
       const directory = join(root, String(batch++))
       await mkdir(directory)
       for (const [name, content] of Object.entries(files)) await writeFile(join(directory, name), content)

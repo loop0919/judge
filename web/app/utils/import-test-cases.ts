@@ -31,7 +31,7 @@ export async function importTestCases(inputs: File[], outputs: File[], existing:
   const error = testCaseError(imported) || testCaseError(mergeTestCases(existing, imported))
   if (error) throw new Error(error)
   for (const [name, pair] of pairs) {
-    if (!pair.input || !pair.output) throw new Error(`「${name}」の入力と期待出力を両方のフォルダに用意してください。空データの場合も空のファイルが必要です。`)
+    if (!pair.input || !pair.output) throw new Error(`「${name}」の入力と出力を両方のフォルダに用意してください。空データの場合も空のファイルが必要です。`)
   }
   for (const item of imported) {
     const pair = pairs.get(item.name)!
