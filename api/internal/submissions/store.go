@@ -133,7 +133,7 @@ func (s *Store) createTestRun(ctx context.Context, owner, id, problemID, source,
 	if len(checkerRuntimes) == 0 {
 		checkerRuntimes = []string{"cpp17"}
 	}
-	tx, err := s.beginSubmission(ctx, owner)
+	tx, err := s.beginSubmission(ctx, owner, easyTest)
 	if err != nil {
 		return Submission{}, err
 	}
@@ -285,7 +285,7 @@ func (s *Store) CreateGeneration(ctx context.Context, owner, id, problemID, sour
 	if err != nil {
 		return Submission{}, err
 	}
-	tx, err := s.beginSubmission(ctx, owner)
+	tx, err := s.beginSubmission(ctx, owner, false)
 	if err != nil {
 		return Submission{}, err
 	}

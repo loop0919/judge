@@ -132,7 +132,7 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	const id = "11111111-1111-4111-8111-111111111111"
-	_, err = store.Save(ctx, "alice", id, 0, problems.Draft{Title: "A+B", Markdown: "Add", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{{Input: "1 2", Output: "3"}}})
+	_, err = store.Save(ctx, "alice", id, 0, problems.Draft{Title: "A+B", Markdown: "Add", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{{Input: "1 2", Output: "3", IsSample: true}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestSubmissionsPostgres(t *testing.T) {
 		t.Helper()
 		// These fixture scenarios represent independent judging sessions.
 		if method == "POST" && path == "/my/submissions" {
-			if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '61 seconds' WHERE created_at>clock_timestamp()-interval '60 seconds'`); err != nil {
+			if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '91 seconds' WHERE created_at>clock_timestamp()-interval '90 seconds'`); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -210,7 +210,7 @@ func TestSubmissionsPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Only one slot expires: accept one more, then reject generation too.
-		if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '61 seconds' WHERE id=(SELECT id FROM submissions WHERE owner_id='alice' ORDER BY created_at LIMIT 1)`); err != nil {
+		if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '91 seconds' WHERE id=(SELECT id FROM submissions WHERE owner_id='alice' ORDER BY created_at LIMIT 1)`); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := queue.Create(ctx, "alice", newSubmissionID(), id, "source", image); err != nil {
@@ -221,10 +221,33 @@ func TestSubmissionsPostgres(t *testing.T) {
 		if !errors.As(err, &limitedErr) {
 			t.Fatalf("generation bypassed shared limit: %v", err)
 		}
+		// A full normal quota leaves all three sample slots available.
+		for i := 0; i < 4; i++ {
+			_, err := queue.CreateTestRun(ctx, "alice", newSubmissionID(), id, "source", image, "cpp17-local", true)
+			if i < 3 && err != nil {
+				t.Fatal(err)
+			}
+			if i == 3 && !errors.As(err, &limitedErr) {
+				t.Fatalf("sample quota: %v", err)
+			}
+		}
+		// At 61 seconds sample slots reopen, but the normal quota remains full.
+		if _, err := store.Pool().Exec(ctx, `UPDATE submissions SET created_at=clock_timestamp()-interval '61 seconds' WHERE owner_id='alice'`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := queue.CreateTestRun(ctx, "alice", newSubmissionID(), id, "source", image, "cpp17-local", true); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := queue.Create(ctx, "alice", newSubmissionID(), id, "source", image); !errors.As(err, &limitedErr) || limitedErr.RetryAfter < 1 || limitedErr.RetryAfter > 30 {
+			t.Fatalf("normal quota expired too early: %v", err)
+		}
 		if _, err := store.Pool().Exec(ctx, `DELETE FROM submissions`); err != nil {
 			t.Fatal(err)
 		}
 	})
+	if _, err := store.Pool().Exec(ctx, `UPDATE problem_drafts SET draft=jsonb_set(draft,'{testCases,0,isSample}','false'),published_draft=jsonb_set(published_draft,'{testCases,0,isSample}','false') WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
 	// Easy Test uses explicit flags regardless of names, preserves order, and never enters submission history.
 	const easyProblem = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
 	_, err = store.Save(ctx, "alice", easyProblem, 0, problems.Draft{Title: "Easy", TimeLimitMS: "2000", MemoryLimitMB: "512", TestCases: []problems.TestCase{
