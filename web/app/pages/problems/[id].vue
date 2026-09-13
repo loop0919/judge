@@ -19,11 +19,13 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
     <header class="problem-header">
       <h1>{{ problem.title }}</h1>
       <p v-if="problem.isPrivate" class="muted">非公開 · 作成者本人のみ閲覧・提出できます。</p>
-      <div class="problem-meta muted">
-        <p>作成者 {{ problem.author }}</p>
-        <p>難易度（作成者設定） <DifficultyBadge :level="problem.difficulty" /></p>
+      <div class="problem-summary">
+        <div class="problem-meta muted">
+          <p>作成者 {{ problem.author }}</p>
+          <p>難易度（作成者設定） <DifficultyBadge :level="problem.difficulty" /></p>
+        </div>
+        <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />
       </div>
-      <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>
     </header>
     <nav class="problem-menu" aria-label="問題メニュー">
@@ -48,7 +50,9 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 
 <style scoped>
 .problem-body { max-width: 52rem; padding-block: 32px 64px; }
-.problem-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-bottom: 16px; }
+.problem-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; margin-bottom: 12px; }
+.problem-summary > .favorite-control { margin: 0 0 0 auto; }
+.problem-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
 .problem-meta p { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; overflow-wrap: anywhere; min-width: 0; }
 .problem-header h1 { overflow-wrap: anywhere; }
 .problem-menu { display: flex; flex-wrap: wrap; gap: 24px; border-bottom: 1px solid var(--color-line); }
