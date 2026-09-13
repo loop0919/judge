@@ -54,16 +54,46 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
       <p>各言語の標準ライブラリに加え、次のライブラリを用意しています。
         提出時にパッケージをインストールすることはできません。</p>
       <h3>C++23（GCC・Clang共通）</h3>
-      <p>AtCoder Library 1.6とBoost 1.92.0のヘッダーを利用できます。
-        ACLは<code>#include &lt;atcoder/all&gt;</code>などで読み込めます。
+      <div class="content-table-scroll" role="region" aria-label="C++23の追加ライブラリ" tabindex="0">
+        <table class="content-table">
+          <thead><tr><th scope="col">ライブラリ</th><th scope="col">バージョン</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">AtCoder Library</th><td>1.6</td></tr>
+            <tr><th scope="row">Boost（ヘッダーのみ）</th><td>1.92.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>ACLは<code>#include &lt;atcoder/all&gt;</code>などで読み込めます。
         別途リンクが必要なBoostライブラリは対象外です。</p>
       <h3>CPython・PyPy</h3>
-      <p>両方でmore-itertools 11.1.0、sortedcontainers 2.4.0、ac-library-python（固定リビジョン<code>27fdbb71cd0d</code>）を利用できます。
-        ac-library-pythonは<code>atcoder</code>からインポートします。</p>
-      <p>CPythonでは、さらにNumPy 2.5.3とSciPy 1.18.1を利用できます。
-        PyPyにはNumPyとSciPyを用意していません。</p>
+      <div class="content-table-scroll" role="region" aria-label="Pythonの追加ライブラリ" tabindex="0">
+        <table class="content-table">
+          <thead><tr><th scope="col">ライブラリ</th><th scope="col">バージョン</th><th scope="col">対応環境</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">more-itertools</th><td>11.1.0</td><td>CPython・PyPy</td></tr>
+            <tr><th scope="row">sortedcontainers</th><td>2.4.0</td><td>CPython・PyPy</td></tr>
+            <tr><th scope="row">ac-library-python</th><td>固定リビジョン <code>27fdbb71cd0d</code></td><td>CPython・PyPy</td></tr>
+            <tr><th scope="row">NumPy</th><td>2.5.3</td><td>CPythonのみ</td></tr>
+            <tr><th scope="row">SciPy</th><td>1.18.1</td><td>CPythonのみ</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>ac-library-pythonは<code>atcoder</code>からインポートします。</p>
       <h3>Rust</h3>
-      <p>ac-library-rs 0.2.0、fixedbitset 0.5.7、itertools 0.15.0、num 0.4.3、proconio 0.6.0（derive有効）、rand 0.10.2、rustc-hash 2.1.3を利用できます。</p>
+      <div class="content-table-scroll" role="region" aria-label="Rustの追加ライブラリ" tabindex="0">
+        <table class="content-table">
+          <thead><tr><th scope="col">ライブラリ</th><th scope="col">バージョン</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">ac-library-rs</th><td>0.2.0</td></tr>
+            <tr><th scope="row">fixedbitset</th><td>0.5.7</td></tr>
+            <tr><th scope="row">itertools</th><td>0.15.0</td></tr>
+            <tr><th scope="row">num</th><td>0.4.3</td></tr>
+            <tr><th scope="row">proconio</th><td>0.6.0（derive有効）</td></tr>
+            <tr><th scope="row">rand</th><td>0.10.2</td></tr>
+            <tr><th scope="row">rustc-hash</th><td>2.1.3</td></tr>
+          </tbody>
+        </table>
+      </div>
       <p>依存関係は設定済みで、<code>Cargo.toml</code>の提出は不要です。
         たとえば<code>use ac_library::Dsu;</code>や<code>use proconio::input;</code>で読み込めます。</p>
     </section>

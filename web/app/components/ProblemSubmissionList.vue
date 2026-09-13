@@ -39,8 +39,8 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer) })
     <header class="submission-heading"><h2>{{ title }}</h2><button v-if="!mine || user" class="editor-button" :disabled="loading" @click="load">{{ loading ? '更新中…' : '更新' }}</button></header>
     <p v-if="mine && !user" class="notice"><NuxtLink :to="{ path: '/login', query: { next: route.fullPath } }">ログイン</NuxtLink>すると、この問題への自分の提出を確認できます。</p>
     <template v-else>
-      <p v-if="message" role="alert">{{ message }}</p>
-      <p v-if="loading && !data" role="status">読み込み中…</p>
+      <p v-if="message" class="notice notice-error" role="alert">{{ message }}</p>
+      <p v-if="loading && !data" class="muted" role="status">読み込み中…</p>
       <template v-if="data">
         <p v-if="!data.items.length" class="muted">提出はまだありません。</p>
         <div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0" :aria-busy="loading">

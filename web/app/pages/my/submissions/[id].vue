@@ -44,7 +44,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
   <section class="submission-detail">
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink v-if="item && (route.query.from === 'problem' || route.query.from === 'contest-problem')" :to="`${route.query.from === 'contest-problem' && item.contestId ? `/contests/${item.contestId}/problems` : '/problems'}/${item.problemId}?view=my-submissions`">この問題の自分の提出</NuxtLink><NuxtLink v-else to="/my/submissions">提出履歴</NuxtLink><span aria-hidden="true">/</span><span>提出結果</span></nav>
     <header class="submission-header"><h1>{{ item?.easyTest ? 'サンプル検証の結果' : '提出結果' }}</h1><p v-if="item" class="submission-id">ID: {{ item.id }}</p></header>
-    <p v-if="message" role="alert">{{ message }} <button class="editor-button" @click="load">再取得</button></p>
+    <p v-if="message" class="notice notice-error" role="alert">{{ message }} <button class="editor-button" @click="load">再取得</button></p>
     <template v-if="item">
       <section class="submitted-source" :class="{ expanded }" aria-labelledby="source-title">
         <div class="section-heading">
@@ -95,7 +95,7 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
       <section v-if="item.result?.checkerLog && !(item.easyTest && item.result.interactive && item.result.cases?.length)" class="compile-log" aria-labelledby="checker-log-title"><h2 id="checker-log-title">{{ item.easyTest && item.result.interactive ? 'ジャッジコードの診断' : 'ジャッジコードの診断（作問者のみ）' }}</h2><pre>{{ item.result.checkerLog }}</pre></section>
       <section v-if="item.result?.compileLog" class="compile-log" aria-labelledby="compile-title"><h2 id="compile-title">コンパイル診断</h2><pre>{{ item.result.compileLog }}</pre></section>
     </template>
-    <p v-else-if="!message" role="status">読み込み中…</p>
+    <p v-else-if="!message" class="muted" role="status">読み込み中…</p>
   </section>
 </template>
 

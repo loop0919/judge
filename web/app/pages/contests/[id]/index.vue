@@ -69,7 +69,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <section v-if="activeView === 'standings'" id="standings" class="contest-section" aria-labelledby="standings-title">
       <header class="contest-section-heading"><h2 id="standings-title">公式順位表</h2><button class="editor-button" :disabled="updating" :aria-busy="updating" @click="update">{{ updating ? '更新中…' : '今すぐ更新' }}</button></header>
       <p v-if="user && !contest.official" class="notice">作成者・テスターとしての提出は公式順位の対象外です。</p>
-      <p v-if="standingsError" class="field-error" role="alert">順位表を取得できませんでした。</p>
+      <p v-if="standingsError" class="notice notice-error" role="alert">順位表を取得できませんでした。</p>
       <p v-else-if="!standings?.length" class="contest-empty muted">公式順位の対象となる提出はまだありません。</p>
       <div v-else class="content-table-scroll" role="region" aria-label="順位表のスクロール領域" tabindex="0" :aria-busy="updating">
         <table class="content-table"><thead><tr><th scope="col">順位</th><th scope="col">ユーザー</th><th scope="col">得点</th><th scope="col">時間（分:秒）</th><th v-for="(p, i) in contest.problems" :key="p.id" scope="col"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ i + 1 }}</NuxtLink></th></tr></thead>
@@ -81,7 +81,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
       <h2 id="submissions-title">提出一覧</h2>
       <p v-if="!canViewSubmissions" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。終了前はコンテストセッターのみ閲覧できます。</p>
       <template v-else><p class="muted">提出コードを閲覧できます。練習提出も掲載します。</p>
-      <p v-if="submissionsError" class="field-error" role="alert">{{ submissionsError }}</p>
+      <p v-if="submissionsError" class="notice notice-error" role="alert">{{ submissionsError }}</p>
       <p v-if="!submissions && !submissionsError" class="muted" role="status">提出一覧を読み込み中…</p>
       <template v-if="submissions"><p v-if="!submissions.items.length" class="contest-empty muted">提出はまだありません。</p><div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0"><table class="content-table"><thead><tr><th scope="col">問題</th><th scope="col">ユーザー</th><th scope="col">結果</th><th scope="col">提出日時（日本時間）</th></tr></thead><tbody><tr v-for="s in submissions.items" :key="s.id"><th scope="row"><NuxtLink :to="`/contests/${contest.id}/submissions/${s.id}`">{{ s.problemTitle }}</NuxtLink></th><td>{{ s.author }}</td><td><SubmissionStatus :item="s" /></td><td>{{ contestDate(s.createdAt) }}<span v-if="new Date(s.createdAt) >= new Date(contest.endsAt)"> · 練習</span></td></tr></tbody></table></div><ContentPagination :index="offset / 50" :has-next="submissions.hasMore" :loading="updating" @move="direction => offset += direction * 50" /></template>
       </template>

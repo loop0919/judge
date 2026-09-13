@@ -70,6 +70,7 @@ code { font-family: var(--font-code); }
 .sample > p { color: var(--color-muted); font-size: .875rem; }
 .notice { border-inline-start: 3px solid var(--color-accent); padding: 16px 20px; background: var(--color-surface); font-size: .875rem; }
 .notice p { margin: 8px 0 0; color: var(--color-muted); }
+.notice-error { border-inline-start-color: var(--color-error); color: var(--color-error); overflow-wrap: anywhere; }
 .contents { grid-row: 1; }
 .contents nav { display: flex; gap: 0 20px; flex-wrap: wrap; }
 .contents p { width: 100%; margin-bottom: 8px; color: var(--color-muted); font-size: .75rem; }

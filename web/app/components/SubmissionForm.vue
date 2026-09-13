@@ -87,9 +87,9 @@ async function submit(easyTest = false) {
         <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
       </select>
       <p><NuxtLink to="/blog/language-guide" target="_blank" rel="noopener noreferrer">使える言語と実行環境の仕様 ↗</NuxtLink></p>
-      <p v-if="catalogError || !available.length" role="status">現在、提出受付を停止しています。</p>
+      <p v-if="catalogError || !available.length" class="notice" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
-      <p v-if="message" role="alert">{{ message }}</p>
+      <p v-if="message" class="notice notice-error" role="alert">{{ message }}</p>
       <div class="submission-actions">
         <div class="sample-action">
           <button class="editor-button" type="button" :disabled="disabled || sending || !source.trim() || !runtime || !available.length" @click="submit(true)">{{ sending && runningEasyTest ? 'サンプル検証中…' : 'サンプル検証' }}</button>
