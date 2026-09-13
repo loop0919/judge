@@ -63,6 +63,7 @@ type TestFile struct {
 }
 
 type Problem struct {
+	ContestID        string    `json:"contestId,omitempty"`
 	Author           string    `json:"author"`
 	PublishedVersion int64     `json:"publishedVersion"`
 	ID               string    `json:"id"`
@@ -110,7 +111,7 @@ func (s *Store) Migrate(ctx context.Context) error { return database.Migrate(ctx
 func scan(row pgx.Row) (Problem, error) {
 	var p Problem
 	var data []byte
-	err := row.Scan(&p.ID, &p.Version, &p.UpdatedAt, &data, &p.PublishedVersion, &p.Author)
+	err := row.Scan(&p.ID, &p.Version, &p.UpdatedAt, &data, &p.PublishedVersion, &p.Author, &p.ContestID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, ErrNotFound
 	}
@@ -122,7 +123,7 @@ func scan(row pgx.Row) (Problem, error) {
 }
 
 func (s *Store) Get(ctx context.Context, owner, id string) (Problem, error) {
-	return scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'') FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2`, owner, id))
+	return scan(s.pool.QueryRow(ctx, `SELECT id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),''),COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'') FROM problem_drafts WHERE can_manage_problem(id,$1) AND id=$2`, owner, id))
 }
 
 // List returns at most 51 rows; the HTTP layer exposes 50 and a next cursor.
@@ -163,15 +164,32 @@ func (s *Store) Save(ctx context.Context, owner, id string, version int64, draft
 	if err != nil {
 		return Problem{}, err
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Problem{}, err
+	}
+	defer tx.Rollback(ctx)
 	var p Problem
 	if version == 0 {
-		p, err = scan(s.pool.QueryRow(ctx, `INSERT INTO problem_drafts (id, owner_id, draft) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`, id, owner, data))
+		p, err = scan(tx.QueryRow(ctx, `INSERT INTO problem_drafts (id, owner_id, draft) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),''),COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'')`, id, owner, data))
 	} else {
-		p, err = scan(s.pool.QueryRow(ctx, `UPDATE problem_drafts SET draft=$4, version=version+1, updated_at=clock_timestamp() WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3 RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),'')`, owner, id, version, data))
+		p, err = scan(tx.QueryRow(ctx, `UPDATE problem_drafts SET draft=$4, version=version+1, updated_at=clock_timestamp() WHERE can_manage_problem(id,$1) AND id=$2 AND version=$3 RETURNING id, version, updated_at, draft, published_version,COALESCE((SELECT handle FROM user_profiles WHERE owner_id=problem_drafts.owner_id),''),COALESCE((SELECT contest_id::text FROM contest_problems WHERE problem_id=problem_drafts.id),'')`, owner, id, version, data))
 	}
+	if err == nil {
+		// Contest saves also lock the source problem before changing contest_problems.
+		// Keep statement, judging settings and version atomic for new submissions.
+		p.ContestID = ""
+		err = tx.QueryRow(ctx, `UPDATE contest_problems SET draft=$2,problem_version=$3 WHERE problem_id=$1 RETURNING contest_id::text`, id, data, p.Version).Scan(&p.ContestID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return Problem{}, err
+		}
+		err = tx.Commit(ctx)
+	}
+
 	if !errors.Is(err, ErrNotFound) {
 		return p, err
 	}
+	_ = tx.Rollback(ctx)
 	if _, getErr := s.Get(ctx, owner, id); getErr != nil {
 		return Problem{}, getErr
 	}

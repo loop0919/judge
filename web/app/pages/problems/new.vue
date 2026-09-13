@@ -14,6 +14,8 @@ const cloudVersion = ref(0)
 const saving = ref(false)
 const publishing = ref(false)
 const publishedVersion = ref(0)
+const contestId = ref('')
+const manualSaveOnly = computed(() => !!publishedVersion.value || !!contestId.value)
 const publicationError = ref('')
 const testerLink = ref('')
 const testerLinkBusy = ref(false)
@@ -22,7 +24,7 @@ async function createTesterLink() {
   if (testerLinkBusy.value) return
   testerLinkBusy.value = true; testerLinkMessage.value = ''
   try {
-    if (!await saveDraft(true)) return
+    if (!await saveDraft(!manualSaveOnly.value)) return
     const result = await $fetch<{ token: string }>(`/api/my/problems/${cloudId.value}/tester-invitation`, { method: 'POST' })
     testerLink.value = new URL(`/my/tester-invitations/${result.token}`, window.location.origin).href
   } catch (error) { testerLinkMessage.value = accountError(error) }
@@ -102,6 +104,7 @@ async function saveDraft(manual = false, updateLocation = true): Promise<boolean
   const testError = testCaseError(draft.testCases)
   if (testError) { status.value = '未保存の変更があります'; storageError.value = testError; return false }
   if (!manual && fingerprint() === saved) return true
+  if (!manual && manualSaveOnly.value) { storageError.value = '変更を反映するには保存ボタンを押してください。'; return false }
   clearTimeout(saveTimer)
   if (inFlight) {
     if (!await inFlight) return false
@@ -133,6 +136,7 @@ async function saveDraft(manual = false, updateLocation = true): Promise<boolean
       writeProblemCache(cloudOwner, result)
       cloudVersion.value = result.version
       publishedVersion.value = result.publishedVersion
+      contestId.value = result.contestId
       saved = snapshot
       allowAutosave = true
       storageError.value = ''
@@ -164,6 +168,7 @@ async function publishProblem(publish: boolean) {
     const result = accountProblemSchema.parse(await $fetch(`/api/my/problems/${cloudId.value}/publication`, { method: 'PUT', body: { version: cloudVersion.value, publish } }))
     cloudVersion.value = result.version
     publishedVersion.value = result.publishedVersion
+    contestId.value = result.contestId
     writeProblemCache(cloudOwner, result)
     status.value = publish ? '公開しました' : '非公開に戻しました'
   } catch (error) { publicationError.value = accountError(error) }
@@ -208,6 +213,7 @@ onMounted(async () => {
       if (Number(draft.memoryLimitMb) > 512) draft.memoryLimitMb = '512'
       cloudVersion.value = entry.version
       publishedVersion.value = entry.publishedVersion
+      contestId.value = entry.contestId
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
@@ -235,7 +241,7 @@ watch(draft, () => {
   if (!ready.value) return
   status.value = '未保存の変更があります'
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => saveDraft(), 600)
+  if (!manualSaveOnly.value) saveTimer = setTimeout(() => saveDraft(), 600)
 })
 
 watch(section, () => {
@@ -264,7 +270,7 @@ async function finishLeave(choice: 'stay' | 'discard' | 'save') {
   const resolve = resolveLeave
   resolveLeave = undefined
   resolve?.(choice !== 'stay')
-  if (choice === 'stay' && fingerprint() !== saved) saveTimer = setTimeout(() => saveDraft(), 600)
+  if (choice === 'stay' && fingerprint() !== saved && !manualSaveOnly.value) saveTimer = setTimeout(() => saveDraft(), 600)
 }
 onBeforeUnmount(() => {
   disposed = true
@@ -294,7 +300,7 @@ function openDeleteConfirmation() {
 function closeDeleteConfirmation() {
   manageDialog.value?.close()
   confirmingDelete.value = false
-  if (!deleted && fingerprint() !== saved) saveTimer = setTimeout(() => saveDraft(), 600)
+  if (!deleted && fingerprint() !== saved && !manualSaveOnly.value) saveTimer = setTimeout(() => saveDraft(), 600)
 }
 async function removeProblem() {
   clearTimeout(saveTimer)
@@ -373,6 +379,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
       <div class="editor-main">
     <div class="editor-notices">
       <p v-if="storageError" class="editor-error" role="alert">{{ storageError }}</p>
+      <p v-if="manualSaveOnly">自動保存はオフです。変更を反映するには「保存」を押してください。<template v-if="contestId">保存するとコンテストの出題・採点内容に反映されます。</template></p>
       <noscript><p class="editor-error">編集と保存には JavaScript を有効にしてください。</p></noscript>
     </div>
     <div v-show="section === 'statement' || section === 'editorial'" class="author-edit-content">

@@ -60,6 +60,8 @@ test('problem publication is visible anonymously and private edits stay private'
   await expect(reader.getByRole('heading', { name: '公開解説', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '問題文', exact: true }).click()
   await page.locator('#problem-source').fill('非公開の変更')
+  await expect(page.getByRole('status')).toHaveText('未保存の変更があります')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('保存済み')
   expect((await (await guest.request.get(`/api/problems/${id}`)).json()).markdown).toContain('公開本文')
   await page.getByRole('button', { name: '問題管理', exact: true }).click()

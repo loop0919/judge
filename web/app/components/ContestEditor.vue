@@ -165,7 +165,7 @@ async function save() {
                 <ol class="selected"><li v-for="(p, index) in selected" :key="p.id"><div class="selected-heading"><strong>{{ p.title }}</strong><div class="move-actions"><button class="editor-button" type="button" :disabled="index === 0" :aria-label="`${p.title}を上へ`" @click="move(index, -1)">↑</button><button class="editor-button" type="button" :disabled="index === selected.length - 1" :aria-label="`${p.title}を下へ`" @click="move(index, 1)">↓</button></div></div><label :for="`points-${p.id}`">配点 <input :id="`points-${p.id}`" v-model.number="p.points" type="number" min="1" max="1000000" step="1" required> 点</label></li></ol>
               </section>
             </fieldset>
-            <p class="selection-note muted">保存時点の問題内容で出題・採点します。問題を修正した場合は、開始前にコンテストも再保存してください。</p>
+            <p class="selection-note muted">問題の保存内容は、開始後もコンテストに自動で反映されます。更新後の提出から新しい内容で採点し、受付済みの提出は再採点しません。</p>
           </div>
         </section>
         <section v-show="section === 'settings'" class="problem-management" data-section="settings" aria-labelledby="contest-settings-title">

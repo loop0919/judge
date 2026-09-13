@@ -142,6 +142,18 @@ func TestContestsPostgres(t *testing.T) {
 		return s
 	}
 	request("POST", "/my/submissions", "bob", map[string]any{"problemId": a, "contestId": cid, "runtime": "cpp17", "source": "code"}, 409)
+	detail = request("GET", "/my/problems/"+a, "tester", nil, 200)
+	if !strings.Contains(detail, `"contestId":"`+cid+`"`) {
+		t.Fatal("missing contest membership", detail)
+	}
+	// Source saves follow through without resaving the contest, including tester edits.
+	draft.Title = "Updated before start"
+	draft.TimeLimitMS = "2000"
+	request("PUT", "/my/problems/"+a, "tester", map[string]any{"version": 1, "draft": draft}, 200)
+	detail = request("GET", "/my/contests/"+cid, "alice", nil, 200)
+	if !strings.Contains(detail, "Updated before start") {
+		t.Fatal("title did not follow source", detail)
+	}
 	pre := submit("tester", a, false)
 	start := time.Now().Add(-time.Hour).UTC().Truncate(time.Millisecond)
 	end := time.Now().Add(time.Hour).UTC().Truncate(time.Millisecond)
@@ -154,17 +166,27 @@ func TestContestsPostgres(t *testing.T) {
 	if !strings.Contains(detail, "secret statement") || strings.Contains(detail, "secret editorial") || strings.Contains(detail, "private input") {
 		t.Fatal("running leak", detail)
 	}
-	// Editing a source draft cannot change the contest's pinned statement, tests or publication.
+	// Running contests follow source edits; already accepted jobs remain immutable.
 	draft.Title = "Changed draft"
 	draft.Markdown = "changed statement"
 	draft.TestCases[0].Output = "changed output"
-	if _, err = store.Save(ctx, "alice", a, 1, draft); err != nil {
+	if _, err = store.Save(ctx, "alice", a, 2, draft); err != nil {
 		t.Fatal(err)
 	}
 	accepted := submit("bob", a, false)
 	var job []byte
-	if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, accepted.ID).Scan(&job); err != nil || strings.Contains(string(job), "changed output") {
+	if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, accepted.ID).Scan(&job); err != nil || !strings.Contains(string(job), "changed output") {
 		t.Fatalf("snapshot %s %v", job, err)
+	}
+	if accepted.ProblemVersion != 3 {
+		t.Fatal("new submission version", accepted.ProblemVersion)
+	}
+	detail = request("GET", "/contests/"+cid+"/problems/"+a, "", nil, 200)
+	if !strings.Contains(detail, "changed statement") || !strings.Contains(detail, "Changed draft") {
+		t.Fatal("running statement did not follow source", detail)
+	}
+	if err = store.Pool().QueryRow(ctx, `SELECT job FROM submissions WHERE id=$1`, pre.ID).Scan(&job); err != nil || strings.Contains(string(job), "changed output") || !strings.Contains(string(job), `"timeLimitMs": 2000`) {
+		t.Fatalf("accepted job changed or missed prestart update: %s %v", job, err)
 	}
 	if accepted.ContestID != cid {
 		t.Fatal("missing contest context")
@@ -241,7 +263,7 @@ func TestContestsPostgres(t *testing.T) {
 	exec(`UPDATE submissions SET created_at=$2 WHERE id=$1`, boundary.ID, end)
 	exec(`UPDATE contests SET ends_at=$2 WHERE id=$1`, cid, end)
 	detail = request("GET", "/problems/"+a, "", nil, 200)
-	if !strings.Contains(detail, "secret editorial") || strings.Contains(detail, "changed statement") {
+	if !strings.Contains(detail, "secret editorial") || !strings.Contains(detail, "changed statement") {
 		t.Fatal("auto publication", detail)
 	}
 	var public problems.PublicProblem

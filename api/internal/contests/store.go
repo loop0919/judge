@@ -1,4 +1,4 @@
-// Package contests manages scheduled, immutable problem sets.
+// Package contests manages scheduled problem sets.
 package contests
 
 import (
