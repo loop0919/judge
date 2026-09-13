@@ -31,6 +31,33 @@ const markdown = new MarkdownIt({ html: false, linkify: false, typographer: fals
   })
   .use(container, 'details')
 
+markdown.inline.ruler.before('text', 'colored_text', (state, silent) => {
+  if (state.src[state.pos] !== '%') return false
+  const match = /^%([^%\r\n]+)%\{([a-zA-Z]+|#(?:[\da-fA-F]{8}|[\da-fA-F]{6}|[\da-fA-F]{4}|[\da-fA-F]{3}))\}/.exec(state.src.slice(state.pos, state.posMax))
+  if (!match) return false
+  if (!silent) {
+    const token = state.push('colored_text', 'span', 0)
+    token.content = match[1]!
+    token.attrSet('style', `color: ${match[2]}`)
+  }
+  state.pos += match[0].length
+  return true
+})
+markdown.renderer.rules.colored_text = (tokens, index, options, env, renderer) => {
+  const token = tokens[index]!
+  return `<span${renderer.renderAttrs(token)}>${markdown.utils.escapeHtml(token.content)}</span>`
+}
+
+// Accept only an attribute-free line break; keep general HTML disabled.
+markdown.inline.ruler.before('html_inline', 'line_break_tag', (state, silent) => {
+  if (state.src[state.pos] !== '<') return false
+  const match = /^<br[ \t]*\/?>/i.exec(state.src.slice(state.pos))
+  if (!match) return false
+  if (!silent) state.push('hardbreak', 'br', 0)
+  state.pos += match[0].length
+  return true
+})
+
 markdown.inline.ruler.before('text', 'judge_status', (state, silent) => {
   if (state.src[state.pos] !== ':') return false
   const match = /^:(AC|WA|TLE|MLE|OLE|RE|CE|JE|WJ):/.exec(state.src.slice(state.pos))
@@ -72,7 +99,7 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   return `<div class="input-format">${content}</div>\n`
 }
 
-// User-authored markup cannot supply HTML or executable link protocols.
+// User-authored markup cannot supply general HTML or executable link protocols.
 // Each render gets fresh state; macros must not leak between documents.
 export function renderProblemMarkdown(source: string): string {
   if (source.length > 100_000) return '<p>本文は100,000文字以内で入力してください。</p>'

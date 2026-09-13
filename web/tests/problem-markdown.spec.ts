@@ -2,6 +2,32 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('colored text supports names and hex colors while preserving Markdown boundaries', () => {
+  expect(renderProblemMarkdown('本文%赤文字ですよ%{red}と%白い文字%{#FFFFFF}です。'))
+    .toContain('本文<span style="color: red">赤文字ですよ</span>と<span style="color: #FFFFFF">白い文字</span>です。')
+  for (const color of ['blue', 'rebeccapurple', '#abc', '#abcd', '#123ABC', '#123ABC80']) {
+    expect(renderProblemMarkdown(`| 説明 |\n| --- |\n| %文字%{${color}} |`))
+      .toContain(`<td><span style="color: ${color}">文字</span></td>`)
+  }
+  expect(renderProblemMarkdown('%<img src=x onerror=alert(1)>&%{red}'))
+    .toContain('<span style="color: red">&lt;img src=x onerror=alert(1)&gt;&amp;</span>')
+  for (const source of ['`%文字%{red}`', '```text\n%文字%{red}\n```', '$%文字%{red}$', '\\%文字%{red}', '%文字%{red;display:none}', '%文字%{red" onclick="alert(1)}', '%文字%{#12345}', '%文字%{url(x)}', '%文字%{}', '%未完了', '50%です']) {
+    expect(renderProblemMarkdown(source)).not.toContain('<span style="color:')
+  }
+})
+
+test('attribute-free br tags break table cells without enabling HTML or changing code', () => {
+  for (const tag of ['<br>', '<br/>', '<br />', '<BR>']) {
+    const html = renderProblemMarkdown(`| 入力 | 説明 |\n| --- | --- |\n| \`3\`${tag}\`5\` | N と Q |`)
+    expect(html).toContain('<td><code>3</code><br>\n<code>5</code></td>')
+  }
+  for (const source of ['`<br>`', '```text\n<br>\n```', '\\<br>', '&lt;br&gt;', '<br onclick="alert(1)">', '<br style="color:red">', '<bravo>', '</br>', '<img src=x onerror="alert(1)">']) {
+    const html = renderProblemMarkdown(source)
+    expect(html).not.toMatch(/<(br|bravo|img)\b/i)
+    expect(html).toContain('&lt;')
+  }
+})
+
 test('judge status shortcodes reuse badges and respect Markdown boundaries', () => {
   for (const verdict of ['AC', 'WA', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'JE', 'WJ']) {
     expect(renderProblemMarkdown(`結果は:${verdict}:です。`)).toContain(
