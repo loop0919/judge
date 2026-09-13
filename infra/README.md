@@ -12,6 +12,7 @@ Browser -> Frontend HTTP API -> Nuxt Lambda -> API HTTP API -> Go Lambda
 | `api/` | パッケージ用S3、Lambda、HTTP API、Cognito、RDS、VPC、IAM、ログ | S3の`judge/dev/api.tfstate` |
 | `judge/` | 採点用Lightsail 2 GB、S3、SQS、配送Lambda | S3の`judge/dev/judge.tfstate` |
 | `frontend/` | Nuxt Lambda、HTTP API、パッケージ用S3、IAM、ログ | S3の`judge/dev/frontend.tfstate` |
+| `domain/` | 購入済みRoute 53ゾーン、ACM証明書、独自ドメインとAPIマッピング | S3の`judge/dev/domain.tfstate` |
 | `deploy-access/` | 既存GitHubデプロイロールの信頼関係・操作権限 | S3の`judge/dev/deploy-access.tfstate` |
 
 採点用のLightsail、SQS、配送用S3、配送と結果反映用Lambdaは`judge/`で管理する。
@@ -191,6 +192,50 @@ RDSは常時稼働し、API Gateway、Lambda、S3、ログなどの利用量に�
 ログは14日、パッケージの非現行バージョンは30日保持する。
 利用量未指定の費用表示は実運用の見積もりにならない。
 
+## share-oj.netのDNSとHTTPS
+
+`domain/`は購入時に作成されたRoute 53ホストゾーン、DNS検証用ACM証明書、API Gatewayの独自ドメインとAPIマッピングを管理する。
+`www.share-oj.net`をフロントエンド、`api.share-oj.net`をGo APIへ接続する。
+それぞれにAレコードとAAAAレコードを作成する。
+ドメインの登録と自動更新はRoute 53コンソールで管理する。
+
+このルートは`judge/dev/domain.tfstate`を使い、管理者が手動で適用する。
+アプリのCIは構成を検証するが、ドメイン用stateやDNSを更新する権限は持たない。
+初回は購入済みゾーンをimportし、既存のネームサーバーを維持する。
+以下のimportは移管済みであり、同じstateで繰り返す必要はない。
+
+```console
+cp infra/domain/terraform.tfvars.example infra/domain/terraform.tfvars
+terraform -chdir=infra/domain init \
+  -backend-config="bucket=$JUDGE_STATE_BUCKET" \
+  -backend-config="key=judge/dev/domain.tfstate" \
+  -backend-config="region=ap-northeast-1"
+terraform -chdir=infra/domain import aws_route53_zone.site Z06837452XP9XAWEH2PB9
+terraform -chdir=infra/domain plan -out=domain.tfplan
+terraform -chdir=infra/domain apply domain.tfplan
+```
+
+`frontend_api_id`と`backend_api_id`には、それぞれ既存フロントエンドとGo APIのHTTP API IDを指定する。
+APIを置き換えた場合は、この入力とAPIマッピングも更新する。
+証明書の自動更新に使うDNS検証用CNAMEは保持する。
+ゾーンには`prevent_destroy`を設定している。
+
+APIとフロントエンドの`public_site_url`は両方とも`https://www.share-oj.net`にする。
+これによりCognitoのコールバック、フロントエンドの同一オリジン検証、canonical URLを揃える。
+devのデプロイワークフローはこのURLをコード内で固定し、GitHub変数`PUBLIC_SITE_URL`は参照しない。
+手動適用時も`TF_VAR_public_site_url=https://www.share-oj.net`を指定する。
+APIの`public_api_url`は`https://api.share-oj.net`に設定し、フロントエンドの`api_endpoint`へ渡す。
+APIの`api_endpoint`、`health_url`、`login_url`出力もこの独自ドメインを使う。
+切り替え後は次のコマンドで公開ページ、静的ファイル、API接続を確認する。
+
+```console
+node web/scripts/smoke-frontend.mjs https://www.share-oj.net
+```
+
+2026年9月13日のInfracost解析では、ドメイン用構成の固定費は既存ホストゾーンの月$0.50で、費用とタグのポリシー違反は0件だった。
+既存ゾーンを引き継ぐため、今回の変更による固定費の増加はない。
+ドメイン更新料、DNS検証用レコードへのクエリ、アプリ本体のリクエスト料金などは別途かかる。
+
 ## Cognitoによるログイン
 
 `api/auth.tf`がメールアドレスでサインインするUser Poolと、API専用のアプリクライアントを作成する。
@@ -276,7 +321,6 @@ GitHubのEnvironment `dev`を作成し、次のVariablesを設定する。
 | `AWS_ACCOUNT_ID` | 12桁のAWSアカウントID |
 | `AWS_DEPLOY_ROLE_ARN` | デプロイ用IAMロールのARN |
 | `TF_STATE_BUCKET` | bootstrapが作成したstate用バケット名 |
-| `PUBLIC_SITE_URL` | 公開HTTPS origin。Googleを使う場合は必須 |
 | `GOOGLE_CLIENT_ID` | Google OAuthクライアントID。Googleを使わない場合は空 |
 | `OPERATOR_SUBJECTS` | 運営ユーザーのCognito subをカンマ区切りで指定。省略可 |
 
@@ -290,7 +334,7 @@ Googleを使う場合は、Environment `dev`のSecretに`GOOGLE_CLIENT_SECRET`�
 Google CloudでWebアプリ用OAuthクライアントを作り、承認済みリダイレクトURIを`https://<Cognitoドメイン>/oauth2/idpresponse`に設定する。
 CognitoドメインはUser Pool IDの小文字化・アンダースコアのハイフン置換を接頭辞とする。
 東京では`https://<接頭辞>.auth.ap-northeast-1.amazoncognito.com`となり、apply後は`cognito_domain`出力でも確認できる。
-アプリ側のコールバックは`PUBLIC_SITE_URL/auth/google/callback`としてTerraformが設定する。
+アプリ側のコールバックは`public_site_url`に`/auth/google/callback`を付けたURLとしてTerraformが設定する。
 `environment = "dev"`でGoogleログインが有効な場合は、`http://localhost:3000/auth/google/callback`も許可するため、applyのたびに手動で追加する必要はない。
 デフォルトのリダイレクト先は公開サイトのURLを維持する。
 OAuth同意画面がテスト公開の場合は、Google側でテストユーザーの登録も必要になる。

@@ -96,6 +96,16 @@ variable "public_site_url" {
   }
 }
 
+variable "public_api_url" {
+  description = "Optional custom HTTPS API origin; defaults to the API Gateway URL."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.public_api_url == "" || can(regex("^https://[a-zA-Z0-9.-]+$", var.public_api_url))
+    error_message = "Use an HTTPS origin without a trailing slash."
+  }
+}
+
 variable "operator_subjects" {
   description = "Comma-separated Cognito sub values allowed to display the operator badge."
   type        = string

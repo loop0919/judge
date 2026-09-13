@@ -1,9 +1,13 @@
+locals {
+  public_api_url = var.public_api_url != "" ? var.public_api_url : aws_apigatewayv2_api.api.api_endpoint
+}
+
 output "api_endpoint" {
-  value = aws_apigatewayv2_api.api.api_endpoint
+  value = local.public_api_url
 }
 
 output "health_url" {
-  value = "${aws_apigatewayv2_api.api.api_endpoint}/health"
+  value = "${local.public_api_url}/health"
 }
 
 output "api_lambda_function_name" {
@@ -39,7 +43,7 @@ output "cognito_domain" {
 }
 
 output "login_url" {
-  value = "${aws_apigatewayv2_api.api.api_endpoint}/auth/login"
+  value = "${local.public_api_url}/auth/login"
 }
 
 output "judge_bridge_database" {

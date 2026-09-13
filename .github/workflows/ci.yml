@@ -155,7 +155,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for root in bootstrap api deploy-access judge; do
+          for root in bootstrap api deploy-access judge domain; do
             terraform -chdir="infra/$root" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="infra/$root" validate
             terraform -chdir="infra/$root" test

@@ -39,7 +39,7 @@ run "configured_public_site_url" {
   command = plan
   variables { public_site_url = "https://judge.example.com" }
   assert {
-    condition     = aws_lambda_function.web.environment[0].variables["NUXT_PUBLIC_SITE_URL"] == "https://judge.example.com"
+    condition     = aws_lambda_function.web.environment[0].variables["NUXT_PUBLIC_SITE_URL"] == "https://judge.example.com" && output.site_url == "https://judge.example.com"
     error_message = "Use the configured public origin for frontend URLs, including OAuth callbacks."
   }
 }

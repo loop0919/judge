@@ -42,7 +42,8 @@ jobs:
       TF_VAR_existing_google_domain: judge-dev-loop0919
       TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
       TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-      TF_VAR_public_site_url: ${{ vars.PUBLIC_SITE_URL }}
+      TF_VAR_public_site_url: https://www.share-oj.net
+      TF_VAR_public_api_url: https://api.share-oj.net
       TF_VAR_operator_subjects: ${{ vars.OPERATOR_SUBJECTS }}
       TF_VAR_judge_runtime_digest: ${{ vars.JUDGE_RUNTIME_DIGEST }}
       TF_VAR_judge_enabled_runtimes: ${{ vars.JUDGE_ENABLED_RUNTIMES || '["cpp17"]' }}

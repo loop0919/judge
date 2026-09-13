@@ -36,6 +36,19 @@ mock_provider "aws" {
 
 variables { existing_google_domain = "" }
 
+run "custom_api_urls" {
+  command = plan
+  variables { public_api_url = "https://api.share-oj.net" }
+  assert {
+    condition = (
+      output.api_endpoint == "https://api.share-oj.net" &&
+      output.health_url == "https://api.share-oj.net/health" &&
+      output.login_url == "https://api.share-oj.net/auth/login"
+    )
+    error_message = "Deployment outputs must use the configured API domain."
+  }
+}
+
 run "api_contract" {
   command = apply
   variables {

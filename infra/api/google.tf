@@ -9,7 +9,7 @@ resource "aws_cognito_identity_provider" "google" {
     client_secret    = var.google_client_secret
     authorize_scopes = "openid email profile"
   }
-  attribute_mapping = { email = "email" }
+  attribute_mapping = { email = "email", username = "sub" }
   # Cognito adds these provider-discovered values after creation.
   lifecycle {
     ignore_changes = [
