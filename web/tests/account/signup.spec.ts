@@ -46,7 +46,7 @@ test('registers, resumes confirmation, resends code and logs in to save a proble
   await expect(page.getByRole('status')).toHaveText('保存済み')
   await page.getByRole('link', { name: 'ShareOJ ホーム', exact: true }).click()
   await page.getByRole('link', { name: 'マイページ', exact: true }).click()
-  await expect(page.getByRole('link', { name: /新規ユーザーの問題/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: '新規ユーザーの問題を編集', exact: true })).toBeVisible()
 })
 
 test('registration endpoints reject cross-origin requests and do not reveal duplicate emails', async ({ request }) => {
