@@ -80,6 +80,8 @@ var (
 )
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /my/favorites/{id}", p.handle)
+	mux.HandleFunc("PUT /my/favorites/{id}", p.handle)
 	mux.HandleFunc("POST /my/submissions", p.handle)
 	mux.HandleFunc("GET /my/submissions", p.handle)
 	mux.HandleFunc("GET /my/submissions/{id}", p.handle)
@@ -140,6 +142,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/favorites/") {
+		p.favorite(w, r.WithContext(ctx), owner)
+		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/submissions") {
 		p.submission(w, r.WithContext(ctx), owner)
@@ -260,6 +266,9 @@ func (p PrivateProblems) testFile(w http.ResponseWriter, r *http.Request, owner 
 }
 
 func validDraft(d problems.Draft) bool {
+	if d.Difficulty != nil && (*d.Difficulty < 1 || *d.Difficulty > 10) {
+		return false
+	}
 	if d.Checker != nil && d.Interactor != nil {
 		return false
 	}

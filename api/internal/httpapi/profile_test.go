@@ -139,7 +139,7 @@ func TestProfilesPostgres(t *testing.T) {
 		public := "/" + kind + "/" + id
 		body := func(version int, text string) string {
 			if kind == "problems" {
-				return fmt.Sprintf(`{"version":%d,"draft":{"title":"Published title","markdown":%q,"timeLimitMs":"2000","memoryLimitMb":"256"}}`, version, text)
+				return fmt.Sprintf(`{"version":%d,"draft":{"title":"Published title","markdown":%q,"timeLimitMs":"2000","memoryLimitMb":"256","difficulty":%d}}`, version, text, min(10, 4+version*3))
 			}
 			return fmt.Sprintf(`{"version":%d,"title":"Published title","markdown":%q}`, version, text)
 		}
@@ -154,6 +154,13 @@ func TestProfilesPostgres(t *testing.T) {
 		check("PUT", private, "", body(0, "public body"), 401)
 		check("PUT", private, "alice", body(0, "public body"), 200)
 		check("GET", public, "", "", 404)
+		if kind == "problems" {
+			check("PUT", "/my/favorites/"+id, "bob", `{"favorited":true}`, 404)
+			for _, level := range []string{"0", "11", "1.5", `"4"`} {
+				invalid := strings.Replace(body(1, "invalid"), `"difficulty":7`, `"difficulty":`+level, 1)
+				check("PUT", private, "alice", invalid, 400)
+			}
+		}
 		check("PUT", private+"/publication", "bob", `{"version":1,"publish":true}`, 404)
 		check("PUT", private+"/publication", "alice", `{"version":1}`, 400)
 		check("PUT", private+"/publication", "alice", `{"version":1,"publish":true}`, 200)
@@ -164,6 +171,35 @@ func TestProfilesPostgres(t *testing.T) {
 		if kind == "posts" && !strings.Contains(visible, `"isOperator":true`) {
 			t.Fatal("missing operator badge")
 		}
+		if kind == "problems" {
+			favorite := "/my/favorites/" + id
+			check("GET", favorite, "", "", 401)
+			check("PUT", favorite, "", `{"favorited":true}`, 401)
+			check("PUT", favorite, "bob", `{}`, 400)
+			check("PUT", favorite, "bob", `{"favorited":null}`, 400)
+			for range 2 {
+				result := check("PUT", favorite, "bob", `{"favorited":true}`, 200)
+				if !strings.Contains(result, `"favoriteCount":1`) || !strings.Contains(result, `"favorited":true`) {
+					t.Fatal(result)
+				}
+			}
+			result := check("GET", favorite, "alice", "", 200)
+			if !strings.Contains(result, `"favorited":false`) || !strings.Contains(result, `"favoriteCount":1`) {
+				t.Fatal(result)
+			}
+			check("PUT", favorite, "alice", `{"favorited":true}`, 200)
+			result = check("GET", public, "", "", 200)
+			if !strings.Contains(result, `"favoriteCount":2`) {
+				t.Fatal(result)
+			}
+			for range 2 {
+				check("PUT", favorite, "alice", `{"favorited":false}`, 200)
+			}
+			result = check("GET", favorite, "bob", "", 200)
+			if !strings.Contains(result, `"favoriteCount":1`) || !strings.Contains(result, `"favorited":true`) {
+				t.Fatal(result)
+			}
+		}
 		check("PUT", private, "alice", body(2, "private secret"), 200)
 		if strings.Contains(check("GET", public, "", "", 200), "private secret") {
 			t.Fatal("draft leaked")
@@ -172,12 +208,26 @@ func TestProfilesPostgres(t *testing.T) {
 		if !strings.Contains(listing, id) || strings.Contains(listing, "private secret") {
 			t.Fatal(listing)
 		}
+		if kind == "problems" {
+			for _, field := range []string{`"difficulty":4`, `"timeLimitMs":"2000"`, `"memoryLimitMb":"256"`, `"favoriteCount":1`} {
+				if !strings.Contains(listing, field) {
+					t.Fatalf("missing %s: %s", field, listing)
+				}
+			}
+		}
 		check("PUT", private+"/publication", "alice", `{"version":2,"publish":true}`, 409)
 		check("PUT", private+"/publication", "alice", `{"version":3,"publish":true}`, 200)
 		if !strings.Contains(check("GET", public, "", "", 200), "private secret") {
 			t.Fatal("snapshot not updated")
 		}
+		if kind == "problems" && !strings.Contains(check("GET", public, "", "", 200), `"difficulty":10`) {
+			t.Fatal("difficulty not published")
+		}
 		check("PUT", private+"/publication", "alice", `{"version":4,"publish":false}`, 200)
+		if kind == "problems" {
+			check("GET", "/my/favorites/"+id, "bob", "", 404)
+			check("PUT", "/my/favorites/"+id, "bob", `{"favorited":true}`, 404)
+		}
 		check("GET", public, "", "", 404)
 		if strings.Contains(check("GET", "/"+kind, "", "", 200), id) {
 			t.Fatal("unpublished listed")
@@ -189,6 +239,12 @@ func TestProfilesPostgres(t *testing.T) {
 		check("DELETE", private+"?version=8", "bob", "", 404)
 		check("DELETE", private+"?version=7", "alice", "", 409)
 		check("DELETE", private+"?version=8", "alice", "", 204)
+		if kind == "problems" {
+			var count int
+			if err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM problem_favorites WHERE problem_id=$1`, id).Scan(&count); err != nil || count != 0 {
+				t.Fatalf("favorite cleanup: %d %v", count, err)
+			}
+		}
 		check("GET", public, "", "", 404)
 	}
 	// Two different owners cannot claim the same handle concurrently.
@@ -216,7 +272,7 @@ func TestProfilesPostgres(t *testing.T) {
 	if _, err = store.Save(ctx, "alice", id, 0, problems.Draft{Title: "before upgrade"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `DROP TABLE test_files; DROP TABLE submissions; DROP TABLE blog_posts; DROP TABLE user_profiles; ALTER TABLE problem_drafts DROP COLUMN published_draft, DROP COLUMN published_version, DROP COLUMN published_at; DELETE FROM schema_migrations WHERE version>=2`); err != nil {
+	if _, err = store.Pool().Exec(ctx, `DROP TABLE problem_favorites; DROP TABLE test_files; DROP TABLE submissions; DROP TABLE blog_posts; DROP TABLE user_profiles; ALTER TABLE problem_drafts DROP COLUMN published_draft, DROP COLUMN published_version, DROP COLUMN published_at; DELETE FROM schema_migrations WHERE version>=2`); err != nil {
 		t.Fatal(err)
 	}
 	if err = store.Migrate(ctx); err != nil {

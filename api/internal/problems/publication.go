@@ -10,6 +10,8 @@ import (
 )
 
 type PublicProblem struct {
+	Difficulty    *int      `json:"difficulty"`
+	FavoriteCount int64     `json:"favoriteCount"`
 	Interactive   bool      `json:"interactive,omitempty"`
 	SpecialJudge  bool      `json:"specialJudge,omitempty"`
 	ID            string    `json:"id"`
@@ -45,7 +47,7 @@ func (s *Store) Publish(ctx context.Context, owner, id string, version int64, pu
 func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error) {
 	var p PublicProblem
 	var data []byte
-	err := s.pool.QueryRow(ctx, `SELECT d.id,d.published_draft,u.handle,d.published_at FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.id=$1 AND d.published_draft IS NOT NULL`, id).Scan(&p.ID, &data, &p.Author, &p.PublishedAt)
+	err := s.pool.QueryRow(ctx, `SELECT d.id,d.published_draft,u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id) FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.id=$1 AND d.published_draft IS NOT NULL`, id).Scan(&p.ID, &data, &p.Author, &p.PublishedAt, &p.FavoriteCount)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return p, ErrNotFound
@@ -57,6 +59,7 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 		return p, err
 	}
 	p.Title = d.Title
+	p.Difficulty = d.Difficulty
 	p.Markdown = d.Markdown
 	p.Editorial = d.Editorial
 	p.TimeLimitMS = d.TimeLimitMS
@@ -67,7 +70,7 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 }
 
 func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem, error) {
-	query := `SELECT d.id,d.published_draft->>'title',u.handle,d.published_at FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL`
+	query := `SELECT d.id,d.published_draft->>'title',(d.published_draft->>'difficulty')::integer,d.published_draft->>'timeLimitMs',d.published_draft->>'memoryLimitMb',u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id) FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL`
 	args := []any{}
 	if cursor != nil {
 		query += ` AND (d.published_at,d.id)<($1,$2::uuid)`
@@ -79,7 +82,7 @@ func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (PublicProblem, error) {
 		var p PublicProblem
-		err := row.Scan(&p.ID, &p.Title, &p.Author, &p.PublishedAt)
+		err := row.Scan(&p.ID, &p.Title, &p.Difficulty, &p.TimeLimitMS, &p.MemoryLimitMB, &p.Author, &p.PublishedAt, &p.FavoriteCount)
 		return p, err
 	})
 }

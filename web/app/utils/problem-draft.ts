@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { difficultySchema } from '~~/shared/types/difficulty'
 
 export const testFileLimit = 16 << 20
 export const inlineTestDataLimit = 64 << 10
@@ -63,6 +64,7 @@ export type Generators = z.infer<typeof generatorsSchema>
 export const emptyGenerators = (): Generators => ({ input: { runtime: 'cpp17', source: '' }, output: { runtime: 'cpp17', source: '' }, validation: { runtime: 'cpp17', source: '' } })
 
 export const problemDraftSchema = z.object({
+  difficulty: difficultySchema,
   checker: generatorSchema.nullable().default(null),
   interactor: generatorSchema.nullable().default(null),
   generators: generatorsSchema.default(emptyGenerators),

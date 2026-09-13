@@ -15,11 +15,13 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 <template>
   <div v-if="problem" class="problem-page">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="problem.isPrivate ? '/my' : '/problems'">{{ problem.isPrivate ? 'マイページ' : '公開問題' }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav>
+    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="problem.isPrivate ? '/my' : '/problems'">{{ problem.isPrivate ? 'マイページ' : '問題' }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav>
     <header class="problem-header">
       <h1>{{ problem.title }}</h1>
       <p v-if="problem.isPrivate" class="muted">非公開 · 作成者本人のみ閲覧・提出できます。</p>
       <p class="muted">作成者 {{ problem.author }}</p>
+      <p>難易度（作問者設定） <DifficultyBadge :level="problem.difficulty" /></p>
+      <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>
     </header>
     <nav class="problem-menu" aria-label="問題メニュー">

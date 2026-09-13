@@ -1,33 +1,29 @@
 <script setup lang="ts">
+import type { z } from 'zod'
+import type { publicProblemListSchema } from '~~/shared/types/problem'
 const config = useRuntimeConfig()
 const canonical = new URL('/problems', config.public.siteUrl).href
 const { data, error } = await useFetch('/api/problems')
 if (error.value || !data.value) throw createError({ statusCode: 502, statusMessage: 'Problem service unavailable', fatal: true })
-const items = ref(data.value.items)
-const cursor = ref(data.value.nextCursor)
-const loading = ref(false)
-const message = ref('')
-async function more() {
-  loading.value = true; message.value = ''
-  try { const result = await $fetch('/api/problems', { query: { cursor: cursor.value } }); items.value.push(...result.items); cursor.value = result.nextCursor }
-  catch { message.value = '問題を取得できませんでした。もう一度お試しください。' }
-  finally { loading.value = false }
-}
-useSeoMeta({ title: '公開問題 | ShareOJ', description: 'ユーザーが作成・公開したプログラミング問題。', ogTitle: '公開問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
+const { current, index, loading, message, move } = useContentPages(data.value, cursor => $fetch<z.infer<typeof publicProblemListSchema>>('/api/problems', { query: { cursor } }))
+useSeoMeta({ title: '問題 | ShareOJ', description: 'ユーザーが作成・公開したプログラミング問題。', ogTitle: '問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
   <div class="catalogue">
-    <h1>公開問題</h1>
-    <p v-if="!items.length" class="muted">公開された問題はまだありません。</p>
-    <NuxtLink v-for="problem in items" :key="problem.id" class="problem-row" :to="`/problems/${problem.id}`">
-      <span><strong>{{ problem.title }}</strong><span class="row-description">{{ problem.author }}</span></span>
-      <span class="row-end" aria-hidden="true">→</span>
-    </NuxtLink>
+    <h1>問題</h1>
+    <p v-if="!current.items.length" class="muted">公開された問題はまだありません。</p>
+    <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="問題一覧" :aria-busy="loading">
+      <table class="content-table">
+        <thead><tr><th scope="col">タイトル</th><th scope="col">作成者</th><th scope="col"><abbr title="実行時間制限">TL</abbr></th><th scope="col"><abbr title="メモリ制限">ML</abbr></th><th scope="col"><abbr title="お気に入り数">Fav</abbr></th><th scope="col">難易度</th></tr></thead>
+        <tbody><tr v-for="problem in current.items" :key="problem.id">
+          <th scope="row"><NuxtLink :to="`/problems/${problem.id}`">{{ problem.title }}</NuxtLink></th>
+          <td>{{ problem.author }}</td><td>{{ problem.timeLimitMs == null ? '—' : `${problem.timeLimitMs / 1000} 秒` }}</td><td>{{ problem.memoryLimitMb == null ? '—' : `${problem.memoryLimitMb} MiB` }}</td>
+          <td>{{ problem.favoriteCount }}</td><td><DifficultyBadge :level="problem.difficulty" /></td>
+        </tr></tbody>
+      </table>
+    </div>
     <p v-if="message" role="alert">{{ message }}</p>
-    <button v-if="cursor" class="editor-button" :disabled="loading" @click="more">さらに読み込む</button>
+    <ContentPagination :index="index" :has-next="!!current.nextCursor" :loading="loading" @move="move" />
   </div>
 </template>
-<style scoped>
-.problem-row { grid-template-columns: minmax(0, 1fr) auto; overflow-wrap: anywhere; margin-block: 0; border-top: 0; }
-</style>

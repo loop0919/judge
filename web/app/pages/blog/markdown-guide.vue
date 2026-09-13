@@ -3,7 +3,7 @@ const config = useRuntimeConfig()
 const canonical = new URL('/blog/markdown-guide', config.public.siteUrl).href
 const title = 'Markdown と数式の書き方'
 const description = 'ShareOJ の Markdown エディターで、問題文、数式、複数行の入力形式を書く方法を例とともに紹介します。'
-useSeoMeta({ title: `${title} | ShareOJ ブログ`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
+useSeoMeta({ title: `${title} | ShareOJ 記事`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 
 const basic = ['## 問題文', '', '整数 $A$ と $B$ の和を求めてください。', '', '## 制約', '', '- $0 \\le A, B \\le 10^9$', '- 入力はすべて整数です。'].join('\n')
@@ -31,7 +31,7 @@ const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">ブログ</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav>
+    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav>
     <header class="blog-article-header"><p class="eyebrow">SHAREOJ GUIDE</p><h1>{{ title }}</h1><p class="lead">問題の構成は自由です。Markdown で文章を組み立て、必要なところに数式を添えられます。</p></header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#structure">基本の書き方</a><a href="#inline-math">文中の数式</a><a href="#input-format">入力形式</a><a href="#display-math">独立した数式</a><a href="#samples">入出力例</a><a href="#line-breaks">改行</a><a href="#colors">文字色</a><a href="#programs">プログラム</a><a href="#details">折りたたみ</a><a href="#judge-status">ジャッジステータス</a><a href="#drafts">下書きと保存</a></nav>
     <section id="structure"><h2>見出しで問題文を組み立てる</h2><p><code>##</code> で見出し、<code>-</code> で箇条書きを書けます。太字は <code>**強調したい文字**</code>、リンクは <code>[表示する文字](URL)</code> です。表や画像も使えます。</p><p>問題文、制約、入力、出力、入出力例の順に書くと、解く人が情報を見つけやすくなります。見出しの名前や順序は自由に変えられます。</p><pre><code>{{ basic }}</code></pre></section>
@@ -60,8 +60,8 @@ const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例
         コードや数式の中に書いた色指定も変換されません。</p>
     </section>
     <section id="programs"><h2>プログラムを書く</h2><p>バッククォート3つに言語名を続けた <code>```py</code> などで書き始め、次の行からプログラムを書きます。最後は <code>```</code> だけの行で閉じます。改行や字下げを保ち、対応する言語ではコードの色分けと行番号が表示されます。</p><pre><code>{{ program }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="program" /></div><ProblemMarkdown :source="programLanguages" /></section>
-    <section id="details"><h2>内容を折りたたむ</h2><p><code>:::details タイトル</code> と <code>:::</code> で本文を囲むと、タイトルをクリックして開閉できます。本文には Markdown、数式、コードブロックを使えます。問題文・ブログの両方で利用できます。</p><pre><code>{{ details }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="details" /></div></section>
-    <section id="judge-status"><h2>ジャッジステータスを表示する</h2><p><code>:AC:</code> や <code>:RE:</code> のように大文字のステータスをコロンで囲むと、バッジとして表示します。問題文・解説・ブログで利用できます。コードや数式の中では変換されません。</p><pre><code>:AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown source=":AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:" /></div></section>
+    <section id="details"><h2>内容を折りたたむ</h2><p><code>:::details タイトル</code> と <code>:::</code> で本文を囲むと、タイトルをクリックして開閉できます。本文には Markdown、数式、コードブロックを使えます。問題文・記事の両方で利用できます。</p><pre><code>{{ details }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="details" /></div></section>
+    <section id="judge-status"><h2>ジャッジステータスを表示する</h2><p><code>:AC:</code> や <code>:RE:</code> のように大文字のステータスをコロンで囲むと、バッジとして表示します。問題文・解説・記事で利用できます。コードや数式の中では変換されません。</p><pre><code>:AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown source=":AC: :WA: :TLE: :MLE: :OLE: :RE: :CE: :JE: :WJ:" /></div></section>
     <section id="drafts"><h2>問題を保存する</h2><p>ログインして編集した問題は自動保存されます。「保存」ボタンでも保存できます。</p><p>保存した問題は「自分の問題」から一覧で確認し、別の端末でも編集を再開できます。「新しい問題を作成」から別の問題を作成できます。</p><p>保存しても、問題は公開されません。</p></section>
     <NuxtLink class="return-link" to="/problems/new">エディターへ戻る →</NuxtLink>
   </article>

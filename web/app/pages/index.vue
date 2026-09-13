@@ -44,10 +44,10 @@ useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).h
         </svg>
       </figure>
     </section>
-    <aside class="blog-invitation" aria-label="ブログの紹介">
+    <aside class="blog-invitation" aria-label="記事の紹介">
       <span class="blog-marker" aria-hidden="true">読む・書く</span>
-      <div><h2>その解き方が、誰かのヒントになる。</h2><p>考えたこと、学んだことをブログで共有しよう。</p></div>
-      <NuxtLink to="/blog">ブログを読む<span aria-hidden="true">→</span></NuxtLink>
+      <div><h2>その解き方が、誰かのヒントになる。</h2><p>考えたこと、学んだことを記事で共有しよう。</p></div>
+      <NuxtLink to="/blog">記事を読む<span aria-hidden="true">→</span></NuxtLink>
     </aside>
   </div>
 </template>

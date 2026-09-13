@@ -10,7 +10,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
 </script>
 <template>
   <article v-if="post" class="post-page">
-    <NuxtLink to="/blog">ブログへ戻る</NuxtLink>
+    <NuxtLink to="/blog">記事へ戻る</NuxtLink>
     <h1>{{ post.title }}</h1>
     <p class="muted">{{ post.author }} <span v-if="post.isOperator">・運営</span> · <time :datetime="post.publishedAt">{{ new Date(post.publishedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) }}</time></p>
     <ProblemMarkdown :source="post.markdown" />

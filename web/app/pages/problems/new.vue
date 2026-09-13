@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { difficultyGrades } from '~~/shared/types/difficulty'
 import { accountProblemSchema, accountError } from '~/utils/account-problems'
 import { draftErrors, emptyGenerators, initialProblemMarkdown, inlineTestDataLimit, inlineTestSetLimit, persistedDraft, testCaseError, type TestCase, type ProblemDraft } from '~/utils/problem-draft'
 import { uploadTestFile } from '~/utils/test-files'
@@ -22,7 +23,7 @@ const saveLocation = computed(() => publishedVersion.value ? '公開中' : '非�
 function refreshOnFocus() { void refreshAccount().catch(() => {}) }
 useSeoMeta({ title: '問題を作成 | ShareOJ', robots: 'noindex, nofollow' })
 const section = ref<'statement' | 'editorial' | 'tests' | 'generators' | 'checker' | 'management'>('statement')
-const draft = reactive({ checker: null as ProblemDraft['checker'], interactor: null as ProblemDraft['interactor'], title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
+const draft = reactive({ checker: null as ProblemDraft['checker'], interactor: null as ProblemDraft['interactor'], difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] as TestCase[] })
 const activeMarkdown = computed({
   get: () => section.value === 'editorial' ? draft.editorial : draft.markdown,
   set: value => { if (section.value === 'editorial') draft.editorial = value; else draft.markdown = value },
@@ -194,7 +195,7 @@ onMounted(async () => {
       status.value = '保存済み'
     } catch (error) {
       removeProblemCache(cloudOwner, cloudId.value)
-      Object.assign(draft, { checker: null, interactor: null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
+      Object.assign(draft, { checker: null, interactor: null, difficulty: null as number | null, title: '', markdown: initialProblemMarkdown, editorial: '', generators: emptyGenerators(), timeLimitMs: '2000', memoryLimitMb: '512', testCases: [] })
       renderedSource.value = activeMarkdown.value
       status.value = '問題を読み込めませんでした'
       storageError.value = accountError(error)
@@ -372,6 +373,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
         <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="512" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
       </div>
+      <div class="field"><label for="problem-difficulty">難易度（作問者設定）</label><select id="problem-difficulty" v-model="draft.difficulty" :disabled="!ready || publishing"><option :value="null">未設定</option><option v-for="(grade, index) in difficultyGrades" :key="grade" :value="index + 1">Lv.{{ index + 1 }} · {{ grade }}</option></select></div>
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
       <section id="source-pane" class="source-pane" aria-label="Markdown 編集">
