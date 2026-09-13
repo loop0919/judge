@@ -6,16 +6,16 @@ const cases = defineModel<TestCase[]>({ required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string }>()
 const error = computed(() => testCaseError(cases.value))
 const selected = ref(0)
-const inputFolder = ref<HTMLInputElement>()
-const outputFolder = ref<HTMLInputElement>()
-const folderStatus = reactive({ input: '', output: '' })
+const inputFiles = ref<HTMLInputElement>()
+const outputFiles = ref<HTMLInputElement>()
+const fileStatus = reactive({ input: '', output: '' })
 const importing = ref(false)
 const locked = computed(() => props.disabled || importing.value)
 const importError = ref('')
 const importStatus = ref('')
 let mounted = true
 onBeforeUnmount(() => { mounted = false })
-async function selectFolder(event: Event, key: 'input' | 'output') {
+async function selectFiles(event: Event, key: 'input' | 'output') {
   const control = event.target as HTMLInputElement
   const files = Array.from(control.files ?? [])
   control.value = ''
@@ -33,7 +33,7 @@ async function selectFolder(event: Event, key: 'input' | 'output') {
     const added = merged.length - cases.value.length
     cases.value = merged
     selected.value = merged.findIndex(item => item.name?.trim() === imported[0]!.name?.trim())
-    folderStatus[key] = `${files.length}ファイル取り込み済み`
+    fileStatus[key] = `${files.length}ファイル取り込み済み`
     importStatus.value = `${key === 'input' ? '入力' : '出力'}：${added}件追加、${imported.length - added}件更新しました。`
   } catch (error) {
     importError.value = error instanceof Error ? error.message : 'ファイルを読み込めませんでした。'
@@ -82,10 +82,10 @@ function add() {
       <h1 id="test-cases-title">テストケース <span>{{ cases.length }} / 100件</span></h1>
     </header>
     <div class="case-notes">
-      <details class="bulk-import"><summary>フォルダから一括追加</summary>
-        <p>選択した側の .txt を自動で追加・更新します（UTF-8）。もう片方のデータは保持します。</p>
-        <div class="folder-picker"><button type="button" class="editor-button" :disabled="locked" @click="inputFolder?.click()">入力フォルダを選択</button><span class="folder-status">{{ folderStatus.input || '未選択' }}</span><input ref="inputFolder" hidden type="file" webkitdirectory multiple aria-label="入力フォルダ" :disabled="locked" @change="selectFolder($event, 'input')"></div>
-        <div class="folder-picker"><button type="button" class="editor-button" :disabled="locked" @click="outputFolder?.click()">出力フォルダを選択</button><span class="folder-status">{{ folderStatus.output || '未選択' }}</span><input ref="outputFolder" hidden type="file" webkitdirectory multiple aria-label="出力フォルダ" :disabled="locked" @change="selectFolder($event, 'output')"></div>
+      <details class="bulk-import"><summary>ファイルから一括追加</summary>
+        <p>.txt を複数選択すると自動追加します。同名のケースは選択した側だけを更新します（UTF-8）。</p>
+        <div class="file-picker"><button type="button" class="editor-button" :disabled="locked" @click="inputFiles?.click()">入力ファイルを選択</button><span class="import-file-status">{{ fileStatus.input || '未選択' }}</span><input ref="inputFiles" hidden type="file" accept=".txt,text/plain" multiple aria-label="入力ファイル" :disabled="locked" @change="selectFiles($event, 'input')"></div>
+        <div class="file-picker"><button type="button" class="editor-button" :disabled="locked" @click="outputFiles?.click()">出力ファイルを選択</button><span class="import-file-status">{{ fileStatus.output || '未選択' }}</span><input ref="outputFiles" hidden type="file" accept=".txt,text/plain" multiple aria-label="出力ファイル" :disabled="locked" @change="selectFiles($event, 'output')"></div>
         <p v-if="importing" role="status">取り込み中…</p>
       </details>
       <details><summary>保存とサイズ上限</summary><p>変更は自動保存され、「公開する／公開内容を更新」で採点に反映されます。各入力・出力は16 MiB、全体で512 MiBまで。入出力は作成者だけが閲覧できます。</p></details>
@@ -131,9 +131,9 @@ function add() {
 .case-toolbar h1 span { margin-left: 12px; font-size: .75rem; font-weight: normal; color: var(--color-muted); }
 .case-toolbar button { white-space: nowrap; }
 .case-notes { padding: 8px 16px; font-size: .75rem; color: var(--color-muted); border-bottom: 1px solid var(--color-line); max-height: 25%; overflow-y: auto; }
-.folder-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0; }
-.folder-picker button { white-space: nowrap; }
-.folder-status { color: var(--color-muted); }
+.file-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0; }
+.file-picker button { white-space: nowrap; }
+.import-file-status { color: var(--color-muted); }
 .case-notes p { margin: 0; }
 .case-notes details { margin-top: 4px; }
 .case-notes summary { cursor: pointer; }

@@ -22,7 +22,7 @@ export async function importTestCaseFiles(files: File[], key: DataKey, existing:
   const names = new Set<string>()
   const encoder = new TextEncoder()
   for (const file of files) {
-    if (!/^.+\.txt$/.test(file.name)) throw new Error('フォルダには .txt ファイルだけを入れてください。')
+    if (!/^.+\.txt$/.test(file.name)) throw new Error('.txt ファイルを選択してください。')
     const name = file.name.trim()
     if (names.has(name)) throw new Error(`「${file.name}」が重複しています。`)
     if (file.size > testFileLimit) throw new Error(`「${file.name}」は16 MiB以内にしてください。`)

@@ -135,83 +135,79 @@ test('500,000 ten-digit integers are stored as an immutable large test file', as
   await expect(page.locator('.test-data-editor').first().locator('.pane-heading span')).toContainText(`${size.toLocaleString('en-US')} / 16,777,216 bytes`)
 })
 
-test('folder selection imports automatically and preserves the opposite side across reloads', async ({ page }, testInfo) => {
-  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises')
-  const { tmpdir } = await import('node:os')
-  const { join } = await import('node:path')
-  const root = await mkdtemp(join(tmpdir(), 'judge-cases-'))
-  let batch = 0
+test('file selection imports automatically and preserves the opposite side across reloads', async ({ page }, testInfo) => {
   async function select(label: string, files: Record<string, string | Buffer>, invalid = false) {
-    const directory = join(root, String(batch++))
-    await mkdir(directory)
-    for (const [name, content] of Object.entries(files)) await writeFile(join(directory, name), content)
     const chooser = page.waitForEvent('filechooser')
     await page.getByRole('button', { name: `${label}を選択`, exact: true }).click()
-    await (await chooser).setFiles(directory)
+    const picker = await chooser
+    expect(picker.isMultiple()).toBe(true)
+    await picker.setFiles(Object.entries(files).map(([name, content]) => ({ name, mimeType: 'text/plain', buffer: Buffer.isBuffer(content) ? content : Buffer.from(content) })))
     if (invalid) await expect(page.locator('.test-case-editor [role=alert]')).toBeVisible()
     else await expect(page.locator('.test-case-editor [role=status]')).toContainText('件更新しました。')
     await expect(page.getByRole('button', { name: `${label}を選択`, exact: true })).toBeEnabled()
   }
-  try {
-    await page.goto('/problems/new')
-    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
-    await page.getByText('フォルダから一括追加', { exact: true }).click()
-    await expect(page.getByRole('button', { name: '一括追加', exact: true })).toHaveCount(0)
-    for (const input of await page.locator('.bulk-import input[type=file]').all()) await expect(input).toBeHidden()
-    await select('入力フォルダ', { 'sum.txt': '3 5\n', 'empty.txt': '' })
-    await expect(page.locator('.case-files li')).toHaveCount(2)
-    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
-    await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
-    await expect(page.getByLabel('出力', { exact: true })).toBeEmpty()
-    await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
-    await page.reload()
-    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
-    await page.getByText('フォルダから一括追加', { exact: true }).click()
-    await select('出力フォルダ', { 'sum.txt': '8\n', 'output-first.txt': '42' })
+  await page.goto('/problems/new')
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await page.getByText('ファイルから一括追加', { exact: true }).click()
+  await expect(page.getByRole('button', { name: '一括追加', exact: true })).toHaveCount(0)
+  for (const input of await page.locator('.bulk-import input[type=file]').all()) {
+    await expect(input).toBeHidden()
+    await expect(input).not.toHaveAttribute('webkitdirectory')
+    await expect(input).toHaveAttribute('accept', '.txt,text/plain')
+  }
+  await select('入力ファイル', { 'sum.txt': '3 5\n', 'empty.txt': '' })
+  await expect(page.locator('.case-files li')).toHaveCount(2)
+  await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+  await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
+  await expect(page.getByLabel('出力', { exact: true })).toBeEmpty()
+  await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await page.getByText('ファイルから一括追加', { exact: true }).click()
+  await select('出力ファイル', { 'sum.txt': '8\n', 'output-first.txt': '42' })
+  await expect(page.locator('.case-files li')).toHaveCount(3)
+  await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+  await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
+  await expect(page.getByLabel('出力', { exact: true })).toHaveText('8')
+  await select('入力ファイル', { 'output-first.txt': '21' })
+  await expect(page.getByLabel('入力', { exact: true })).toHaveText('21')
+  await expect(page.getByLabel('出力', { exact: true })).toHaveText('42')
+  // Updating output later must preserve both the imported and manually edited input.
+  await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+  await page.getByLabel('入力', { exact: true }).fill('9')
+  await select('出力ファイル', { 'sum.txt': '18' })
+  await expect(page.getByLabel('入力', { exact: true })).toHaveText('9')
+  await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
+  const batches = [
+    { files: { 'bad.txt': Buffer.from([0xff]) }, error: 'UTF-8' },
+    { files: { 'bad.txt': '\0' }, error: '使用できない文字' },
+    { files: { 'bad.csv': '' }, error: '.txt' },
+    { files: { 'big.txt': Buffer.alloc(16 * 1024 * 1024 + 1) }, error: '16 MiB' },
+    { files: Object.fromEntries(Array.from({ length: 99 }, (_, i) => [`case${i}.txt`, ''])), error: '100件' },
+  ]
+  for (const item of batches) {
+    await select('入力ファイル', item.files, true)
+    await expect(page.locator('.test-case-editor [role=alert]')).toContainText(item.error)
     await expect(page.locator('.case-files li')).toHaveCount(3)
-    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
-    await expect(page.getByLabel('入力', { exact: true })).toHaveText('3 5')
-    await expect(page.getByLabel('出力', { exact: true })).toHaveText('8')
-    await select('入力フォルダ', { 'output-first.txt': '21' })
-    await expect(page.getByLabel('入力', { exact: true })).toHaveText('21')
-    await expect(page.getByLabel('出力', { exact: true })).toHaveText('42')
-    // Updating output later must preserve both the imported and manually edited input.
-    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
-    await page.getByLabel('入力', { exact: true }).fill('9')
-    await select('出力フォルダ', { 'sum.txt': '18' })
     await expect(page.getByLabel('入力', { exact: true })).toHaveText('9')
     await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
-    const batches = [
-      { files: { 'bad.txt': Buffer.from([0xff]) }, error: 'UTF-8' },
-      { files: { 'bad.txt': '\0' }, error: '使用できない文字' },
-      { files: { 'bad.csv': '' }, error: '.txt' },
-      { files: { 'big.txt': Buffer.alloc(16 * 1024 * 1024 + 1) }, error: '16 MiB' },
-      { files: Object.fromEntries(Array.from({ length: 99 }, (_, i) => [`case${i}.txt`, ''])), error: '100件' },
-    ]
-    for (const item of batches) {
-      await select('入力フォルダ', item.files, true)
-      await expect(page.locator('.test-case-editor [role=alert]')).toContainText(item.error)
-      await expect(page.locator('.case-files li')).toHaveCount(3)
-      await expect(page.getByLabel('入力', { exact: true })).toHaveText('9')
-      await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
-    }
-    await select('入力フォルダ', { 'sum.txt': '10' })
-    await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
-    for (const width of [320, 375, 414, 768, 1280]) {
-      await page.setViewportSize({ width, height: 900 })
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      await expect(page.getByRole('button', { name: '入力フォルダを選択', exact: true })).toBeInViewport()
-      await expect(page.getByRole('button', { name: '出力フォルダを選択', exact: true })).toBeInViewport()
-      if (width === 375 || width === 1280) await page.screenshot({ path: testInfo.outputPath(`folder-import-${width}.png`), fullPage: true })
-    }
-    await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
-    await page.reload()
-    await page.getByRole('button', { name: 'テストケース', exact: true }).click()
-    await expect(page.locator('.case-files li')).toHaveCount(3)
-    await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
-    await expect(page.getByLabel('入力', { exact: true })).toHaveText('10')
-    await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
-  } finally { await rm(root, { recursive: true, force: true }) }
+  }
+  await select('入力ファイル', { 'sum.txt': '10' })
+  await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
+  for (const width of [320, 375, 414, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await expect(page.getByRole('button', { name: '入力ファイルを選択', exact: true })).toBeInViewport()
+    await expect(page.getByRole('button', { name: '出力ファイルを選択', exact: true })).toBeInViewport()
+    if (width === 375 || width === 1280) await page.screenshot({ path: testInfo.outputPath(`file-import-${width}.png`), fullPage: true })
+  }
+  await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+  await expect(page.locator('.case-files li')).toHaveCount(3)
+  await page.getByRole('button', { name: 'sum.txt', exact: true }).click()
+  await expect(page.getByLabel('入力', { exact: true })).toHaveText('10')
+  await expect(page.getByLabel('出力', { exact: true })).toHaveText('18')
 })
 
 test('single-side import preserves stored opposite files and validates before mutation', async () => {
