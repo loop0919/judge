@@ -26,7 +26,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
           <summary>作成</summary>
           <div class="create-menu-links" @click="closeCreateMenu">
             <NuxtLink to="/problems/new?fresh=1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 6-6 6 6 6m10-12 6 6-6 6M14 4l-4 16" /></svg>新規問題</NuxtLink>
-            <NuxtLink to="/my/contests/new">新規コンテスト</NuxtLink>
+            <NuxtLink to="/my/contests/new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8v6a4 4 0 0 1-8 0V3Zm0 2H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 2v5m-4 3h8m-6-3h4v3" /></svg>新規コンテスト</NuxtLink>
             <NuxtLink to="/blog/new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z" /><path d="m13 6 5 5" /></svg>新規記事</NuxtLink>
           </div>
         </details>

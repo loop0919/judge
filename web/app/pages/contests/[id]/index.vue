@@ -44,6 +44,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/contests">コンテスト</NuxtLink><span aria-hidden="true">/</span><span>{{ contest.title }}</span></nav>
     <nav class="problem-menu" aria-label="コンテストメニュー">
       <NuxtLink v-for="(label, view) in views" :key="view" :to="{ path: `/contests/${contest.id}`, query: view === 'overview' ? {} : { view } }" :aria-current="activeView === view ? 'page' : undefined">{{ label }}</NuxtLink>
+      <NuxtLink to="/blog/contest-rules">ルール</NuxtLink>
     </nav>
     <header class="problem-header">
       <div class="contest-heading">
@@ -61,7 +62,6 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <section v-if="activeView === 'problems'" id="problems" class="contest-section" aria-labelledby="problems-title">
       <h2 id="problems-title">問題</h2>
       <p v-if="contest.status === 'scheduled'" class="notice">問題は開始時刻に公開されます。事前に閲覧できるのは作成者と、その問題のテスターです。</p>
-      <p v-if="contest.status === 'ended'" class="notice">コンテストは終了しました。以降の提出は練習扱いです。</p>
       <div v-if="contest.problems.length" class="content-table-scroll" role="region" aria-label="コンテストの問題" tabindex="0">
         <table class="content-table contest-problems"><thead><tr><th scope="col">#</th><th scope="col">問題</th><th scope="col">配点</th></tr></thead><tbody><tr v-for="(p, index) in contest.problems" :key="p.id"><td>{{ index + 1 }}</td><th scope="row"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ p.title }}</NuxtLink></th><td>{{ p.points }} 点</td></tr></tbody></table>
       </div>
@@ -69,7 +69,6 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <section v-if="activeView === 'standings'" id="standings" class="contest-section" aria-labelledby="standings-title">
       <header class="contest-section-heading"><h2 id="standings-title">公式順位表</h2><button class="editor-button" :disabled="updating" :aria-busy="updating" @click="update">{{ updating ? '更新中…' : '今すぐ更新' }}</button></header>
       <p v-if="user && !contest.official" class="notice">作成者・テスターとしての提出は公式順位の対象外です。</p>
-      <div class="standings-description muted"><p>同点の場合は、最後の得点獲得までの経過時間と誤答ペナルティの合計で比較します。正解した問題の初回正解前の誤答のみ加算し、コンパイルエラーは除外します。</p><p>15秒ごとに更新。終了前に受け付けた提出は、終了後に判定されても反映されます。</p></div>
       <p v-if="standingsError" class="field-error" role="alert">順位表を取得できませんでした。</p>
       <p v-else-if="!standings?.length" class="contest-empty muted">公式順位の対象となる提出はまだありません。</p>
       <div v-else class="content-table-scroll" role="region" aria-label="順位表のスクロール領域" tabindex="0" :aria-busy="updating">
@@ -104,7 +103,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
 .contest-scoring { margin: 0; }
 .contest-section { padding-block: 32px; }
 .contest-section > h2, .contest-section-heading { margin: 0 0 20px; }
-.contest-description, .standings-description { max-width: 52rem; }
+.contest-description { max-width: 52rem; }
 .contest-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .contest-section-heading h2 { margin: 0; }
 .contest-section-heading button { min-height: 40px; padding: 8px 12px; }
