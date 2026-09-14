@@ -11,11 +11,12 @@ const directory = await mkdtemp(join(tmpdir(), 'openoj-lambda-'))
 execFileSync('python3', ['-m', 'zipfile', '-e', fileURLToPath(new URL('../.build/web.zip', import.meta.url)), directory])
 const bundle = pathToFileURL(`${directory}/`)
 process.env.NODE_ENV = 'production'
+let judgeMaintenance = false
 
 const api = createServer(async (req, res) => {
   res.setHeader('content-type', 'application/json')
   if (req.url === '/runtimes') {
-    res.end(JSON.stringify({ items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] })); return
+    res.end(JSON.stringify(judgeMaintenance ? { items: [], maintenance: true } : { items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] })); return
   }
   if (['/auth/signup', '/auth/confirm-signup', '/auth/resend-confirmation'].includes(req.url)) {
     const chunks = []
@@ -75,8 +76,14 @@ async function invoke(path, { method = 'GET', body, cookies, origin = 'https://f
 try {
   const runtimes = await invoke('/api/runtimes')
   assert.equal(runtimes.statusCode, 200)
-  assert.deepEqual(JSON.parse(runtimes.body), { items: [{ id: 'cpp17', label: 'C++17 (GCC)' }] })
+  assert.deepEqual(JSON.parse(runtimes.body), { items: [{ id: 'cpp17', label: 'C++17 (GCC)' }], maintenance: false })
   assert.equal(runtimes.headers['cache-control'], 'no-store')
+  judgeMaintenance = true
+  assert.deepEqual(JSON.parse((await invoke('/api/runtimes')).body), { items: [], maintenance: true })
+  const maintenancePage = await invoke('/problems/new')
+  assert.equal(maintenancePage.statusCode, 200)
+  assert.match(maintenancePage.body, /ジャッジ機能のメンテナンスを行っています。この期間中は提出等ができません。/)
+  judgeMaintenance = false
   for (const code of ['valid', 'invalid']) {
     const start = await invoke('/auth/google')
     assert.equal(start.statusCode, 302)
