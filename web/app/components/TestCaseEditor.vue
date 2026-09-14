@@ -3,6 +3,7 @@ import { testCaseError, type TestCase } from '~/utils/problem-draft'
 import { downloadTestFile } from '~/utils/test-files'
 import { importTestCaseFiles, mergeTestCases } from '~/utils/import-test-cases'
 const cases = defineModel<TestCase[]>({ required: true })
+const markdown = defineModel<string>('markdown', { required: true })
 const props = defineProps<{ disabled: boolean, problemId?: string }>()
 const error = computed(() => testCaseError(cases.value))
 const selected = ref(0)
@@ -10,7 +11,46 @@ const inputFiles = ref<HTMLInputElement>()
 const outputFiles = ref<HTMLInputElement>()
 const fileStatus = reactive({ input: '', output: '' })
 const importing = ref(false)
-const locked = computed(() => props.disabled || importing.value)
+const appending = ref(false)
+const appendError = ref('')
+const appendStatus = ref('')
+const locked = computed(() => props.disabled || importing.value || appending.value)
+async function appendSamples() {
+  if (locked.value) return
+  const samples = cases.value.filter(item => item.isSample).map(item => ({ ...item }))
+  if (!samples.length) return
+  appending.value = true
+  appendError.value = ''; appendStatus.value = ''
+  try {
+    for (const item of samples) {
+      for (const key of ['input', 'output'] as const) {
+        const file = item[`${key}File`]
+        if (file && !item[`_${key}Dirty`] && !item[key]) {
+          if (!props.problemId) throw new Error('サンプルの読み込みに失敗しました。もう一度お試しください。')
+          item[key] = await downloadTestFile(props.problemId, file)
+        }
+      }
+    }
+    if (!mounted || props.disabled) return
+    let number = 0
+    for (const match of markdown.value.matchAll(/^## サンプル (\d+)\s*$/gm)) number = Math.max(number, Number(match[1]))
+    const block = (value: string) => {
+      let length = 3
+      for (const match of value.matchAll(/`+/g)) length = Math.max(length, match[0].length + 1)
+      const fence = '`'.repeat(length)
+      return `${fence}text\n${value}${value && !value.endsWith('\n') ? '\n' : ''}${fence}`
+    }
+    const content = samples.map(item => `## サンプル ${++number}\n\n### 入力\n${block(item.input)}\n\n### 出力\n${block(item.output)}\n`).join('\n')
+    const next = markdown.value + (markdown.value ? '\n\n' : '') + content
+    if (next.length > 100_000) throw new Error('追加すると問題文が100,000文字を超えます。サンプルを小さくしてください。')
+    markdown.value = next
+    appendStatus.value = `${samples.length}件のサンプルを問題文の末尾に追加しました。`
+  } catch (error) {
+    appendError.value = error instanceof Error && error.message.includes('100,000') ? error.message : 'サンプルの読み込みに失敗しました。もう一度お試しください。'
+  } finally {
+    appending.value = false
+  }
+}
 const importError = ref('')
 const importStatus = ref('')
 let mounted = true
@@ -80,6 +120,7 @@ function add() {
   <section class="test-case-editor" aria-labelledby="test-cases-title">
     <header class="case-toolbar">
       <h1 id="test-cases-title">テストケース <span>{{ cases.length }} / 100件</span></h1>
+      <button type="button" class="editor-button" :disabled="locked || !cases.some(item => item.isSample)" @click="appendSamples">{{ appending ? 'サンプルを読み込み中…' : 'サンプルを問題文に追加' }}</button>
     </header>
     <div class="case-notes">
       <details class="bulk-import"><summary>ファイルから一括追加</summary>
@@ -93,6 +134,8 @@ function add() {
     <p v-if="importError" class="editor-error" role="alert">{{ importError }}</p>
     <p v-if="importStatus" class="case-notes" role="status">{{ importStatus }}</p>
     <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
+    <p v-if="appendError" class="editor-error" role="alert">{{ appendError }}</p>
+    <p v-if="appendStatus" class="case-notes" role="status">{{ appendStatus }}</p>
     <div class="case-workspace">
       <nav class="case-files" aria-label="テストケース一覧">
         <div class="file-list-heading"><span>テストケース名</span><button type="button" class="editor-button primary case-add" :disabled="locked || cases.length >= 100" aria-label="テストケースを追加" @click="add"><span aria-hidden="true">＋</span> 追加</button></div>
