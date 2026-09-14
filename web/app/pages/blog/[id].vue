@@ -13,6 +13,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
     <NuxtLink to="/blog">記事へ戻る</NuxtLink>
     <h1>{{ post.title }}</h1>
     <p class="muted">{{ post.author }} <span v-if="post.isOperator">・運営</span> · <time :datetime="post.publishedAt">{{ new Date(post.publishedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) }}</time></p>
+    <TweetButton :title="post.title" :url="canonical" />
     <ProblemMarkdown :source="post.markdown" />
   </article>
 </template>

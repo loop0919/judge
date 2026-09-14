@@ -48,6 +48,7 @@ function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `$
     <header class="problem-header">
       <div class="contest-heading">
         <h1>{{ contest.title }}</h1>
+        <TweetButton :title="contest.title" :url="`/contests/${contest.id}`" />
         <NuxtLink v-if="contest.canEdit" class="editor-button contest-edit" :to="`/my/contests/${contest.id}`"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg>コンテストを編集</NuxtLink>
       </div>
       <div class="problem-summary"><div class="problem-meta muted"><span class="contest-status" :data-status="contest.status">{{ contestStatus[contest.status] }}</span><p>作成者 {{ contest.author }}</p></div></div>

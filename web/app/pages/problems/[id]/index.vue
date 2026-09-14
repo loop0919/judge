@@ -30,6 +30,7 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
           <p>作成者 {{ problem.author }}</p><p v-if="problem.testers?.length">テスター {{ problem.testers.join('、') }}</p>
           <p>難易度（作成者設定） <DifficultyBadge :level="problem.difficulty" /></p>
         </div>
+        <TweetButton v-if="!problem.isPrivate" :title="problem.title" :url="canonical" />
         <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />
       </div>
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>

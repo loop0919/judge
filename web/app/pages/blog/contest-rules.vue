@@ -14,7 +14,7 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
       <p class="eyebrow">SHAREOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">コンテストごとの開催日時、問題の配点、誤答ペナルティを確認して参加してください。</p>
-    </header>
+    <TweetButton :title="title" :url="canonical" /></header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#participation">参加と開催時間</a><a href="#scoring">得点と順位</a><a href="#penalty">誤答ペナルティ</a><a href="#visibility">閲覧できる内容</a><a href="#creation">コンテストの作成</a></nav>
     <section id="participation">
       <h2>参加と開催時間</h2>

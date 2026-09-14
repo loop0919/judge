@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
       <p class="eyebrow">SHAREOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">提出するコードに合わせて、言語と実行環境を選んでください。</p>
-    </header>
+    <TweetButton :title="title" :url="canonical" /></header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#submission">提出の基本</a><a href="#languages">言語とバージョン</a><a href="#libraries">追加ライブラリ</a><a href="#testlib">testlib形式の判定</a><a href="#limits">実行制限</a></nav>
     <section id="submission">
       <h2>提出の基本</h2>
