@@ -40,17 +40,30 @@ test('difficulty picker shows grades and supports keyboard selection and persist
 })
 
 test('large test data renders only visible lines and names are unique', async ({ page }) => {
+  const { createHash } = await import('node:crypto')
+  const content = Array.from({ length: 200_000 }, (_, i) => String(i)).join('\n')
+  const file = { id: '33333333-3333-4333-8333-333333333333', size: Buffer.byteLength(content), sha256: createHash('sha256').update(content).digest('hex') }
+  await page.route('**/api/my/problems/*/test-files', route => {
+    expect(route.request().postDataJSON()).toEqual({ size: file.size, sha256: file.sha256 })
+    return route.fulfill({ json: { id: file.id, url: 'https://uploads.example/large.txt', headers: {} } })
+  })
+  await page.route('https://uploads.example/large.txt', route => {
+    expect(route.request().method()).toBe('PUT')
+    expect(route.request().postDataBuffer()).toEqual(Buffer.from(content))
+    return route.fulfill({ status: 200 })
+  })
+  await page.route('**/api/my/problems/*/test-files/*/complete', route => route.fulfill({ json: file }))
   await page.goto('/problems/new')
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
   await page.getByRole('button', { name: 'テストケースを追加' }).click()
   const input = page.getByLabel('入力', { exact: true })
-  const content = Array.from({ length: 200_000 }, (_, i) => String(i)).join('\n')
   await page.locator('.test-data-editor input[type=file]').first().setInputFiles({ name: 'large.txt', mimeType: 'text/plain', buffer: Buffer.from(content) })
   const scroller = page.locator('.test-data-editor').first().locator('.cm-scroller')
   await expect(page.locator('.test-data-editor').first().locator('.pane-heading span')).toContainText(`${Buffer.byteLength(content).toLocaleString('en-US')} / 16,777,216 bytes`)
   await scroller.evaluate(element => { element.scrollTop = element.scrollHeight })
   await expect(input).toContainText('199999')
   expect(await page.locator('.test-data-editor').first().locator('.cm-line').count()).toBeLessThan(100)
+  await expect(page.getByRole('status')).toHaveText('保存済み')
   await input.fill('1\n2\n3')
   await expect(input.locator('.cm-line')).toHaveText(['1', '2', '3'])
   await expect(page.locator('.test-data-editor').first().locator('.pane-heading span')).toContainText('5 / 16,777,216 bytes')
