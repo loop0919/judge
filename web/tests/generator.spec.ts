@@ -30,8 +30,11 @@ test('generators append numbered inputs, replace outputs, persist code and retai
   await page.getByRole('button', { name: '生成と検証', exact: true }).click()
   await page.getByLabel('種類').selectOption('output')
   await page.getByLabel('出力生成のコード', { exact: true }).fill('#include <iostream>\nint main(){int a,b;std::cin>>a>>b;std::cout<<a+b;}')
-  await page.getByLabel('生成件数').fill('2')
-  page.on('dialog', dialog => dialog.accept())
+  await expect(page.locator('.generator input[type=number]')).toHaveCount(0)
+  page.on('dialog', async dialog => {
+    expect(dialog.message()).toBe('全2件のテストケースの出力を生成結果で上書きしますか？')
+    await dialog.accept()
+  })
   await page.getByRole('button', { name: '生成する', exact: true }).click()
   await expect(page.getByText('2件の出力を更新しました。')).toBeVisible()
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
@@ -53,7 +56,7 @@ test('generators append numbered inputs, replace outputs, persist code and retai
   await expect(page.getByLabel('入力生成のコード')).toContainText('std::cin>>n')
   await page.getByLabel('種類').selectOption('output')
   await expect(page.getByLabel('出力生成のコード')).toContainText('std::cout<<a+b')
-  await page.route('**/api/my/submissions/generation-job', route => route.fulfill({ json: { status: 'DONE', result: { verdict: 'AC', cases: [{ outputFile: { id: '33333333-3333-4333-8333-333333333333', size: 16 << 20, sha256: 'a'.repeat(64) } }] } } }))
+  await page.route('**/api/my/submissions/generation-job', route => route.fulfill({ json: { status: 'DONE', result: { verdict: 'AC', cases: [{ outputFile: { id: '33333333-3333-4333-8333-333333333333', size: 16 << 20, sha256: 'a'.repeat(64) } }, { output: '' }] } } }))
   await page.route('**/api/my/problems/*/test-files/*/complete', route => route.fulfill({ status: 400, json: {} }))
   await page.getByRole('button', { name: '生成する', exact: true }).click()
   await expect(page.locator('.generator [role=alert]')).toBeVisible()
@@ -170,10 +173,19 @@ test('input validation reports each case without changing test data and persists
   await page.route('**/api/my/submissions', route => route.fulfill({ json: { id: 'validation', status: 'DONE', result: { verdict: 'AC', passed: 1, total: 1, cases: [{ verdict: 'AC' }] } } }))
   await page.getByRole('button', { name: '検証する', exact: true }).click()
   await expect(page.getByRole('table', { name: '入力検証の結果' }).getByRole('cell', { name: '合格', exact: true })).toBeVisible()
-  await page.getByLabel('検証件数').fill('2')
+  await page.getByLabel('入力検証のコード').fill('int main(){return 0;}')
   await expect(page.getByRole('table', { name: '入力検証の結果' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'テストケースを確認' }).click()
+  await page.getByRole('button', { name: 'テストケースを追加' }).click()
+  await page.getByRole('button', { name: '生成と検証', exact: true }).click()
+  await page.route('**/api/my/submissions', route => {
+    request = route.request().postDataJSON()
+    return route.fulfill({ json: { status: 'DONE', result: { verdict: 'AC', cases: [{ verdict: 'AC' }, { verdict: 'AC' }] } } })
+  })
+  await expect(page.locator('.generator input[type=number]')).toHaveCount(0)
   await page.getByRole('button', { name: '検証する', exact: true }).click()
-  await expect(page.locator('.generator [role=alert]')).toContainText('既存のテストケースの範囲')
+  await expect(page.getByRole('status').filter({ hasText: '2件中2件が合格' })).toBeVisible()
+  expect(request.generation).toEqual({ mode: 'validation', start: 1, count: 2 })
 })
 
 test('generation frequency limit displays the wait time', async ({ page }) => {
@@ -187,3 +199,17 @@ test('generation frequency limit displays the wait time', async ({ page }) => {
   await expect(alert).toHaveText('提出頻度制限に到達しました。75秒後に再度試してください。')
   await expect(alert).toHaveCSS('background-color', 'rgb(255, 243, 242)')
 })
+
+for (const mode of ['output', 'validation'] as const) {
+  test(`${mode} requires existing cases without asking for a range`, async ({ page }) => {
+    let submitted = false
+    await page.route('**/api/my/submissions', route => { submitted = true; return route.abort() })
+    await page.goto('/problems/new')
+    await page.getByRole('button', { name: '生成と検証', exact: true }).click()
+    await page.getByLabel('種類').selectOption(mode)
+    await expect(page.locator('.generator input[type=number]')).toHaveCount(0)
+    await page.getByRole('button', { name: mode === 'output' ? '生成する' : '検証する', exact: true }).click()
+    await expect(page.locator('.generator [role=alert]')).toHaveText('テストケースを追加してから実行してください。')
+    expect(submitted).toBe(false)
+  })
+}

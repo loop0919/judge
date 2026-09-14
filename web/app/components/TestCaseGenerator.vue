@@ -29,13 +29,18 @@ async function generate() {
   failure.value = ''
   message.value = ''
   validationResults.value = []
-  const first = Number(start.value), amount = Number(count.value)
+  const first = mode.value === 'input' ? Number(start.value) : 1
+  const amount = mode.value === 'input' ? Number(count.value) : cases.value.length
+  if (mode.value !== 'input' && amount === 0) {
+    failure.value = 'テストケースを追加してから実行してください。'
+    return
+  }
   if (!Number.isInteger(first) || !Number.isInteger(amount) || amount < 1 || amount > 100 || first < -2147483648 || first + amount - 1 > 2147483647) {
     failure.value = '開始番号は32ビット整数、件数は1〜100の整数で指定してください。'
     return
   }
-  if (mode.value === 'input' ? cases.value.length + amount > 100 : first < 1 || first + amount - 1 > cases.value.length) {
-    failure.value = mode.value === 'input' ? '追加後のテストケースは100件以内にしてください。' : '既存のテストケースの範囲を指定してください。'
+  if (mode.value === 'input' && cases.value.length + amount > 100) {
+    failure.value = '追加後のテストケースは100件以内にしてください。'
     return
   }
   if (!program.value.source.trim() || new TextEncoder().encode(program.value.source).length > 65536 || program.value.source.includes('\0')) {
@@ -46,7 +51,7 @@ async function generate() {
     failure.value = '利用できる言語を選択してください。'
     return
   }
-  if (mode.value === 'output' && !window.confirm('指定したケースの出力を生成結果で上書きしますか？')) return
+  if (mode.value === 'output' && !window.confirm(`全${amount}件のテストケースの出力を生成結果で上書きしますか？`)) return
   busy.value = true
   try {
     message.value = '下書きを保存しています…'
@@ -132,12 +137,12 @@ async function generate() {
       <div class="generator-options">
         <label>種類<select v-model="mode" :disabled="disabled || busy"><option value="input">入力生成</option><option value="output">出力生成</option><option value="validation">入力検証</option></select></label>
         <label>言語<select v-model="program.runtime" :disabled="disabled || busy"><option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
-        <label>{{ mode === 'input' ? '開始ケース番号' : '開始位置（一覧の1件目から）' }}<input v-model="start" type="number" step="1" :disabled="disabled || busy"></label>
-        <label>{{ mode === 'validation' ? '検証件数' : '生成件数' }}<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
+        <label v-if="mode === 'input'">開始ケース番号<input v-model="start" type="number" step="1" :disabled="disabled || busy"></label>
+        <label v-if="mode === 'input'">生成件数<input v-model="count" type="number" min="1" max="100" step="1" :disabled="disabled || busy"></label>
       </div>
       <p v-if="mode === 'input'">ケース番号を標準入力で受け取り、標準出力から新規ケースの入力を作成します。</p>
-      <p v-else-if="mode === 'output'">指定した既存ケースの入力を読み、標準出力で出力を置き換えます。</p>
-      <p v-else>既存ケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
+      <p v-else-if="mode === 'output'">全{{ cases.length }}件のテストケースの入力を読み、標準出力で出力を置き換えます。</p>
+      <p v-else>全{{ cases.length }}件のテストケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
       <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
       <SourceCodeEditor v-model="program.source" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />
       <p v-if="failure" class="notice notice-error" role="alert">{{ failure }}</p>
