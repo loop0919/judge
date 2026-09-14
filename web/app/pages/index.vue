@@ -1,13 +1,22 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
+const canonical = new URL('/', config.public.siteUrl).href
+const title = 'ShareOJ — プログラミング問題を解く・作る・共有する'
+const description = 'ShareOJ（Share Online Judge）は、プログラミング問題を解く・作る・共有するオンラインジャッジです。コードを提出して自動採点し、解き方や学んだことを記事で共有できます。コンテストの開催・参加もできます。'
 // Each dot follows the wave according to its distance from the goal.
 const gridDots = Array.from({ length: 17 * 15 }, (_, index) => {
   const x = 25 + (index % 17) * 24
   const y = 25 + Math.floor(index / 17) * 24
   return { x, y, delay: `${(2.55 + Math.hypot(x - 364, y - 96) / 480 * .9).toFixed(3)}s` }
 })
-useSeoMeta({ title: 'ホーム | ShareOJ', description: 'ひらめきを問題に。解き方を記事に。プログラミングの知識を、みんなで持ち寄る場所。', ogTitle: 'ShareOJ — 考える楽しさを、次の一問へ。', ogDescription: 'ひらめきを問題に。解き方を記事に。' })
-useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).href }] })
+useSeoMeta({ title, description, ogTitle: title, ogDescription: description, ogUrl: canonical, ogType: 'website' })
+useHead({
+  link: [{ rel: 'canonical', href: canonical }],
+  script: [{ key: 'website', type: 'application/ld+json', textContent: JSON.stringify({
+    '@context': 'https://schema.org', '@type': 'WebSite',
+    name: 'ShareOJ', alternateName: 'Share Online Judge', url: canonical, description, inLanguage: 'ja',
+  }).replace(/</g, '\\u003c') }],
+})
 </script>
 
 <template>
@@ -16,7 +25,7 @@ useHead({ link: [{ rel: 'canonical', href: new URL('/', config.public.siteUrl).h
       <div class="hero-copy">
         <p class="hero-kicker"><span aria-hidden="true" />SHARE ONLINE JUDGE</p>
         <h1 id="hero-title">考える楽しさを、<br><span>次の一問へ。</span></h1>
-        <p class="hero-description">ひらめきを問題に。解き方を記事に。<br>プログラミングの知識を、<wbr>みんなで持ち寄る場所。</p>
+        <p class="hero-description">ひらめきを問題に。解き方を記事に。<br>ShareOJ は、プログラミング問題を解く・作る・共有するオンラインジャッジです。</p>
         <div class="hero-actions">
           <NuxtLink class="hero-primary" to="/problems">問題を見る<span aria-hidden="true">↗</span></NuxtLink>
           <NuxtLink class="hero-secondary" to="/problems/new?fresh=1">問題をつくる<span aria-hidden="true">→</span></NuxtLink>

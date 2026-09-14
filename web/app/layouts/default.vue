@@ -55,6 +55,9 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
     <footer v-if="!route.meta.editorLayout" class="site-footer">
       <span class="wordmark">ShareOJ<span class="wordmark-beta">(β)</span></span>
       <span>Share Online Judge</span>
+      <NuxtLink to="/blog/contest-rules">コンテストのルール</NuxtLink>
+      <NuxtLink to="/blog/language-guide">使える言語</NuxtLink>
+      <NuxtLink to="/blog/markdown-guide">Markdown の書き方</NuxtLink>
     </footer>
   </div>
 </template>

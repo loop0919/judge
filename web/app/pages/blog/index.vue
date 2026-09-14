@@ -8,7 +8,8 @@ const { data, error } = await useFetch('/api/posts')
 if (error.value || !data.value) throw createError({ statusCode: 502, statusMessage: '記事を取得できませんでした', fatal: true })
 const { current, index, loading, message, move } = useContentPages(data.value, cursor => $fetch<z.infer<typeof postListSchema>>('/api/posts', { query: { cursor } }))
 const date = (value: string) => new Date(value).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })
-useSeoMeta({ title: '記事 | ShareOJ', description: 'ユーザーと運営が投稿する記事。', ogTitle: '記事 | ShareOJ', ogUrl: canonical, ogType: 'website' })
+const description = 'ShareOJ の記事一覧。プログラミング問題の解き方や学んだことを共有する記事と、問題作成・コンテスト・実行環境の使い方を読めます。'
+useSeoMeta({ title: '記事 | ShareOJ', description, ogDescription: description, ogTitle: '記事 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>

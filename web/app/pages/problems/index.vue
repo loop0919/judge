@@ -9,7 +9,8 @@ const canonical = new URL('/problems', config.public.siteUrl).href
 const { data, error } = await useFetch('/api/problems')
 if (error.value || !data.value) throw createError({ statusCode: 502, statusMessage: 'Problem service unavailable', fatal: true })
 const { current, index, loading, message, move } = useContentPages(data.value, cursor => $fetch<z.infer<typeof publicProblemListSchema>>('/api/problems', { query: { cursor } }))
-useSeoMeta({ title: '問題 | ShareOJ', description: 'ユーザーが作成・公開したプログラミング問題。', ogTitle: '問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
+const description = 'ShareOJ のプログラミング問題一覧。ユーザーが作成・公開した問題に挑戦し、コードを提出して自動採点できます。'
+useSeoMeta({ title: '問題 | ShareOJ', description, ogDescription: description, ogTitle: '問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
 </script>
 <template>
