@@ -119,6 +119,7 @@ export const initialProblemMarkdown = [
   '各テストケース $\\mathrm{case}_t ~ (1 \\leq t \\leq T)$ は以下の形式で与えられる。',
   '```input', '```', '',
   '## 出力', '', '$T$ 行出力せよ。 $t$ 行目には $t$ 番目のテストケースについての答えを出力せよ。', '',
+  '<!-- テストケース画面の「サンプルを問題文に追加」ボタンから、サンプルを追加できます。 -->', '',
 ].join('\n')
 
 export const initialEditorialMarkdown = '## 解説\n\n<!-- ここに解説を記載 -->\n'

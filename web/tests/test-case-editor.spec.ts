@@ -313,7 +313,7 @@ test('sample checkbox controls the blue flag, survives rename and reload, and ca
 
 test('append samples preserves the statement, excludes private cases, and saves literal data', async ({ page }) => {
   await page.goto('/problems/new')
-  await expect(page.locator('#problem-source')).not.toHaveValue(/サンプル/)
+  await expect(page.locator('#problem-source')).not.toHaveValue(/^## サンプル/m)
   const original = '## 問題文\n\n既存の本文\n\n## サンプル 1\n'
   await page.locator('#problem-source').fill(original)
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
