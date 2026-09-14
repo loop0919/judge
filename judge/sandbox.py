@@ -135,7 +135,11 @@ def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, inte
         environment.append('GOMEMLIMIT=' + ('160MiB' if memory == 256 else '384MiB'))
     return [f'--meta={META if meta is None else meta}', f'--time={cpu}', f'--wall-time={wall}',
             f'--cg-mem={memory * 1024}', '--processes=32' if interactive else '--processes=64',
-            '--open-files=64', '--fsize=32768' if compile_phase else '--fsize=16384',
+            # Pinned isolate 2.7: allow file locks only for the fixed Go build command.
+            # Pure Go compilation does not execute submitted code; execution keeps all filters.
+            *(['--syscalls=65531'] if compile_phase and runtime == 'go127-isolate' else []),
+            '--open-files=256' if compile_phase and runtime == 'csharp14-isolate' else '--open-files=64',
+            '--fsize=32768' if compile_phase else '--fsize=16384',
             *([] if interactive else ['--stdout=stdout']), '--stderr=stderr',
             '--env=PATH=/usr/bin:/bin', '--dir=/etc=/opt/judge/sandbox-etc',
             *(['--dir=' + ROOT] if runtime != 'cpp17-isolate' else []),

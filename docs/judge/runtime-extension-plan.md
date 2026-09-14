@@ -95,6 +95,10 @@ neoとbignumを同時に使用できるよう、Nim-GMPとbignumのdestructor分
 `GOWORK=off`、`GOTOOLCHAIN=local`、`GOPROXY=off`、`CGO_ENABLED=0`を固定する。
 初期のビルド並列度は`-p=1`、実行時は`GOMAXPROCS=1`とする。
 `GOCACHE`と一時ファイルはbox内へ置き、共有の書き込み可能なキャッシュを作らない。
+Goの固定コンパイル工程だけはisolate 2.7の`--syscalls=65531`を指定し、モジュールとキャッシュのファイルロックを許可する。
+CGOと`go generate`は使用しないため、この工程で提出コードは実行されない。
+提出・checker・interactorの実行時には既定の全syscall制限を適用し、`flock`の拒否も実機で検証する。
+C#のコンパイル工程では参照アセンブリのためにオープンファイル上限を256とし、実行時は64とする。
 cold cacheで全6モジュールの代表操作がコンパイル上限に収まることを確認する。
 
 ## 変更箇所と完了条件

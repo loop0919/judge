@@ -45,6 +45,7 @@ int main(int argc,char** argv){
  std::ifstream f(argv[2],std::ios::binary);
  std::string s((std::istreambuf_iterator<char>(f)),{});
  if(s!=std::string("3\\0\\r\\n",4))quitf(_fail,"output bytes changed");
+ for(int i=0;i<4;i++)ouf.readChar();
  if(inf.readInt()!=3 || ans.readInt()!=3)quitf(_fail,"wrong file order");
  quitf(_ok,"file contract preserved");}'''
         result = judge(dict(runtime=runtime, runtimeDigest=digest,

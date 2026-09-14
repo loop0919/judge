@@ -135,6 +135,13 @@ Nim-GMP 0.2.7とbignum 1.0.6には、Nimのmajor versionだけでARC/ORC用destr
 Goは運用側の`go.mod`、`go.sum`、vendorツリーを提供し、`go build -mod=vendor`でコンパイルする。
 `GOTOOLCHAIN=local`と`GOPROXY=off`を指定し、外部からのtoolchainやモジュールの取得を防ぐ。
 初期構成は`CGO_ENABLED=0`とし、指定6モジュールのCPU向け利用を検証する。
+Go 1.27は`go.mod`の読み取りとビルドキャッシュの整理で`flock`を必要とする。
+固定したGoコンパイル処理に限り、isolate 2.7の`--syscalls=65531`でファイルロック制限を外す。
+Goのコンパイルでは提出コードや`go generate`を実行せず、モジュールとキャッシュの書き込み先をbox内に限定する。
+ネットワークや他のsyscall制限は引き続き適用し、提出・checker・interactorの実行には既定の全制限を適用する。
+実行時の`flock`が`ENOSYS`になることをsmokeに含める。
+また、Roslynは多数の参照アセンブリを開くため、C#のコンパイル工程だけは同時オープンファイル数を256とする。
+実行時の上限は64とする。
 未指定版は互換性のあるタグを優先し、タグのないモジュールはcommitに対応するpseudo-versionへ固定する。
 この方式は[Go Modules Reference](https://go.dev/ref/mod)に基づく。
 

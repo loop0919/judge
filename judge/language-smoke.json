@@ -451,6 +451,11 @@
       "verdict": "AC",
       "output": "3",
       "timeLimitMs": 5000
+    },
+    {
+      "name": "runtime-file-locks-blocked",
+      "verdict": "AC",
+      "source": "package main\nimport(\"fmt\";\"os\";\"syscall\")\nfunc main(){f,e:=os.Create(\"lock-probe\");if e!=nil{panic(e)};defer f.Close();if syscall.Flock(int(f.Fd()),syscall.LOCK_EX|syscall.LOCK_NB)!=syscall.ENOSYS{panic(\"file locking must remain blocked during execution\")};fmt.Println(3)}"
     }
   ],
   "nim22-isolate": [
