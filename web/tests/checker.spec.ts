@@ -30,7 +30,7 @@ for (const [method, label] of [['special', '検証コード'], ['interactive', '
 
 test('checker languages match submissions and settings survive saving and reload', async ({ page }, testInfo) => {
   await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp17', label: 'C++17' }, { id: 'python314', label: 'Python' }] } }))
-  await page.goto('/problems/new')
+  await Promise.all([page.waitForResponse('**/api/runtimes'), page.goto('/problems/new')])
   await page.getByLabel('問題のタイトル').fill('構築問題')
   await page.getByRole('button', { name: '判定方法', exact: true }).click()
   await page.getByRole('combobox', { name: '判定方法', exact: true }).selectOption({ label: 'スペシャルジャッジ' })
@@ -41,7 +41,7 @@ test('checker languages match submissions and settings survive saving and reload
   await expect(page.locator('.draft-status [role="status"]')).toHaveText('保存済み')
   const id = new URL(page.url()).searchParams.get('problem')!
   expect(id).toBeTruthy()
-  await page.reload()
+  await Promise.all([page.waitForResponse('**/api/runtimes'), page.reload()])
   await page.getByRole('button', { name: '判定方法', exact: true }).click()
   await expect(page.getByLabel('検証コードの言語')).toHaveValue('python314')
   await expect(page.getByLabel('検証コード', { exact: true })).toContainText('assert int(sys.stdin.read()) == 7')
@@ -60,7 +60,7 @@ test('checker languages match submissions and settings survive saving and reload
 
 test('interactive judging saves the selected language and mutually excludes special judging', async ({ page }) => {
   await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp23-gcc', label: 'C++23' }, { id: 'python314', label: 'Python' }] } }))
-  await page.goto('/problems/new')
+  await Promise.all([page.waitForResponse('**/api/runtimes'), page.goto('/problems/new')])
   await page.getByLabel('問題のタイトル').fill('対話問題')
   await page.getByRole('button', { name: '判定方法', exact: true }).click()
   await page.getByRole('combobox', { name: '判定方法', exact: true }).selectOption('interactive')

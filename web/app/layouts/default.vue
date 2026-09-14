@@ -4,6 +4,7 @@ const { data: judgeCatalog, error: judgeCatalogError, refresh: refreshJudge } = 
 let judgeTimer: ReturnType<typeof setInterval> | undefined
 function refreshVisibleJudge() { if (document.visibilityState === 'visible') void refreshJudge() }
 onMounted(() => {
+  refreshVisibleJudge()
   judgeTimer = setInterval(refreshVisibleJudge, 30_000)
   document.addEventListener('visibilitychange', refreshVisibleJudge)
 })
