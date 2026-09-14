@@ -3,16 +3,16 @@
 ## 初期対応する提出形式
 
 初期リリースでは、次の提出形式を提供する方針とする。
-実機smokeの確認日は2026年9月12日である。
+実機smokeの最終確認日は2026年9月14日である。
 実装と公開は別に管理し、現在の受付対象はAPIの`GET /runtimes`で確認する。
 
 | 提出形式 | コンパイル | 実行基盤 | 状態 |
 | --- | --- | --- | --- |
 | C23（GCC、Clang） | あり | Lightsail / isolate | 実装済み、実機smoke合格 |
-| C++17、C++23（GCC、Clang） | あり | Lightsail / isolate | 実装済み、実機smoke合格。C++17はGCCのみ |
+| C++17、C++23（GCC、Clang） | あり | Lightsail / isolate | 実機smoke合格。C++23はtestlib対応版を公開、C++17はGCCのみで公開保留 |
 | Rust | あり | Lightsail / isolate | 実装済み、実機smoke合格 |
 | Java 24 | あり | Lightsail / isolate | 旧版。公開保留 |
-| Java 25、C# 14、Nim 2.2、Go 1.27 | あり | Lightsail / isolate | ADR 0010に従い実装・実機検証を進める |
+| Java 25、C# 14、Nim 2.2、Go 1.27 | あり | Lightsail / isolate | ADR 0010に従い公開済み、全指定ライブラリと三用途の実機smoke合格 |
 | CPython、PyPy | 構文検査 | Lightsail / isolate | 実装済み、実機smoke合格 |
 | Codon | ネイティブコンパイル | Lightsail / isolate | 実装済み、実機smoke合格 |
 | `txt` | 未決定 | 未決定 | 採用済み（判定方式は未決定） |
@@ -21,7 +21,7 @@ C++17はUbuntu 24.04のg++を`-std=c++17 -O2 -pipe`で実行する。
 インストール時に実際のパッケージ一覧、カーネル、isolate、制御コードを指紋化し、採点時に一致を確認する。
 追加言語の構成は[ADR 0007](../adr/0007-limit-judge-runtime-libraries.md)に従う。
 testlibとJava 25、C#、Nim、Goの追加は[ADR 0010](../adr/0010-extend-judge-languages-and-libraries.md)に従う。
-実行コマンドは`judge/runtimes.py`、配布元とSHA-256は`judge/runtime-sources.lock.json`に固定する。
+実行コマンドは`judge/runtimes.py`、配布元とSHA-256は`judge/runtime-sources.lock.json`と`judge/runtime-extension-sources.lock.json`に固定する。
 構築済みであっても、実機のsmoke testに合格して公開リストへ追加するまで提出を受け付けない。
 
 ## ランタイム識別子

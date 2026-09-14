@@ -164,7 +164,7 @@ Javaのsmokeが通っても、保守されている版の採用を別途決め�
 スクリプトはレポートの未検証言語を拒否し、APIの既存環境変数を維持して公開リストを更新する。
 `GET /runtimes`と提出受付は同じ設定を参照するため、未公開言語をAPIへ直接送っても受理しない。
 
-公開後はAPIのTerraform変数`judge_runtime_digest`と`judge_enabled_runtimes`、GitHub Actionsのリポジトリ変数`JUDGE_RUNTIME_DIGEST`と`JUDGE_ENABLED_RUNTIMES`を同じ値へそろえる。
+公開後はAPIのTerraform変数`judge_runtime_digest`と`judge_enabled_runtimes`、GitHub Actionsの対象Environment変数`JUDGE_RUNTIME_DIGEST`と`JUDGE_ENABLED_RUNTIMES`を同じ値へそろえる。
 GitHub側の言語リストは`["cpp17","c23-gcc"]`のようなJSON配列で指定する。
 CIは有効化するdigestと言語一覧を現在のAPI公開設定と照合し、不一致ならapply前に停止する。
 新しい言語の公開は実機smoke後に`admission.py`で行い、CI側の変数を追従させる。
@@ -501,20 +501,40 @@ JavaとC++17の公開保留は維持している。
 Web/APIのデプロイだけではbridgeとworkerは更新されない。
 今後も採点コードを変更した場合は、配置後のfingerprintと実機smokeに合わせて、API・bridge・worker・CI変数を同期する。
 
-## 2026年9月14日：ADR 0010の適用記録（更新中）
+## 2026年9月14日：ADR 0010の適用記録
 
-追加言語とtestlibの実装は`bc1329c`へ記録した。
-[Deploy dev 34837788062](https://github.com/loop0919/judge/actions/runs/34837788062)はAPI・フロントエンドのCIと配置に成功した。
-workerの切り替えと公開は、以下の実機検証が終わるまで保留する。
+追加言語とtestlibの実装は`bc1329c`、実機で見つかったコンパイル条件の修正は`2050caf`と`2d89220`へ記録した。
+[Deploy dev 34843923716](https://github.com/loop0919/judge/actions/runs/34843923716)はAPI・フロントエンドのCIと配置に成功した。
+全14ランタイムの実機検証を終え、12言語の提出受付を再開した。
+本番APIでの検証提出16件もすべてACになった。
 
 | 項目 | 確認済みの値 |
 | --- | --- |
+| runtime digest | `sha256:7ff5808609b54f5124c532b9028ed8e26775974b14d0c8ddaa7fcda7a6a67d92` |
 | ベースアーカイブSHA-256 | `553586f59fe5a1a28be31505c6984a85261cb0dd418574a15285d629f6cd17eb` |
 | 追加版アーカイブSHA-256 | `4e28c974185c64330731c15d9a0db1504c91b6c322dec92b28ecaa4bc69adfdc` |
-| worker配布物SHA-256 | `a3efde1a9930d6521959820f8107db012a9d47d6871f686a70bbb9dc2eb58099` |
+| worker配布物SHA-256 | `144e51e284218c757cf2809ac9210a77f3cfc6bfb59e6628998ea53b1842598b` |
+| bridge ZIP SHA-256 | `7fb4f8176b899bca6c3f78a49adbf82f32d6004270a079c49f5be5940b4021c2` |
+| worker配置SSMコマンドID | `7fa7b107-550d-447a-8dce-afc835530b68` |
+| コンパイル条件修正SSMコマンドID | `0044e729-94ad-490e-8a53-0a2a461d92bb` |
+| Goマウント修正と全体smokeのSSMコマンドID | `7e9d3658-f278-4015-9532-4bf5da27a41b` |
 | 追加版の展開容量 | 約16 GiB |
 | worker制御コードの退避 | `/opt/judge-backup-adr0010/control.tar.gz` |
 | 復旧スナップショット名 | `judge-dev-before-adr0010-20260914` |
+
+初回の実機検証では、Roslynの参照DLL数がオープンファイル上限64を超えた。
+C#のコンパイル時だけ256とし、実行時の64は維持した。
+Goはモジュールとキャッシュのロックがisolateに拒否され、さらにbox内のvendorへのシンボリックリンクが起動時に削除されていた。
+固定コンパイル工程に限ってファイルロックを許可し、vendorは読み取り専用のbind mountへ変更した。
+提出実行時のファイルロック拒否もsmoke fixtureで確認した。
+コンパイルのCPU・経過時間・メモリ上限と、他言語の隔離設定は引き上げていない。
+testlibのバイナリ入出力fixtureは`ouf`を読み切ってから`_ok`を返すように修正し、両C++コンパイラで検証した。
+
+最終worker配布物は専用ジョブバケットの`releases/<SHA-256>/worker.tar.gz`へ、同じprefixの`smoke-report-adr0010.json`へ実機レポートを保存した。
+実機では初回配布後に上記2回のコード修正を適用しており、最終配布物はこれらを含む。
+ベースのOSパッケージ更新は0件で、再起動要求はなかった。
+旧ランタイムツリーと制御コード、`available`を確認したホストスナップショットを切り戻し用に保持した。
+旧ツリーと追加版を共存させた状態でも、実機の空き容量は約17 GiBだった。
 
 既存の47,348ファイルをベースアーカイブと比較し、内容の変更がないことを確認した。
 既存のシンボリックリンクも一致した。
@@ -524,13 +544,65 @@ Nimは`--mm:refc`と記録済みの2か所の互換パッチを含む構成で�
 
 受付停止後、DBの未処理提出・未dispatch提出と、要求・結果・両失敗キューの可視・処理中・遅延メッセージがすべて0件だった。
 通常提出、サンプル検証、生成は、本番の認証済みAPIで`503 judge_maintenance`となった。
-APIとサイト側のカタログは`{"items":[],"maintenance":true}`を返す。
+停止中のAPIとサイト側のカタログは`{"items":[],"maintenance":true}`を返した。
 編集画面のSSRと実ブラウザでも指定のバナー文言を確認した。
 GitHubは変数の空値を拒否するため、停止中は`dev`の`JUDGE_RUNTIME_DIGEST`を一時削除し、`JUDGE_ENABLED_RUNTIMES`を`[]`にした。
 同名のリポジトリ変数がないことも確認した。
-公開後は両変数を検証済みの値で復元する。
+公開後は両変数を検証済みの値で復元した。
 
 実ブラウザの初回読み込みでは、静的ファイルの並列取得に伴う503も観測した。
 AWS Lambdaのアカウント同時実行上限は10で、frontendの`Throttles`メトリクスにも記録があった。
 静的ファイルの同時取得を3に絞った確認では、本番カタログの定期取得を3回確認できた。
 このAWS上限の問題は、ジャッジの受付停止とは別に扱う。
+
+### 修正後の実機検証
+
+2026年9月14日21:56 JSTに、同じruntime digestで全14ランタイムが合格し、`failedRuntimes`は空になった。
+共通の隔離、AC・WA・CE・TLE・MLE・OLE、全指定ライブラリ、legacy checker、対話形式とtestlibを検証した。
+C++17とJava 24も回帰検証に含めたが、公開対象への追加は行わない。
+smokeサービスのCPU時間は17分22.527秒、観測したピークメモリは1,124,552,704 bytesで、swap使用は0だった。
+ローカルの公開判定用レポートは`judge/.build/smoke-report-adr0010.json`に保存した。
+
+worker起動時には配置元の制御コードとの一致、manifestのdigest、設定したdigestの一致を確認した。
+受付再開用のTerraform planは定期dispatchと結果受信の有効化だけであり、DB・キュー・workerの置き換えは含まない。
+
+### 本番APIからの検証と受付再開
+
+非公開の一時問題を用意し、公開する12言語と、両C++のtestlib checker・interactorを実際に提出した。
+次の16件はすべてACで、ケースの結果がDBまで戻ることを確認した。
+
+| 検証内容 | 提出ID |
+| --- | --- |
+| c23-gcc library | `0c248379-f141-431e-b2d3-037ab830631e` |
+| c23-clang library | `2b5e7187-36db-40de-9890-402a1ab76caf` |
+| cpp23-gcc library | `a88f5a4a-275a-4fef-94ad-4765fcddf07d` |
+| cpp23-clang library | `8507dca0-aa79-4613-92ab-a2cf53182158` |
+| python314 library | `51194263-6fcd-4d5d-916c-e1ed4f754f9d` |
+| pypy311 library | `d6dbd208-b224-4041-9c30-331880b8f982` |
+| codon020 library | `cb1120dc-e94e-4df7-b471-150d94cf6c17` |
+| rust2024 library | `1d08c305-06ad-4554-b768-ed6cb8e444f9` |
+| java25 library | `bf66576c-04f9-4517-aa01-e4afd46f722d` |
+| csharp14 library | `31fd3197-642b-47d4-88ce-3e9cdc066fe2` |
+| nim22 library | `b62b1661-6ddd-49e5-9669-bf286ac663d8` |
+| go127 library | `db911de1-f59f-4dff-972e-c74d6994bed8` |
+| cpp23-gcc testlib checker | `f76844d8-e3b5-4a7e-8754-bf1165ddd250` |
+| cpp23-gcc testlib interactor | `1e57495f-fcaf-4fc5-981a-cb17190d5f8e` |
+| cpp23-clang testlib checker | `630147e0-23fc-4185-a6f3-0112be5e251a` |
+| cpp23-clang testlib interactor | `d837dbee-8db0-4e74-8f9f-238b601f35da` |
+
+検証用の非公開問題と、メール送信を抑止して作成した一時Cognitoアカウントを削除した。
+プロフィールと提出の監査記録は残る。
+workerは再起動0回で全検証提出を処理し、両失敗キューは0件だった。
+
+API・bridge・workerのdigest、ローカルの`infra/api/runtime.auto.tfvars`と`infra/judge/terraform.tfvars`、GitHubの`dev` Environment変数を同期した。
+定期dispatchと結果受信は有効である。
+公開中の設定は次のとおりで、C++17とJava 24の公開保留を維持する。
+
+```ini
+JUDGE_RUNTIME_DIGEST=sha256:7ff5808609b54f5124c532b9028ed8e26775974b14d0c8ddaa7fcda7a6a67d92
+JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","cpp23-gcc","cpp23-clang","python314","pypy311","codon020","rust2024","java25","csharp14","nim22","go127"]
+```
+
+APIとサイト側のカタログは12言語と`maintenance=false`を返した。
+静的ファイルの同時取得を3にした本番ブラウザでは、ページが200で表示され、カタログの定期取得を2回確認し、メンテナンスバナーが消えていることも確認した。
+前述したLambdaの同時実行上限に伴う初回読み込みの503は、この作業では解消していない。
