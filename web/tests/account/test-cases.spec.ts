@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 
 test('test cases can be edited, restored, published and used for submission without public disclosure', async ({ page }, testInfo) => {
   await page.goto('/login')
-  await page.getByLabel('メールアドレス').fill('alice@example.test')
+  // Keep the submission quota independent of the contest tests' Alice account.
+  await page.getByLabel('メールアドレス').fill('test_cases@example.test')
   await page.getByLabel('パスワード', { exact: true }).fill('test-password')
   await page.getByRole('button', { name: 'ログイン', exact: true }).click()
   await expect(page).toHaveURL('/my')

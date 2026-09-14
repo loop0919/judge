@@ -39,7 +39,7 @@ func (c *browserCognito) InitiateAuth(_ context.Context, in *cognitoidentityprov
 	name := in.AuthParameters["USERNAME"]
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if name == "alice@example.test" || name == "bob@example.test" {
+	if name == "alice@example.test" || name == "bob@example.test" || name == "test_cases@example.test" {
 		if in.AuthParameters["PASSWORD"] != "test-password" {
 			return nil, &types.NotAuthorizedException{}
 		}
@@ -96,7 +96,7 @@ func TestBrowserFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	profileStore := profiles.New(store.Pool())
-	for _, name := range []string{"alice", "bob"} {
+	for _, name := range []string{"alice", "bob", "test_cases"} {
 		if _, err := profileStore.Save(ctx, name+"@example.test", name, "", 0); err != nil {
 			t.Fatal(err)
 		}
