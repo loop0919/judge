@@ -1,10 +1,18 @@
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+import { copyFileSync, mkdirSync } from 'node:fs'
+
+// Stage the WASM outside node_modules so Nitro's package aliases do not rewrite the raw asset path.
+const resvgAssets = fileURLToPath(new URL('./.build/og-renderer/', import.meta.url))
+mkdirSync(resvgAssets, { recursive: true })
+copyFileSync(fileURLToPath(new URL('./node_modules/@resvg/resvg-wasm/index_bg.wasm', import.meta.url)), `${resvgAssets}/index_bg.wasm`)
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-08',
   ssr: true,
   nitro: {
     serveStatic: true,
+    serverAssets: [{ baseName: 'resvg', dir: resvgAssets, pattern: '*.wasm' }],
     ...(process.env.OPENOJ_LAMBDA_BUILD === '1' ? { preset: 'aws-lambda', output: { dir: '.output-lambda' } } : {}),
   },
   devtools: { enabled: false },

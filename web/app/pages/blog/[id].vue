@@ -7,13 +7,13 @@ if (error.value || !post.value) throw createError({ statusCode: error.value?.sta
 const canonical = computed(() => new URL(`/blog/${post.value!.id}`, config.public.siteUrl).href)
 useSeoMeta({ title: () => `${post.value?.title} | ShareOJ`, description: () => post.value?.markdown.slice(0, 160), ogTitle: () => `${post.value?.title} | ShareOJ`, ogUrl: () => canonical.value, ogType: 'article' })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
+useSharePreview({ title: () => post.value!.title, path: () => `/blog/${post.value!.id}`, description: () => post.value!.markdown.slice(0, 160) })
 </script>
 <template>
   <article v-if="post" class="post-page">
-    <NuxtLink to="/blog">記事へ戻る</NuxtLink>
+    <div class="breadcrumb-row"><nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>{{ post.title }}</span></nav><TweetButton :title="post.title" :url="canonical" /></div>
     <h1>{{ post.title }}</h1>
     <p class="muted">{{ post.author }} <span v-if="post.isOperator">・運営</span> · <time :datetime="post.publishedAt">{{ new Date(post.publishedAt).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' }) }}</time></p>
-    <TweetButton :title="post.title" :url="canonical" />
     <ProblemMarkdown :source="post.markdown" />
   </article>
 </template>

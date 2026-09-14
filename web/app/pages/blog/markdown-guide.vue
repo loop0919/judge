@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { socialPages } from '~~/shared/social-pages'
 const config = useRuntimeConfig()
 const canonical = new URL('/blog/markdown-guide', config.public.siteUrl).href
-const title = 'Markdown と数式の書き方'
+const title = socialPages['/blog/markdown-guide']!.title
 const description = 'ShareOJ の Markdown エディターで、問題文、数式、複数行の入力形式を書く方法を例とともに紹介します。'
 useSeoMeta({ title: `${title} | ShareOJ 記事`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
@@ -27,12 +28,13 @@ const programLanguages = [
 ].join('\n')
 const program = ['```py', 'a, b = map(int, input().split())', 'print(a + b)', '```'].join('\n')
 const code = ['### 入力例 1', '', '```text', '3 5', '```', '', '### 出力例 1', '', '```text', '8', '```'].join('\n')
+useSharePreview({ title, path: '/blog/markdown-guide', description })
 </script>
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav>
-    <header class="blog-article-header"><p class="eyebrow">SHAREOJ GUIDE</p><h1>{{ title }}</h1><p class="lead">問題の構成は自由です。Markdown で文章を組み立て、必要なところに数式を添えられます。</p><TweetButton :title="title" :url="canonical" /></header>
+    <div class="breadcrumb-row"><nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>書き方ガイド</span></nav><TweetButton :title="title" :url="canonical" /></div>
+    <header class="blog-article-header"><p class="eyebrow">SHAREOJ GUIDE</p><h1>{{ title }}</h1><p class="lead">問題の構成は自由です。Markdown で文章を組み立て、必要なところに数式を添えられます。</p></header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#structure">基本の書き方</a><a href="#inline-math">文中の数式</a><a href="#input-format">入力形式</a><a href="#display-math">独立した数式</a><a href="#samples">入出力例</a><a href="#line-breaks">改行</a><a href="#colors">文字色</a><a href="#programs">プログラム</a><a href="#details">折りたたみ</a><a href="#judge-status">ジャッジステータス</a><a href="#drafts">下書きと保存</a></nav>
     <section id="structure"><h2>見出しで問題文を組み立てる</h2><p><code>##</code> で見出し、<code>-</code> で箇条書きを書けます。太字は <code>**強調したい文字**</code>、リンクは <code>[表示する文字](URL)</code> です。表や画像も使えます。</p><p>問題文、制約、入力、出力、入出力例の順に書くと、解く人が情報を見つけやすくなります。見出しの名前や順序は自由に変えられます。</p><pre><code>{{ basic }}</code></pre></section>
     <section id="inline-math"><h2>文章の中に数式を書く</h2><p>数式を <code>$...$</code> で囲みます。変数、添字、指数も同じように書けます。</p><pre><code>{{ inlineMath }}</code></pre><div class="guide-result"><p class="guide-result-label">表示例</p><ProblemMarkdown :source="inlineMath" /></div><p>添字は <code>$A_i$</code>、指数は <code>$10^9$</code>、不等号は <code>$A \le B$</code> と書きます。ドル記号そのものを表示したいときは <code>\$</code> を使います。</p></section>

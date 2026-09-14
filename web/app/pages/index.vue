@@ -17,6 +17,7 @@ useHead({
     name: 'ShareOJ', alternateName: 'Share Online Judge', url: canonical, description, inLanguage: 'ja',
   }).replace(/</g, '\\u003c') }],
 })
+useSharePreview({ type: 'website', title: 'Share Online Judge', path: '/', description })
 </script>
 
 <template>

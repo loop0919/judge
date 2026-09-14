@@ -12,10 +12,11 @@ useSeoMeta({ robots: () => problem.value?.isPrivate ? 'noindex, nofollow' : unde
 const canonical = computed(() => new URL(`/problems/${problem.value!.id}`, config.public.siteUrl).href)
 useSeoMeta({ title: () => `${showingEditorial.value ? '解説 | ' : ''}${problem.value?.title} | ShareOJ`, description: () => (showingEditorial.value ? problem.value?.editorial : problem.value?.markdown)?.slice(0, 160), ogTitle: () => `${problem.value?.title} | ShareOJ`, ogUrl: () => canonical.value, ogType: 'article' })
 useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
+useSharePreview({ title: () => problem.value!.title, path: () => `/problems/${problem.value!.id}`, description: () => problem.value!.markdown.slice(0, 160), enabled: () => !problem.value!.isPrivate })
 </script>
 <template>
   <div v-if="problem" class="problem-page">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="problem.isPrivate ? '/my' : '/problems'">{{ problem.isPrivate ? 'マイページ' : '問題' }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav>
+    <div class="breadcrumb-row"><nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink :to="problem.isPrivate ? '/my' : '/problems'">{{ problem.isPrivate ? 'マイページ' : '問題' }}</NuxtLink><span aria-hidden="true">/</span><span>{{ problem.title }}</span></nav><TweetButton v-if="!problem.isPrivate" :title="problem.title" :url="canonical" /></div>
     <nav class="problem-menu" aria-label="問題メニュー">
       <NuxtLink :to="`/problems/${problem.id}`" :aria-current="showingEditorial || submissionView ? undefined : 'page'">問題</NuxtLink>
       <NuxtLink :to="{ path: `/problems/${problem.id}`, query: { view: 'editorial' } }" :aria-current="showingEditorial ? 'page' : undefined">解説</NuxtLink>
@@ -30,7 +31,6 @@ useHead(() => ({ link: [{ rel: 'canonical', href: canonical.value }] }))
           <p>作成者 {{ problem.author }}</p><p v-if="problem.testers?.length">テスター {{ problem.testers.join('、') }}</p>
           <p>難易度（作成者設定） <DifficultyBadge :level="problem.difficulty" /></p>
         </div>
-        <TweetButton v-if="!problem.isPrivate" :title="problem.title" :url="canonical" />
         <ProblemFavorite v-if="!problem.isPrivate" :problem-id="problem.id" :count="problem.favoriteCount" />
       </div>
       <dl class="limits"><div><dt>実行時間制限</dt><dd>{{ problem.timeLimitMs / 1000 }} 秒</dd></div><div><dt>メモリ制限</dt><dd>{{ problem.memoryLimitMb }} MiB</dd></div></dl>

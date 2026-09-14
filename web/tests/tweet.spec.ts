@@ -7,9 +7,18 @@ for (const path of [
   '/blog/markdown-guide', '/blog/generator-guide', '/blog/language-guide', '/blog/contest-rules',
 ]) {
   test(`Tweet shares the title, canonical URL and hashtag: ${path}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 900 })
     await page.goto(`${path}?ref=test#top`)
     const link = page.getByRole('link', { name: 'Xでシェア（新しいタブで開く）' })
     await expect(link).toBeVisible()
+    await expect(link).toHaveText('')
+    await expect(link.locator('svg')).toBeVisible()
+    await expect(link).toHaveCSS('color', 'rgb(0, 0, 0)')
+    const row = await page.locator('.breadcrumb-row').boundingBox()
+    const button = await link.boundingBox()
+    expect(Math.abs(button!.x + button!.width - row!.x - row!.width)).toBeLessThan(1)
+    expect(Math.abs(button!.y + button!.height / 2 - row!.y - row!.height / 2)).toBeLessThan(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     const url = new URL((await link.getAttribute('href'))!)
     expect(url.origin + url.pathname).toBe('https://x.com/intent/tweet')
     expect(url.searchParams.get('text')).toBe(await page.getByRole('heading', { level: 1 }).textContent())

@@ -12,6 +12,7 @@ const { current, index, loading, message, move } = useContentPages(data.value, c
 const description = 'ShareOJ のプログラミング問題一覧。ユーザーが作成・公開した問題に挑戦し、コードを提出して自動採点できます。'
 useSeoMeta({ title: '問題 | ShareOJ', description, ogDescription: description, ogTitle: '問題 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
+useSharePreview({ type: 'website', title: '問題', path: '/problems', description })
 </script>
 <template>
   <div class="catalogue">

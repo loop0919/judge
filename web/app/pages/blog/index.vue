@@ -11,6 +11,7 @@ const date = (value: string) => new Date(value).toLocaleDateString('ja-JP', { ti
 const description = 'ShareOJ の記事一覧。プログラミング問題の解き方や学んだことを共有する記事と、問題作成・コンテスト・実行環境の使い方を読めます。'
 useSeoMeta({ title: '記事 | ShareOJ', description, ogDescription: description, ogTitle: '記事 | ShareOJ', ogUrl: canonical, ogType: 'website' })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
+useSharePreview({ type: 'website', title: '記事', path: '/blog', description })
 </script>
 <template>
   <div class="catalogue">

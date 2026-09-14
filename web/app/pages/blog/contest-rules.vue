@@ -1,20 +1,22 @@
 <script setup lang="ts">
+import { socialPages } from '~~/shared/social-pages'
 const config = useRuntimeConfig()
-const title = 'コンテストのルール'
+const title = socialPages['/blog/contest-rules']!.title
 const description = 'ShareOJのコンテストの参加方法、配点、順位、誤答ペナルティ、問題と提出の公開範囲を説明します。'
 const canonical = new URL('/blog/contest-rules', config.public.siteUrl).href
 useSeoMeta({ title: `${title} | ShareOJ 記事`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
 useHead({ link: [{ rel: 'canonical', href: canonical }] })
+useSharePreview({ title, path: '/blog/contest-rules', description })
 </script>
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>{{ title }}</span></nav>
+    <div class="breadcrumb-row"><nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>{{ title }}</span></nav><TweetButton :title="title" :url="canonical" /></div>
     <header class="blog-article-header">
       <p class="eyebrow">SHAREOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">コンテストごとの開催日時、問題の配点、誤答ペナルティを確認して参加してください。</p>
-    <TweetButton :title="title" :url="canonical" /></header>
+    </header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#participation">参加と開催時間</a><a href="#scoring">得点と順位</a><a href="#penalty">誤答ペナルティ</a><a href="#visibility">閲覧できる内容</a><a href="#creation">コンテストの作成</a></nav>
     <section id="participation">
       <h2>参加と開催時間</h2>

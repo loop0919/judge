@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { socialPages } from '~~/shared/social-pages'
 const config = useRuntimeConfig()
-const title = '入出力生成と入力検証の使い方'
+const title = socialPages['/blog/generator-guide']!.title
 const description = 'コードによる入力と期待出力の生成、入力の制約を検証する手順をC++17の例で紹介します。'
 const canonical = new URL('/blog/generator-guide', config.public.siteUrl).href
 useSeoMeta({ title: `${title} | ShareOJ 記事`, description, ogTitle: title, ogDescription: description, ogType: 'article', ogUrl: canonical })
@@ -8,16 +9,17 @@ useHead({ link: [{ rel: 'canonical', href: canonical }] })
 const inputCode = '#include <iostream>\n\nint main() {\n    long long case_number;\n    std::cin >> case_number;\n    std::cout << case_number << " " << case_number + 1 << "\\n";\n}'
 const outputCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n    std::cin >> a >> b;\n    std::cout << a + b << "\\n";\n}'
 const validationCode = '#include <iostream>\n\nint main() {\n    long long a, b;\n    if (!(std::cin >> a >> b)) return 1;\n    if (a < 0 || a > 1000000000 || b < 0 || b > 1000000000) return 1;\n    std::cin >> std::ws;\n    return std::cin.eof() ? 0 : 1;\n}'
+useSharePreview({ title, path: '/blog/generator-guide', description })
 </script>
 
 <template>
   <article class="blog-article">
-    <nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>生成と検証ガイド</span></nav>
+    <div class="breadcrumb-row"><nav class="breadcrumb" aria-label="パンくずリスト"><NuxtLink to="/blog">記事</NuxtLink><span aria-hidden="true">/</span><span>生成と検証ガイド</span></nav><TweetButton :title="title" :url="canonical" /></div>
     <header class="blog-article-header">
       <p class="eyebrow">SHAREOJ GUIDE</p>
       <h1>{{ title }}</h1>
       <p class="lead">テストケースをコードで作れます。ケース番号から入力を生成し、その入力を解答プログラムに渡して期待出力を揃えましょう。</p>
-    <TweetButton :title="title" :url="canonical" /></header>
+    </header>
     <nav class="blog-toc" aria-label="記事の目次"><a href="#input">入力を作る</a><a href="#output">期待出力を作る</a><a href="#validation">入力を検証する</a><a href="#steps">画面での手順</a><a href="#limits">上限と失敗時の動作</a><a href="#check">生成後の確認</a></nav>
     <section id="input">
       <h2>ケース番号から入力を作る</h2>

@@ -231,3 +231,17 @@ PNG・JPEG・WebP（5MB以下）をブラウザーで中央から正方形に切
 ログインとユーザー ID 登録を終えると「記事を書く」から Markdown・数式で記事を作成し、プレビュー・DB 保存・公開できます。
 マイページの「自分の記事」から再編集できます。記事も保存と公開を分けています。
 運営表示の設定は API の `OPERATOR_SUBJECTS` を参照してください。
+
+### Link previews
+
+Public pages expose Open Graph and Twitter Card metadata during SSR. `/og/<page-path>.png`
+returns a 1200×630 PNG with the ShareOJ mark and the page title (`/og/index.png` for home).
+The renderer uses `@resvg/resvg-wasm` and the bundled, unmodified IPAex Gothic font;
+the font license is in `server/assets/fonts/LICENSE.txt`. Nuxt stages the WASM under
+`.build/og-renderer` and Nitro bundles both assets for Node and Lambda.
+
+Dynamic images fetch only the public API, never session cookies or private fallbacks.
+Private and pre-start contest problems have no image preview. Responses use `no-store`
+to recheck publication on each fetch; X and Discord may independently cache previews.
+Guide titles live in `shared/social-pages.ts`. After deployment, verify a public URL
+with the [Discord Embed Debugger](https://discord.com/developers/embeds).
