@@ -1,0 +1,5 @@
+--- a/src/gmp/pure.nim
++++ b/src/gmp/pure.nim
+@@ -1512,1 +1512,1 @@
+-when NimMajor >= 2:
++when NimMajor >= 2 and (defined(gcArc) or defined(gcOrc) or defined(gcAtomicArc)):

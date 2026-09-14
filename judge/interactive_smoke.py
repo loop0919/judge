@@ -8,6 +8,9 @@ def run(runtime, requested, fixtures, judge):
     python = 'for n in range(10,12):\n print(n, flush=True)\n assert int(input()) == n*2'
     rust = 'use std::io::{self,Write}; fn main(){for n in 10..12 {println!("{}",n);io::stdout().flush().unwrap();let mut s=String::new();io::stdin().read_line(&mut s).unwrap();assert_eq!(s.trim().parse::<i32>().unwrap(),2*n);}}'
     java = 'import java.util.*; public class Main {public static void main(String[] a){Scanner s=new Scanner(System.in);for(int n=10;n<12;n++){System.out.println(n);System.out.flush();assert s.nextInt()==2*n;}}}'
+    csharp = 'using System; class Program { static void Main(){ for(int n=10;n<12;n++){ Console.WriteLine(n); Console.Out.Flush(); if(int.Parse(Console.ReadLine())!=2*n)throw new Exception(); } } }'
+    go = 'package main\nimport "fmt"\nfunc main(){for n:=10;n<12;n++ {fmt.Println(n);var x int;if _,e:=fmt.Scan(&x);e!=nil||x!=2*n{panic("answer")}}}'
+    nim = 'import std/strutils\nfor n in 10..11:\n echo n\n flushFile(stdout)\n doAssert parseInt(stdin.readLine())==2*n'
     solution = '#include <cstdio>\nint main(){int n;while(scanf("%d",&n)==1){printf("%d\\n",2*n);fflush(stdout);}}'
     def check(name, source, code, want, *, submitted='cpp17-isolate', cases=None):
         job = dict(runtime=submitted, runtimeDigest=runtime, source=source,
@@ -19,7 +22,9 @@ def run(runtime, requested, fixtures, judge):
         print(name, 'interactive', want, 'OK', flush=True)
         return result
     for name in requested:
-        code = c if name.startswith(('cpp', 'c23')) else rust if name.startswith('rust') else java if name.startswith('java') else python
+        code = (c if name.startswith(('cpp', 'c23')) else rust if name.startswith('rust') else
+                java if name.startswith('java') else csharp if name.startswith('csharp') else
+                go if name.startswith('go') else nim if name.startswith('nim') else python)
         check(name, solution, code, 'AC')
         check(name, solution.replace('2*n', '3*n'), code, 'WA')
         # Library fixtures also execute under the interactor's 256 MiB limit.

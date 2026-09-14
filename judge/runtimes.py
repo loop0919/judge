@@ -32,6 +32,26 @@ RUNTIMES = {
         run=[ROOT + '/java/bin/java', '-Xms16m', '-Xmx256m', '-Xss1m', '-XX:MaxMetaspaceSize=96m', '-XX:ReservedCodeCacheSize=32m', '-XX:MaxDirectMemorySize=32m', '-XX:+UseSerialGC', '-XX:ActiveProcessorCount=1', '-XX:+ExitOnOutOfMemoryError', '-XX:-UsePerfData', '-cp', '/box/main:' + JAVA_CP, 'Main'], artifact='java'),
 }
 
+RUNTIMES['java25-isolate'] = dict(RUNTIMES['java24-isolate'],
+    compile=[arg.replace(ROOT + '/java/', ROOT + '/java25/').replace(JAVA_CP, ROOT + '/java-libs/ac_library.jar')
+             if arg != '24' else '25' for arg in RUNTIMES['java24-isolate']['compile']],
+    run=[arg.replace(ROOT + '/java/', ROOT + '/java25/').replace(JAVA_CP, ROOT + '/java-libs/ac_library.jar')
+         for arg in RUNTIMES['java24-isolate']['run']])
+RUNTIMES['csharp14-isolate'] = dict(source='main.cs',
+    compile=[ROOT + '/dotnet/dotnet', ROOT + '/csharp-tools/csc.dll', '@' + ROOT + '/csharp-tools/compile.args'],
+    run=[ROOT + '/dotnet/dotnet', '/box/main.dll'], artifact='dotnet',
+    files=['main.runtimeconfig.json', 'main.deps.json', 'MathNet.Numerics.dll', 'ac-library-csharp.dll'],
+    env=['DOTNET_CLI_TELEMETRY_OPTOUT=1', 'DOTNET_EnableDiagnostics=0', 'DOTNET_gcServer=0', 'DOTNET_PROCESSOR_COUNT=1'])
+RUNTIMES['go127-isolate'] = dict(source='main.go',
+    compile=[ROOT + '/go/bin/go', '-C', '/box', 'build', '-buildmode=exe', '-mod=vendor', '-p=1', '-trimpath', '-buildvcs=false', '-o', '/box/main', '/box/main.go'],
+    run=['/box/main'], artifact='native',
+    env=['GOTOOLCHAIN=local', 'GOPROXY=off', 'GOSUMDB=off', 'GOWORK=off', 'CGO_ENABLED=0', 'GOMAXPROCS=1', 'GOCACHE=/box/go-cache', 'GOTMPDIR=/box'])
+RUNTIMES['nim22-isolate'] = dict(source='main.nim',
+    compile=[ROOT + '/nim/bin/nim', 'cpp', '-d:release', '--opt:speed', '--mm:refc', '--parallelBuild:1', '--hints:off',
+             '--skipUserCfg:on', '--skipParentCfg:on', '--skipProjCfg:on', '--noNimblePath', '--nimcache:/box/nimcache', '-o:/box/main', '/box/main.nim'],
+    run=['/box/main'], artifact='native',
+    env=['LD_LIBRARY_PATH=' + ROOT + '/nim-deps/lib:' + ROOT + '/gcc/lib64'])
+
 ENVIRONMENT = ['LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'HOME=/box',
                'OPENBLAS_NUM_THREADS=1', 'OMP_NUM_THREADS=1', 'MKL_NUM_THREADS=1',
                'NUMEXPR_NUM_THREADS=1', 'PYTHONDONTWRITEBYTECODE=1',

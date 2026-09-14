@@ -12,6 +12,25 @@ from runtimes import RUNTIMES
 
 
 class RunnerTests(unittest.TestCase):
+    def test_compiler_failure_preserves_roslyn_stdout_diagnostics(self):
+        import tempfile
+        from subprocess import CompletedProcess
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'box').mkdir()
+            meta = root / 'meta'
+            def invoke(args, **kwargs):
+                if '--run' in args:
+                    meta.write_text('time:0.1\ntime-wall:0.2\ncg-mem:1024\nstatus:RE\nexitcode:1')
+                    (root / 'box/stdout').write_bytes(b'main.cs: error CS1002: ; expected')
+                    (root / 'box/stderr').write_bytes(b'')
+                    return CompletedProcess(args, 1, stdout=b'')
+                return CompletedProcess(args, 0, stdout=str(root).encode())
+            with patch.object(sandbox, 'invoke', invoke), patch.object(sandbox, 'META', meta):
+                result = sandbox.execute({'runtime': 'csharp14-isolate', 'source': 'invalid C#'}, True)
+            self.assertFalse(result['compiled'])
+            self.assertIn('CS1002', result['compileLog'])
+
     def test_progress_is_rate_limited_and_failure_does_not_fail_judging(self):
         import json
         client = Mock()

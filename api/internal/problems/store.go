@@ -23,9 +23,16 @@ var (
 )
 
 type Generator struct {
-	Runtime string `json:"runtime"`
-	Source  string `json:"source"`
+	Runtime  string `json:"runtime"`
+	Source   string `json:"source"`
+	Protocol string `json:"protocol,omitempty"`
 }
+
+func (g Generator) ValidJudgeProtocol() bool {
+	return g.Protocol == "" || g.Protocol == "legacy" ||
+		(g.Protocol == "testlib" && (g.Runtime == "cpp23-gcc" || g.Runtime == "cpp23-clang"))
+}
+
 type Generators struct {
 	Validation Generator `json:"validation,omitzero"`
 	Input      Generator `json:"input"`

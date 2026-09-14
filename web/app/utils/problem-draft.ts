@@ -60,14 +60,18 @@ export function persistedDraft<T extends { testCases: TestCase[] }>(draft: T) {
 }
 
 export const generatorSchema = z.object({ runtime: z.string().max(64).default('cpp17'), source: z.string().default('') })
+const judgeCodeSchema = generatorSchema.extend({ protocol: z.enum(['legacy', 'testlib']).optional() }).refine(
+  code => code.protocol !== 'testlib' || ['cpp23-gcc', 'cpp23-clang'].includes(code.runtime),
+  { message: 'testlib形式ではC++23のGCCまたはClangを選んでください。' },
+)
 export const generatorsSchema = z.object({ input: generatorSchema, output: generatorSchema, validation: generatorSchema.default({ runtime: 'cpp17', source: '' }) })
 export type Generators = z.infer<typeof generatorsSchema>
 export const emptyGenerators = (): Generators => ({ input: { runtime: 'cpp17', source: '' }, output: { runtime: 'cpp17', source: '' }, validation: { runtime: 'cpp17', source: '' } })
 
 export const problemDraftSchema = z.object({
   difficulty: difficultySchema,
-  checker: generatorSchema.nullable().default(null),
-  interactor: generatorSchema.nullable().default(null),
+  checker: judgeCodeSchema.nullable().default(null),
+  interactor: judgeCodeSchema.nullable().default(null),
   generators: generatorsSchema.default(emptyGenerators),
   title: z.string().max(120),
   markdown: z.string().max(100_000),

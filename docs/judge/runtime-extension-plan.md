@@ -1,7 +1,8 @@
 # testlibと追加言語の実装計画
 
 [ADR 0010](../adr/0010-extend-judge-languages-and-libraries.md)の実装候補と受入条件を記録する。
-2026-09-14時点では設計段階であり、ここにある版や構成は本番へ導入済みではない。
+2026-09-14に実装と配布物の構築を開始した。
+以下の採用値とローカル検証を記録し、本番公開の完了は実機smokeの結果で確認する。
 要求で指定された版と、互換性試験後に選ぶ版を区別する。
 
 ## コンパイラと依存の固定
@@ -21,6 +22,22 @@ MathNet.Numericsの提供機能は[公式資料](https://numerics.mathdotnet.com
 ac-library-csharpの`-atcoder`版はSourceExpanderを省く目的の配布であり、通常安定版と同一版扱いにはしない。
 まず通常安定版を検証し、ビルド時のSourceExpander等を実行環境に不要な依存として整理する。
 特殊な版を採用する必要があれば、[upstreamの説明](https://github.com/kzrnm/ac-library-csharp)を踏まえて正確な版と理由を記録する。
+
+## 採用する固定値
+
+| 対象 | 採用値 | 記録先 |
+| --- | --- | --- |
+| testlib | `1e4e8a24c79c6bad3becbdb5a332ffc352b7d5dd` | `runtime-extension-sources.lock.json` |
+| .NET | SDK 10.0.401、ランタイム10.0.12、C# 14 | 同上、参照DLLとRoslynも同じSDKから取得 |
+| NuGet | MathNet.Numerics 5.0.0、ac-library-csharp 4.1.4 | `dotnet-deps/packages.lock.json` |
+| Java | Temurin 25.0.4.1+1 LTS、ac-library-java 2.0.0 | 新JDKは追加lock、JARは既存lock |
+| Nim | 2.2.10、refc、GCC 16.2.0、x86-64汎用命令 | `runtimes.py`、固定nim.cfgと互換パッチ |
+| Go | 1.27.1 | 追加lock、`go-deps/go.mod`と`go.sum` |
+
+Goの採用値はimmutable 0.4.3、gods 1.18.1、gostl 1.2.0、gonum 0.17.0である。
+ac-library-goは`v0.0.0-20260106091915-2caa314afb5a`、x/expは`v0.0.0-20260908205506-85c1c2202aba`へ固定する。
+標準パッケージを含め、コンパイルはネットワークなしで実行する。
+GoのビルドキャッシュとNimの生成C++は提出ごとのboxに置き、次の提出へ持ち越さない。
 
 ## Nimの要求一覧
 
@@ -45,14 +62,16 @@ commitで指定されたものは、そのcommitを採用対象とし、安定�
 | sat | `faf1617f44d7632ee9601ebc13887644925dcc01` | `nim-lang/sat` |
 
 取得元の対応は[AtCoderのNim構築定義](https://img.atcoder.jp/file/language-update/2025-10/072-2-2-0_nim.toml)を照合した。
-各archiveの取得とSHA-256検証、全依存の実ビルドは未実施である。
-Nimbleの依存定義から、BLAS/LAPACK、nimblas、nimlapack、Unicodeデータなど必要な推移的依存を解決し、全revisionを別のlockへ記録する。
+各archiveは取得元とSHA-256を`judge/runtime-extension-sources.lock.json`へ固定する。
+Nimbleの依存定義から解決したnimblas、nimlapack、Unicodeデータなどの推移的依存も同じlockへ記録する。
 Nimble自体はビルド環境だけで使用し、提出のコンパイルには固定した`--path`と設定を渡す。
 
 ネイティブ依存は専用prefixへ構築し、include、link、実行時の探索先を揃える。
 既存C++のACL 1.6とBoost 1.92.0は維持する。
 SIMDの対象CPU命令をmanifestへ記録し、別のビルドマシンの`-march=native`をそのまま持ち込まない。
-`nim cpp -d:release --opt:speed`を出発点とし、メモリ管理方式、GCCの版、追加フラグを固定する。
+`nim cpp -d:release --opt:speed --mm:refc`と既存GCC 16.2.0を使う。
+neoとbignumを同時に使用できるよう、Nim-GMPとbignumのdestructor分岐に各1行の互換パッチを適用する。
+パッチ原文はリポジトリと配布物のbuild-manifestへ保存する。
 利用者向けに公開するimport例は、要求版で実際に動くものをfixtureから転記する。
 
 ## Goの要求一覧

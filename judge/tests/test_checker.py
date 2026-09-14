@@ -22,7 +22,7 @@ def job():
 
 
 class CheckerTests(unittest.TestCase):
-    def run_job(self, checked, submitted=None, compiled=True, checker_runtime='python314', easy_test=False):
+    def run_job(self, checked, submitted=None, compiled=True, checker_runtime='python314', easy_test=False, protocol='legacy'):
         calls = []
         def execute(request, compile_phase=False, **kwargs):
             calls.append((request, compile_phase, kwargs))
@@ -36,6 +36,7 @@ class CheckerTests(unittest.TestCase):
             return dict(submitted or reply())
         request = job()
         request['checker']['runtime'] = checker_runtime
+        request['checker']['protocol'] = protocol
         request['easyTest'] = easy_test
         with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
                 patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
@@ -93,6 +94,41 @@ class CheckerTests(unittest.TestCase):
             self.assertEqual(result['verdict'], verdict)
             self.assertFalse(any('checker_files' in kwargs for _, _, kwargs in calls))
 
+    def test_testlib_exit_codes_and_submission_priority(self):
+        for changes, verdict in [({}, 'AC'), ({'exitCode': 1, 'status': 'RE'}, 'WA'),
+                                 ({'exitCode': 2, 'status': 'RE'}, 'WA'), ({'exitCode': 4}, 'WA'),
+                                 ({'exitCode': 8}, 'WA'), ({'exitCode': 3}, 'JE'),
+                                 ({'exitCode': 7}, 'JE'), ({'exitCode': 99}, 'JE'),
+                                 ({'signal': 6, 'status': 'SG'}, 'JE'), ({'oom': True}, 'JE')]:
+            result, calls = self.run_job(reply(**changes), checker_runtime='cpp23-gcc', protocol='testlib')
+            self.assertEqual(result['verdict'], verdict, changes)
+            self.assertTrue(any(r.get('protocol') == 'testlib' for r, _, _ in calls))
+        result, calls = self.run_job(reply(exitCode=3), submitted=reply(status='TO'), checker_runtime='cpp23-gcc', protocol='testlib')
+        self.assertEqual(result['verdict'], 'TLE')
+        self.assertFalse(any('checker_files' in kwargs for _, _, kwargs in calls))
+
+    def test_testlib_file_contract_keeps_submission_bytes_and_secrets_separate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / 'artifact'
+            artifact.write_bytes(b'binary')
+            for interactive in (False, True):
+                box = root / str(interactive)
+                box.mkdir()
+                command = sandbox.prepare_program(box, RUNTIMES['cpp23-gcc-isolate'], artifact,
+                    {'test-input': b'input', 'expected-output': b'answer', 'submission-source': b'private source',
+                     'submission-output': b'out\x00\r\n'}, protocol='testlib', interactive=interactive)
+                output = 'test-output' if interactive else 'submission-output'
+                self.assertEqual(command[1:], ['/box/test-input', '/box/' + output, '/box/expected-output'])
+                self.assertEqual((box / output).read_bytes(), b'' if interactive else b'out\x00\r\n')
+                self.assertEqual((box / output).stat().st_mode & 0o777, 0o666 if interactive else 0o444)
+                self.assertFalse((box / 'submission-source').exists())
+                self.assertFalse((box / 'score').exists())
+        for protocol, runtime in [('unknown', 'cpp23-gcc'), ('testlib', 'python314'), (None, 'cpp23-gcc')]:
+            request = job()
+            request['checker'].update(protocol=protocol, runtime=runtime)
+            with self.assertRaises(ValueError): host.validate_job(request, 'sha256:test')
+
     def test_diagnostics_are_bounded_and_malformed_checkers_rejected(self):
         result, _ = self.run_job(reply(checkerLog='あ' * 65536))
         self.assertLessEqual(len(result['checkerLog'].encode()), 16384)
@@ -118,13 +154,20 @@ class CheckerTests(unittest.TestCase):
                 box.mkdir()
                 artifact = root / 'checker'
                 artifact.write_bytes(b'compiled checker')
+                (root / 'dotnet-libs').mkdir()
+                for filename in runtime.get('files', []):
+                    (root / 'dotnet-libs' / filename).write_bytes(b'operator library')
                 meta = root / 'meta'
                 commands = []
                 def invoke(args, timeout=10):
                     from subprocess import CompletedProcess
                     commands.append(args)
                     if '--run' in args:
-                        self.assertEqual((box / 'main').read_bytes(), b'compiled checker')
+                        program = 'main.dll' if runtime['artifact'] == 'dotnet' else 'main'
+                        self.assertEqual((box / program).read_bytes(), b'compiled checker')
+                        for filename in runtime.get('files', []):
+                            self.assertEqual((box / filename).read_bytes(), b'operator library')
+                            self.assertEqual((box / filename).stat().st_mode & 0o777, 0o444)
                         self.assertEqual((box / 'input').read_bytes(), b'actual\x00\r\n')
                         self.assertEqual((box / 'expected-output').read_bytes(), b'secret')
                         self.assertEqual((box / 'score').read_bytes(), b'')
@@ -138,7 +181,7 @@ class CheckerTests(unittest.TestCase):
                         (box / 'stdout').write_bytes(b'ignored')
                         (box / 'stderr').write_bytes(b'diagnostic')
                     return CompletedProcess(args, 0, stdout=str(root).encode())
-                with patch.object(sandbox, 'invoke', invoke), patch.object(sandbox, 'META', meta):
+                with patch.object(sandbox, 'invoke', invoke), patch.object(sandbox, 'META', meta), patch.object(sandbox, 'ROOT', str(root)):
                     result = sandbox.execute(dict(runtime=name, input=base64.b64encode(b'actual\x00\r\n').decode(), timeLimitMs=5000, memoryLimitMb=512),
                                              artifact=artifact, checker_files={'test-input': b'10', 'expected-output': b'secret', 'submission-source': b'source'})
                 self.assertEqual(result['checkerLog'], 'diagnostic')

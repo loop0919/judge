@@ -1,6 +1,28 @@
 import { test, expect } from './fixtures/account'
 
 for (const [method, label] of [['special', '検証コード'], ['interactive', '対話用ジャッジ']] as const) {
+  test(`${method} defaults to testlib for C++23 and preserves its saved protocol`, async ({ page }) => {
+    await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp23-gcc', label: 'C++23' }, { id: 'python314', label: 'Python' }] } }))
+    await Promise.all([page.waitForResponse('**/api/runtimes'), page.goto('/problems/new?fresh=1')])
+    await page.getByLabel('問題のタイトル').fill('testlib形式の保存')
+    await page.getByRole('button', { name: '判定方法', exact: true }).click()
+    await page.getByRole('combobox', { name: '判定方法', exact: true }).selectOption(method)
+    await expect(page.getByLabel(`${label}の言語`)).toHaveValue('cpp23-gcc')
+    await expect(page.getByLabel('判定コードの形式')).toHaveValue('testlib')
+    await page.getByLabel(label, { exact: true }).fill('#include "testlib.h"\nint main(){}')
+    await page.getByRole('button', { name: '保存', exact: true }).click()
+    await expect(page.locator('.draft-status [role="status"]')).toHaveText('保存済み')
+    await page.reload()
+    await page.getByRole('button', { name: '判定方法', exact: true }).click()
+    await expect(page.getByLabel('判定コードの形式')).toHaveValue('testlib')
+    await page.getByLabel(`${label}の言語`).selectOption('python314')
+    await expect(page.getByLabel('判定コードの形式')).toHaveValue('legacy')
+    await expect(page.getByLabel(label, { exact: true })).toContainText('#include "testlib.h"')
+    await expect(page.getByLabel('判定コードの形式').locator('option')).toHaveCount(1)
+  })
+}
+
+for (const [method, label] of [['special', '検証コード'], ['interactive', '対話用ジャッジ']] as const) {
   test(`${method} code survives switching to normal and back`, async ({ page }) => {
     await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [{ id: 'cpp17', label: 'C++17' }, { id: 'python314', label: 'Python' }] } }))
     await page.goto('/problems/new?fresh=1')

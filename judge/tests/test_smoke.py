@@ -11,16 +11,18 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import host
+import interactive_smoke
 
 
 class SmokeReportTests(unittest.TestCase):
-    def run_smoke(self, judge):
+    def run_smoke(self, judge, role_error=None):
         output = io.StringIO()
         fixtures = (ROOT / 'language-smoke.json').read_text()
         with patch.object(host, 'judge', side_effect=judge), \
                 patch.object(host, 'slot', return_value=contextlib.nullcontext()), \
                 patch.object(host, 'prepare_cgroup'), \
                 patch.object(host, 'verify_assets', return_value='sha256:' + 'a' * 64), \
+                patch.object(interactive_smoke, 'run', side_effect=role_error), \
                 patch.object(Path, 'read_text', return_value=fixtures), \
                 patch.dict(os.environ, JUDGE_SMOKE_RUNTIMES='cpp17-isolate,c23-gcc-isolate'), \
                 contextlib.redirect_stdout(output):
@@ -52,3 +54,9 @@ class SmokeReportTests(unittest.TestCase):
         report = json.loads(output.splitlines()[-1])
         self.assertEqual(report['passedRuntimes'], ['c23-gcc-isolate'])
         self.assertEqual(report['failedRuntimes'], ['cpp17-isolate'])
+        baseline = iter(['AC', 'WA', 'CE', 'TLE', 'TLE', 'MLE', 'MLE', 'AC', 'OLE', 'AC', 'AC', 'AC', 'AC'])
+        output, error = self.run_smoke(judge, AssertionError('interactor exceeded 256 MiB'))
+        self.assertIsInstance(error, SystemExit)
+        report = json.loads(output.splitlines()[-1])
+        self.assertEqual(report['passedRuntimes'], [])
+        self.assertEqual(set(report['failedRuntimes']), {'cpp17-isolate', 'c23-gcc-isolate'})

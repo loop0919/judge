@@ -10,13 +10,20 @@ let previousCode: ProblemDraft['checker'] = null
 const method = computed({
   get: () => interactor.value ? 'interactive' : checker.value ? 'special' : 'normal',
   set: value => {
-    const previous = interactor.value ?? checker.value ?? previousCode ?? { runtime: available.value[0]?.id ?? 'cpp17', source: '' }
+    const runtime = available.value.find(item => item.id === 'cpp23-gcc')?.id ?? available.value[0]?.id ?? 'cpp17'
+    const previous = interactor.value ?? checker.value ?? previousCode ?? { runtime, source: '', protocol: runtime === 'cpp23-gcc' ? 'testlib' : 'legacy' }
     previousCode = previous
     checker.value = value === 'special' ? previous : null
     interactor.value = value === 'interactive' ? previous : null
   },
 })
 const code = computed(() => interactor.value ?? checker.value)
+const supportsTestlib = computed(() => ['cpp23-gcc', 'cpp23-clang'].includes(code.value?.runtime ?? ''))
+const protocol = computed({
+  get: () => code.value?.protocol ?? 'legacy',
+  set: (value: 'legacy' | 'testlib') => { if (code.value) code.value.protocol = value },
+})
+watch(supportsTestlib, supported => { if (!supported && protocol.value === 'testlib') protocol.value = 'legacy' })
 const codeLabel = computed(() => interactor.value ? '対話用ジャッジ' : '検証コード')
 const error = computed(() => code.value && (!code.value.source.trim() || new TextEncoder().encode(code.value.source).length > 65536 || code.value.source.includes('\0'))
   ? '公開・採点するにはコードを1〜65,536バイトで、NUL文字を含めずに入力してください。' : '')
@@ -32,14 +39,23 @@ const error = computed(() => code.value && (!code.value.source.trim() || new Tex
       <option value="interactive">インタラクティブ（対話形式）</option>
     </select>
     <template v-if="code">
-      <p v-if="!interactor">提出の出力を標準入力で読み、終了コード0で正解、0以外で不正解とします。assertも使用できます。</p>
-      <p v-if="interactor">標準入力で提出の発言を読み、標準出力で応答します。応答を待つ前にflushしてください。終了コード0で正解、0以外やassertの失敗で不正解とします。</p>
+      <p v-if="!interactor && protocol === 'legacy'">提出の出力を標準入力で読み、終了コード0で正解、0以外で不正解とします。assertも使用できます。</p>
+      <p v-if="interactor">標準入力で提出の発言を読み、標準出力で応答します。応答を待つ前にflushしてください。</p>
+      <p v-if="interactor && protocol === 'legacy'">終了コード0で正解、0以外やassertの失敗で不正解とします。</p>
       <p v-if="interactor">テスト入力は自動送信しません。入力ファイルから読み取り、必要な初期情報を出力してください。</p>
-      <p>引数は順に、入力・期待出力・提出ソース・スコアのファイルパスです。期待出力は空でも構いません。スコアファイルへの書き込みは採点に使いません。</p>
+      <p v-if="protocol === 'legacy'">引数は順に、入力・期待出力・提出ソース・スコアのファイルパスです。期待出力は空でも構いません。スコアファイルへの書き込みは採点に使いません。</p>
+      <p v-else>testlib.hをincludeし、{{ interactor ? 'registerInteraction' : 'registerTestlibCmd' }}(argc, argv)で初期化してください。quitf(_ok, ...)で正解、_waや_peで不正解、_failでJEとします。部分点には対応していません。</p>
+      <p v-if="protocol === 'testlib'">引数は順に、入力・{{ interactor ? 'toutの書き込み先' : '提出出力' }}・正解のファイルパスです。{{ interactor ? 'toutは通信には使わず、内容の後段判定も行いません。' : '提出出力はouf、正解はansから読みます。' }}</p>
+      <p v-if="protocol === 'testlib'"><NuxtLink to="/blog/language-guide#testlib" target="_blank" rel="noopener noreferrer">testlibのコード例を見る</NuxtLink></p>
       <label for="checker-language">{{ codeLabel }}の言語</label>
       <select id="checker-language" v-model="code.runtime" :disabled="disabled">
         <option v-if="!available.some(item => item.id === code?.runtime)" :value="code.runtime">{{ code.runtime }}（現在利用できません）</option>
         <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
+      </select>
+      <label for="checker-protocol">判定コードの形式</label>
+      <select id="checker-protocol" v-model="protocol" :disabled="disabled">
+        <option value="legacy">現行形式（標準入力と終了コード）</option>
+        <option v-if="supportsTestlib" value="testlib">testlib形式（Codeforces互換）</option>
       </select>
       <p class="muted">コードは自動保存。64 KiBまで。ジャッジ側は各ケースCPU 5秒・{{ interactor ? 256 : 512 }} MiBで実行し、制限超過はJEになります。</p>
       <SourceCodeEditor v-model="code.source" :label="codeLabel" :disabled="disabled" />

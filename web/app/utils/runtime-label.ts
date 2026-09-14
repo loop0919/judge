@@ -10,6 +10,10 @@ const runtimeLabels = new Map([
   ['codon020', 'Python (Codon 0.20)'],
   ['rust2024', 'Rust (Edition 2024)'],
   ['java24', 'Java (OpenJDK 24)'],
+  ['java25', 'Java (Temurin 25)'],
+  ['csharp14', 'C# 14 (.NET 10)'],
+  ['nim22', 'Nim 2.2'],
+  ['go127', 'Go 1.27'],
 ])
 
 export function runtimeLabel(runtime: string) {

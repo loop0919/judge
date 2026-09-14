@@ -52,6 +52,9 @@ def validate_job(job, runtime):
                 or job.get('generate') or job.get('validate')):
             raise ValueError('judge code runtime or mode')
         source = code.get('source')
+        protocol = code.get('protocol', 'legacy')
+        if protocol not in ('legacy', 'testlib') or (protocol == 'testlib' and code['runtime'] not in ('cpp23-gcc', 'cpp23-clang')):
+            raise ValueError('judge code protocol')
         if not isinstance(source, str) or not source.strip() or len(source.encode()) > 65536 or '\0' in source:
             raise ValueError('judge code source')
     if type(job.get('easyTest', False)) is not bool or (job.get('easyTest') and (job.get('generate') or job.get('validate'))):
@@ -234,17 +237,19 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                 reply['index'] = index
                 item = case_result(reply, index, case, job.get('generate', False), job.get('validate', False) or checker is not None)
                 if checker is not None and item['verdict'] == 'AC':
-                    checked = sandbox.execute(dict(runtime=checker['runtime'] + '-isolate', input=reply['output'],
+                    checked = sandbox.execute(dict(runtime=checker['runtime'] + '-isolate', input=reply['output'], protocol=checker.get('protocol', 'legacy'),
                                                    timeLimitMs=5000, memoryLimitMb=512), artifact=checker_artifact,
                                               checker_files={'test-input': case['input'].encode(),
                                                              'expected-output': case['output'].encode(),
                                                              'submission-source': job['source'].encode()})
                     checked['index'] = index
-                    check_result = case_result(checked, index, case, validate=True)
-                    diagnostic(f"ケース{index + 1}: {check_result['verdict']}\n" + checked.get('checkerLog', '') + '\n')
-                    if check_result['verdict'] in ('TLE', 'MLE', 'OLE'):
+                    verdict = sandbox.judge_verdict(checked, checker.get('protocol', 'legacy'))
+                    diagnostic(f"ケース{index + 1}: {verdict}\n" + checked.get('checkerLog', '') + '\n')
+                    if checker.get('protocol') == 'testlib' and checked['exitCode'] == 7:
+                        diagnostic('testlibの部分点（_points）は未対応です。\n')
+                    if verdict == 'JE':
                         return checker_error()
-                    item['verdict'] = 'AC' if check_result['verdict'] == 'AC' else 'WA'
+                    item['verdict'] = verdict
             if job.get('easyTest') and not job.get('interactor'):
                 limit = min(4096, (24 * 1024) // len(job['cases']) // 3)
                 actual = base64.b64decode(reply['output'], validate=True)

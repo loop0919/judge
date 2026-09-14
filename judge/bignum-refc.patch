@@ -1,0 +1,5 @@
+--- a/src/bignum/private/int.nim
++++ b/src/bignum/private/int.nim
+@@ -57,1 +57,1 @@
+-when NimMajor >= 2:
++when NimMajor >= 2 and (defined(gcArc) or defined(gcOrc) or defined(gcAtomicArc)):

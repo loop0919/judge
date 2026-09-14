@@ -127,7 +127,8 @@ variable "judge_enabled_runtimes" {
   default     = ["cpp17"]
   validation {
     condition = alltrue([for id in var.judge_enabled_runtimes : contains([
-      "cpp17", "c23-gcc", "c23-clang", "cpp23-gcc", "cpp23-clang", "python314", "pypy311", "codon020", "rust2024", "java24"
+      "cpp17", "c23-gcc", "c23-clang", "cpp23-gcc", "cpp23-clang", "python314", "pypy311", "codon020", "rust2024", "java24",
+      "java25", "csharp14", "nim22", "go127"
     ], id)])
     error_message = "Unknown judge runtime."
   }

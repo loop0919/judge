@@ -109,6 +109,13 @@
       "name": "TLE",
       "source": "int main(){for(;;){}}",
       "verdict": "TLE"
+    },
+    {
+      "name": "testlib",
+      "source": "#include \"testlib.h\"\nint main(int argc,char** argv){registerGen(argc,argv,1);printf(\"%d\\n\",rnd.next(3,3));}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
     }
   ],
   "python314-isolate": [
@@ -295,6 +302,279 @@
       "name": "TLE",
       "source": "int main(){for(;;){}}",
       "verdict": "TLE"
+    },
+    {
+      "name": "testlib",
+      "source": "#include \"testlib.h\"\nint main(int argc,char** argv){registerGen(argc,argv,1);printf(\"%d\\n\",rnd.next(3,3));}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    }
+  ],
+  "java25-isolate": [
+    {
+      "name": "libraries-and-nested-class",
+      "source": "import ac_library.DSU; public class Main { static class Helper { static int value(){return 3;} } public static void main(String[] args){ DSU d=new DSU(3); d.merge(0,1); if(d.size(0)!=2)throw new AssertionError(); System.out.println(Helper.value()); } }",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "AC",
+      "source": "public class Main { public static void main(String[] args){System.out.println(3);} }",
+      "input": "",
+      "output": "3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "public class Main { public static void main(String[] args){System.out.println(3);} }",
+      "input": "",
+      "output": "4",
+      "verdict": "WA",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not java",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "public class Main { public static void main(String[] args){for(;;){}} }",
+      "verdict": "TLE"
+    }
+  ],
+  "csharp14-isolate": [
+    {
+      "name": "AC",
+      "source": "using System; class Program { static void Main(){ Console.WriteLine(3); } }",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "using System; class Program { static void Main(){ Console.WriteLine(3); } }",
+      "verdict": "WA",
+      "output": "4",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not csharp",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "class Program { static void Main(){ while(true){} } }",
+      "verdict": "TLE"
+    },
+    {
+      "name": "MathNet.Numerics",
+      "source": "using System; using MathNet.Numerics.LinearAlgebra; class Program { static void Main(){ var x=Vector<double>.Build.Dense(new double[]{1,2}); if(x.Sum()!=3)throw new Exception(); Console.WriteLine(3); } }",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "ac-library-csharp",
+      "source": "using System; using AtCoder; class Program { static void Main(){ var d=new Dsu(3); d.Merge(0,1); if(d.Size(0)!=2)throw new Exception(); Console.WriteLine(3); } }",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    }
+  ],
+  "go127-isolate": [
+    {
+      "name": "AC",
+      "source": "package main\nimport \"fmt\"\nfunc main(){fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "package main\nimport \"fmt\"\nfunc main(){fmt.Println(3)}",
+      "verdict": "WA",
+      "output": "4",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not go",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "package main\nfunc main(){for{}}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "ac-library-go",
+      "source": "package main\nimport (\"fmt\"; \"github.com/monkukui/ac-library-go/dsu\")\nfunc main(){d:=dsu.New(3);d.Merge(0,1);if d.Size(0)!=2 {panic(\"dsu\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "gods",
+      "source": "package main\nimport (\"fmt\"; \"github.com/emirpasic/gods/sets/treeset\")\nfunc main(){s:=treeset.NewWithIntComparator();s.Add(1,2);if s.Size()!=2{panic(\"set\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "golang_org_x_exp",
+      "source": "package main\nimport (\"fmt\"; \"golang.org/x/exp/slices\")\nfunc main(){s:=[]int{2,1};slices.Sort(s);if s[0]!=1{panic(\"sort\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "gonum",
+      "source": "package main\nimport (\"fmt\"; \"gonum.org/v1/gonum/mat\")\nfunc main(){v:=mat.NewVecDense(2,[]float64{1,2});if mat.Sum(v)!=3{panic(\"matrix\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "gostl",
+      "source": "package main\nimport (\"fmt\"; \"github.com/liyue201/gostl/ds/queue\")\nfunc main(){q:=queue.New[int]();q.Push(3);if q.Pop()!=3{panic(\"queue\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "immutable",
+      "source": "package main\nimport (\"fmt\"; \"github.com/benbjohnson/immutable\")\nfunc main(){s:=immutable.NewList[int](1,2);t:=s.Append(3);if s.Len()!=2||t.Get(2)!=3{panic(\"list\")};fmt.Println(3)}",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    }
+  ],
+  "nim22-isolate": [
+    {
+      "name": "AC",
+      "source": "echo 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "WA",
+      "source": "echo 3",
+      "verdict": "WA",
+      "output": "4",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "CE",
+      "source": "not valid Nim @@@",
+      "verdict": "CE"
+    },
+    {
+      "name": "TLE",
+      "source": "while true: discard",
+      "verdict": "TLE"
+    },
+    {
+      "name": "Nim-ACL",
+      "source": "import atcoder/dsu\nvar d=initDSU(3)\ndiscard d.merge(0,1)\ndoAssert d.size(0)==2\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "Arraymancer",
+      "source": "import arraymancer\nlet a = [[1.0,2.0]].toTensor\nlet b = [[1.0],[1.0]].toTensor\ndoAssert (a*b)[0,0] == 3.0\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "bigints",
+      "source": "import bigints\ndoAssert $(initBigInt(1)+initBigInt(2)) == \"3\"\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "bignum_chaemon",
+      "source": "import bignum\ndoAssert $(newInt(1)+newInt(2)) == \"3\"\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "neo",
+      "source": "import neo\nlet x=vector([1.0,2.0])\nlet y=vector([1.0,1.0])\ndoAssert x*y == 3.0\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "nimsimd",
+      "source": "import nimsimd/sse2\ndoAssert mm_cvtsi128_si32(mm_add_epi32(mm_set1_epi32(1),mm_set1_epi32(2))) == 3\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "regex",
+      "source": "import regex\ndoAssert \"abc123\".match(re\"[a-z]+[0-9]+\")\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "sat",
+      "source": "import sat/sat\nvar f: Formular = @[trueLit()]\nvar solution = createSolution(f)\ndoAssert satisfiable(f,solution)\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "AC Library",
+      "source": "{.emit: \"\"\"\n#include <atcoder/dsu>\nint library_smoke(){atcoder::dsu d(3); d.merge(0,1); return d.size(0)==2;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "Eigen",
+      "source": "{.emit: \"\"\"\n#include <Eigen/Dense>\nint library_smoke(){Eigen::Vector2d v(1,2); return v.sum()==3;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "boost",
+      "source": "{.emit: \"\"\"\n#include <boost/version.hpp>\n#include <boost/multiprecision/cpp_int.hpp>\nint library_smoke(){boost::multiprecision::cpp_int x=1; x+=2; return BOOST_VERSION==108800 && x==3;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "gmp",
+      "source": "{.passL: \"-lgmp\".}\n{.emit: \"\"\"\n#include <gmp.h>\nint library_smoke(){mpz_t x;mpz_init_set_ui(x,3);int ok=mpz_cmp_ui(x,3)==0;mpz_clear(x);return ok;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "mpfr",
+      "source": "{.passL: \"-lmpfr -lgmp\".}\n{.emit: \"\"\"\n#include <mpfr.h>\nint library_smoke(){mpfr_t x;mpfr_init2(x,128);mpfr_set_ui(x,3,MPFR_RNDN);int ok=mpfr_cmp_ui(x,3)==0;mpfr_clear(x);return ok;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "fftw",
+      "source": "{.passL: \"-lfftw3\".}\n{.emit: \"\"\"\n#include <fftw3.h>\nint library_smoke(){double x[2]={1,2},y[2];fftw_plan p=fftw_plan_r2r_1d(2,x,y,FFTW_R2HC,FFTW_ESTIMATE);fftw_execute(p);int ok=y[0]==3;fftw_destroy_plan(p);return ok;}\n\"\"\".}\nproc library_smoke(): cint {.importcpp: \"library_smoke()\",nodecl.}\ndoAssert library_smoke()==1\necho 3",
+      "verdict": "AC",
+      "output": "3",
+      "timeLimitMs": 5000
     }
   ]
 }

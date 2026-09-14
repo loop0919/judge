@@ -1,0 +1,194 @@
+{
+  "files": {
+    "arraymancer.tar.gz": {
+      "nim_path": "src",
+      "sha256": "0dc43eb277da80f59254ba5413c1bef534dbeb17b0141f9d4fbb2f71294e5be2",
+      "url": "https://codeload.github.com/mratsim/Arraymancer/tar.gz/84af537af1bc1f90229fff2b90abf5e5c1b02616",
+      "version": "84af537af1bc1f90229fff2b90abf5e5c1b02616"
+    },
+    "bigints.tar.gz": {
+      "nim_path": "src",
+      "sha256": "767f0cf389e600682ab9a2fb59eb51b95cba1f6e58670767405e7612dfff444c",
+      "url": "https://codeload.github.com/nim-lang/bigints/tar.gz/ca00f6da386af9ad7e3abf603c0201da6a014477",
+      "version": "ca00f6da386af9ad7e3abf603c0201da6a014477"
+    },
+    "bignum.tar.gz": {
+      "nim_path": "src",
+      "revision": "fd1fcf15dee611d95d382e9ff4439a3f0f5bbb7b",
+      "sha256": "85ae6316c919b4f593f107da46737f384801c18b8d29dd15523fac3d5533dd36",
+      "url": "https://codeload.github.com/chaemon/bignum/tar.gz/fd1fcf15dee611d95d382e9ff4439a3f0f5bbb7b",
+      "version": "1.0.6"
+    },
+    "dotnet.tar.gz": {
+      "sha256": "137268c8ad939c064ff1ee2a6fdf0899d8725377114ea012fbd1ad5fa2550418",
+      "sha512": "51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b",
+      "url": "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.401/dotnet-sdk-10.0.401-linux-x64.tar.gz",
+      "version": "10.0.401"
+    },
+    "eigen.tar.gz": {
+      "sha256": "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72",
+      "url": "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+      "version": "3.4.0"
+    },
+    "fftw.tar.gz": {
+      "sha256": "56c932549852cddcfafdab3820b0200c7742675be92179e59e6215b340e26467",
+      "url": "https://www.fftw.org/fftw-3.3.10.tar.gz",
+      "version": "3.3.10"
+    },
+    "gmp.tar.xz": {
+      "sha256": "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898",
+      "url": "https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz",
+      "version": "6.3.0"
+    },
+    "go.tar.gz": {
+      "sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+      "url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+      "version": "go1.27.1"
+    },
+    "java25.tar.gz": {
+      "sha256": "dbb698396d478e7fa2b1e50f4103324b2a99b90569ee27c33f2261f9215cf41e",
+      "url": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz",
+      "version": "25.0.4.1+1-LTS"
+    },
+    "mpfr.tar.xz": {
+      "sha256": "277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2",
+      "url": "https://www.mpfr.org/mpfr-4.2.1/mpfr-4.2.1.tar.xz",
+      "version": "4.2.1"
+    },
+    "neo.tar.gz": {
+      "nim_path": ".",
+      "sha256": "1c9fdfee2556d61fab84192e2171a058b70de0430d10a756a84bf9e2da0f8268",
+      "url": "https://codeload.github.com/andreaferretti/neo/tar.gz/0.3.5",
+      "version": "0.3.5"
+    },
+    "nim-ac-library.tar.gz": {
+      "sha256": "3802a7f3d4ef3aaccf154d36dc3fa28c4247da7829c224566fd70510a58c06f4",
+      "url": "https://codeload.github.com/atcoder/ac-library/tar.gz/v1.5.1",
+      "version": "v1.5.1"
+    },
+    "nim-acl.tar.gz": {
+      "nim_path": "src",
+      "revision": "2267a9b26bd810c0e299cfb05dc5bcab5fd6b680",
+      "sha256": "8c949e5235aef27a92d88d985a8d04f48594b14343b2fc82f5bba692a3be0092",
+      "url": "https://codeload.github.com/zer0-star/Nim-ACL/tar.gz/2267a9b26bd810c0e299cfb05dc5bcab5fd6b680",
+      "version": "0.1.0"
+    },
+    "nim-boost.tar.bz2": {
+      "sha256": "46d9d2c06637b219270877c9e16155cbd015b6dc84349af064c088e9b5b12f7b",
+      "url": "https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.bz2",
+      "version": "1.88.0"
+    },
+    "nim-clblast.tar.gz": {
+      "nim_path": "src",
+      "revision": "cdadb10dd85b95c9e7248f0b9661ad1e7616efe6",
+      "sha256": "d452bea4bac6b00698be3b08a0d1d9049a71b146caa1238cad52df1202f08034",
+      "url": "https://codeload.github.com/numforge/nim-clblast/tar.gz/cdadb10dd85b95c9e7248f0b9661ad1e7616efe6",
+      "version": "0.0.2"
+    },
+    "nim-csources.tar.gz": {
+      "revision": "eeab3ac46e93f10efda8e58c4db02b9438319d71",
+      "sha256": "382da9d21bc298846788822a5994fd35e037936610cdd3632ba77892c872f545",
+      "url": "https://codeload.github.com/nim-lang/csources_v3/tar.gz/eeab3ac46e93f10efda8e58c4db02b9438319d71",
+      "version": "eeab3ac46e93f10efda8e58c4db02b9438319d71"
+    },
+    "nim-gmp.tar.gz": {
+      "nim_path": "src",
+      "revision": "ea2802c38069da4df121968dc9e2d6454a295d13",
+      "sha256": "31deeb77a921b034d6b3d1002073a4e0995cb6c8de5a3bfa3dd934c2bac38a52",
+      "url": "https://codeload.github.com/chaemon/nim-gmp/tar.gz/ea2802c38069da4df121968dc9e2d6454a295d13",
+      "version": "0.2.7"
+    },
+    "nim-nimblas.tar.gz": {
+      "nim_path": ".",
+      "revision": "93ffdd705496990983eefa0507d52f6a6c533ca7",
+      "sha256": "bcacc48301a2151015ee839ec6a45b80625b4313ea97b8c378a47b7b49e29527",
+      "url": "https://codeload.github.com/andreaferretti/nimblas/tar.gz/93ffdd705496990983eefa0507d52f6a6c533ca7",
+      "version": "0.3.1"
+    },
+    "nim-nimcl.tar.gz": {
+      "nim_path": ".",
+      "revision": "f2f963ff043a364386888f8a6cf91646cd583e99",
+      "sha256": "5bcecf149022c07ae86160eed656407758aaef8bfef4adc72daf7479e1b4c961",
+      "url": "https://codeload.github.com/andreaferretti/nimcl/tar.gz/f2f963ff043a364386888f8a6cf91646cd583e99",
+      "version": "0.1.3"
+    },
+    "nim-nimcuda.tar.gz": {
+      "nim_path": "src",
+      "revision": "319b8deb31812fd9277c6232f0ae3fca31c6d55d",
+      "sha256": "593279cfc6db910b61a6746c7e0597ffaee23a5cfb2a2b9721d0a184e855b739",
+      "url": "https://codeload.github.com/andreaferretti/nimcuda/tar.gz/319b8deb31812fd9277c6232f0ae3fca31c6d55d",
+      "version": "0.2.2"
+    },
+    "nim-nimlapack.tar.gz": {
+      "nim_path": ".",
+      "revision": "231430b3d2156f5cbe8fe16bb8967cd9a93964c5",
+      "sha256": "25666d6e06cfd3414276ab075bc96bb03076634392591211afebca3bfed66b88",
+      "url": "https://codeload.github.com/andreaferretti/nimlapack/tar.gz/231430b3d2156f5cbe8fe16bb8967cd9a93964c5",
+      "version": "0.3.1"
+    },
+    "nim-opencl.tar.gz": {
+      "nim_path": "src",
+      "revision": "7b138ac19d7f5452a74742392ffadac3d26ee397",
+      "sha256": "0fdf2e1908e1aa59fbbde0b6aad18cc625dbca1dc327474b14977bcbf2d10bd5",
+      "url": "https://codeload.github.com/nim-lang/opencl/tar.gz/7b138ac19d7f5452a74742392ffadac3d26ee397",
+      "version": "1.0.1"
+    },
+    "nim-stb_image.tar.gz": {
+      "nim_path": ".",
+      "revision": "ba5f45286bfa9bed93d8d6b941949cd6218ec888",
+      "sha256": "54d52e7eefd1b092619e2748be019790f3ed15def0dfc4d4d1f8ee1fd853e3e6",
+      "url": "https://gitlab.com/define-private-public/stb_image-Nim/-/archive/ba5f45286bfa9bed93d8d6b941949cd6218ec888/stb_image-Nim-ba5f45286bfa9bed93d8d6b941949cd6218ec888.tar.gz",
+      "version": "2.5"
+    },
+    "nim-unicodedb.tar.gz": {
+      "nim_path": "src",
+      "revision": "b70aac15a3fdc7647997bd6cd10bccd8b2c00e54",
+      "sha256": "ed8fcd9ff1589de59e977caf4110cd4b95817081af09f7daa6f14e8e02b44170",
+      "url": "https://codeload.github.com/nitely/nim-unicodedb/tar.gz/b70aac15a3fdc7647997bd6cd10bccd8b2c00e54",
+      "version": "0.14.1"
+    },
+    "nim-untar.tar.gz": {
+      "nim_path": "src",
+      "revision": "b49f6ac94974fe11cb3d396a8a9c533824a497a7",
+      "sha256": "3e6d5759231643f86cf8deb07993aeb00e55d09f87bd6e1676baaeece657308f",
+      "url": "https://codeload.github.com/dom96/untar/tar.gz/b49f6ac94974fe11cb3d396a8a9c533824a497a7",
+      "version": "0.1.0"
+    },
+    "nim-zip.tar.gz": {
+      "nim_path": ".",
+      "revision": "bdc5783fefc1afb8eb622ff13d464a832ce1d507",
+      "sha256": "ed43a410fa33708e9583d6af79968c448c8b3ffda6b619f0916e8dcc6ee404d8",
+      "url": "https://codeload.github.com/nim-lang/zip/tar.gz/bdc5783fefc1afb8eb622ff13d464a832ce1d507",
+      "version": "0.3.1"
+    },
+    "nim.tar.gz": {
+      "revision": "v2.2.10",
+      "sha256": "58d8106e9f1936bf00707ee89f90ebfd001b21231d0875c6f9d700ca545cfc90",
+      "url": "https://codeload.github.com/nim-lang/Nim/tar.gz/v2.2.10",
+      "version": "2.2.10"
+    },
+    "nimsimd.tar.gz": {
+      "nim_path": "src",
+      "sha256": "5e81dde16a637294e1729b719ab2c0b4d9b048f54095ba09a9e552de35813c4f",
+      "url": "https://codeload.github.com/guzba/nimsimd/tar.gz/1.3.2",
+      "version": "1.3.2"
+    },
+    "regex.tar.gz": {
+      "nim_path": "src",
+      "sha256": "f237ca8e162cd203c5530f0ca05c0dc3b00288ee190d8ad8efba45cd51a2d4d6",
+      "url": "https://codeload.github.com/nitely/nim-regex/tar.gz/v0.26.3",
+      "version": "v0.26.3"
+    },
+    "sat.tar.gz": {
+      "nim_path": "src",
+      "sha256": "dfb90aa7fa629bb7bd395ae041410362439492600d06978d29ba726c16ef4077",
+      "url": "https://codeload.github.com/nim-lang/sat/tar.gz/faf1617f44d7632ee9601ebc13887644925dcc01",
+      "version": "faf1617f44d7632ee9601ebc13887644925dcc01"
+    },
+    "testlib.h": {
+      "sha256": "bb323e3c89285214966076e0d23d5a295c5f6126da7ff198c1276ddb95ecb1a0",
+      "url": "https://raw.githubusercontent.com/MikeMirzayanov/testlib/1e4e8a24c79c6bad3becbdb5a332ffc352b7d5dd/testlib.h",
+      "version": "1e4e8a24c79c6bad3becbdb5a332ffc352b7d5dd"
+    }
+  }
+}

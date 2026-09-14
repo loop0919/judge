@@ -1,9 +1,9 @@
 # ADR 0010: testlibとC#、Java 25、Nim、Goを採点環境へ追加する
 
-- 状態：Proposed
+- 状態：Accepted
 - 提案日：2026-09-14
 - 変更対象：ADR 0007の言語とライブラリの範囲、ADR 0008と0009の判定プロトコル、ADR 0009のJava公開保留方針
-- 範囲：設計と実装計画。構築、実機検証、公開は未実施
+- 範囲：実装と配布。本番公開は実機smokeと受付再開をもって完了する
 
 ## 背景
 
@@ -15,7 +15,7 @@ Java 24は保守状況を理由に公開を保留している。
 Nimの要求には、現在のC++環境のACLとBoostとは異なる版が含まれる。
 Goのライブラリ名には版が記載されていないため、名前だけで再現可能な環境は決まらない。
 
-## 提案する決定
+## 決定
 
 ### 既存の配布方式と隔離を拡張する
 
@@ -99,7 +99,7 @@ Polygonのパッケージ取り込み、generator/validatorの登録方式、部
 
 ### 新言語の実行方式を固定する
 
-| 対象 | 提案する構成 | 成果物と実行 |
+| 対象 | 採用する構成 | 成果物と実行 |
 | --- | --- | --- |
 | C# | C# 14、.NET 10 LTS、MathNet.Numerics、ac-library-csharp | Roslynでコンパイルしたアセンブリを固定した.NETランタイムで実行 |
 | Java 25 | Eclipse Temurin 25、ac-library-java | `javac --release 25`でコンパイルし、既存のclass収集とJAR実行を利用 |
@@ -113,7 +113,7 @@ NuGetでビルド時に依存を解決し、コンパイル時には固定した
 成果物は提出アセンブリ1個とし、runtimeconfig、依存DLL、必要なdeps設定は運用側の固定ファイルから実行boxへ配置する。
 MathNet.Numericsはmanaged providerを初期構成とする。
 
-Javaは[Temurinのサポート方針](https://adoptium.net/support/)に従う25 LTS系列を採用候補とし、配布物の正確なパッチ版とチェックサムは実装時に固定する。
+Javaは[Temurinのサポート方針](https://adoptium.net/support/)に従う25 LTS系列を採用し、25.0.4.1+1 LTSの配布物とチェックサムを固定する。
 プレビュー機能は有効にしない。
 Java 25には既存採用版のac-library-java 2.0.0を互換性検証の出発点とする。
 今回要求されたライブラリ構成はac-library-javaだけとし、BifurcanはJava 24環境に残す。
@@ -122,8 +122,15 @@ Java 25には既存採用版のac-library-java 2.0.0を互換性検証の出発�
 Nimは`nim cpp`を使い、C++ヘッダーを参照できる構成にする。
 指定されたNim-ACLは`zer0-star/Nim-ACL`の0.1.0を対象とし、同名の別プロジェクトへ置き換えない。
 要求の版一覧は[AtCoderのNim構築定義](https://img.atcoder.jp/file/language-update/2025-10/072-2-2-0_nim.toml)と対応するが、そこでの動作実績は本サーバの資源制限下での動作保証とはしない。
-Nim 2.2系の採用パッチは指定依存との互換性を確認して固定し、試験の比較基準として2.2.4も使う。
+Nim 2.2.10を採用し、neo 0.3.5が使用する`shallowCopy`に合わせてメモリ管理を`refc`に固定する。
+Nim-GMP 0.2.7とbignum 1.0.6には、Nimのmajor versionだけでARC/ORC用destructorの型を選ぶ箇所がある。
+この条件にメモリ管理方式の確認を加え、refcでは既存の`var`引数の分岐を使う。
+修正は各1行の`judge/nim-gmp-refc.patch`と`judge/bignum-refc.patch`として保持し、指定版の取得元・SHA-256とパッチ原文を配布物へ記録する。
 要求にあるcommit固定の依存を、最新版や「安定版」という名前の別revisionへ変更しない。
+
+既存C++の再ビルドを避けるため、追加配布物は検証済みのベースアーカイブをSHA-256で確認してから拡張する。
+`judge/runtime-extension.Dockerfile`はそのベースを展開し、追加分だけを構築する。
+既存GCC、Clang、ACL、Boostはそのバイナリとファイルを引き継ぎ、C++の共有includeには`testlib.h`だけを追加する。
 
 Goは運用側の`go.mod`、`go.sum`、vendorツリーを提供し、`go build -mod=vendor`でコンパイルする。
 `GOTOOLCHAIN=local`と`GOPROXY=off`を指定し、外部からのtoolchainやモジュールの取得を防ぐ。
@@ -213,5 +220,5 @@ VM内のメモリ例外とcgroup OOMは既存の判定規則で区別する。
 配布物には各依存のライセンス情報も保存する。
 
 採用パッチ版、未指定のライブラリ版、Nimの推移的依存、用途別VM設定は実装開始時の互換性試験で確定する。
-testlibは上記のcheckerと自己完結するinteractorに対応する方針を、2026-09-14のユーザーの追加要望に基づいて提案する。
+testlibは上記のcheckerと自己完結するinteractorに対応する方針を、2026-09-14のユーザーの追加要望に基づいて決定した。
 本ADRの承認と実機smokeの成功は別の条件であり、この文書の追加だけでは本番の受付対象は変わらない。

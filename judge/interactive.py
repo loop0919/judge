@@ -26,7 +26,7 @@ def failure(metrics):
     return None
 
 
-def relay(processes, observe, wall, diagnostic):
+def relay(processes, observe, wall, diagnostic, protocol='legacy'):
     """observe returns completed metrics or an early output-limit observation."""
     buffers = [bytearray(), bytearray()]
     totals = [0, 0]
@@ -45,7 +45,7 @@ def relay(processes, observe, wall, diagnostic):
         if errors[0]:
             return errors[0]
         if errors[1] == 'RE':
-            return 'WA'
+            return sandbox.judge_verdict(metrics[1], protocol)
         if wall_expired or time.monotonic() >= deadline:
             diagnostic('対話全体の経過時間超過（応答待ちを含む）\n')
             return 'TLE'
@@ -103,7 +103,8 @@ def execute(job, case, artifact, diagnostic):
             files = None if i == 0 else {'test-input': case['input'].encode(),
                                         'expected-output': case['output'].encode(),
                                         'submission-source': job['source'].encode()}
-            command = sandbox.prepare_program(box, RUNTIMES[name], binary, files)
+            command = sandbox.prepare_program(box, RUNTIMES[name], binary, files,
+                                              protocol=job['interactor'].get('protocol', 'legacy') if i else 'legacy', interactive=True)
             if i == 1 and RUNTIMES[name]['artifact'] == 'java':
                 command = ['-Xmx128m' if arg == '-Xmx256m' else arg for arg in command]
             args = sandbox.run_args(name, job['timeLimitMs'] / 1000 if i == 0 else 5,
@@ -133,7 +134,7 @@ def execute(job, case, artifact, diagnostic):
                 return dict(status='', exitCode=0, signal=0, oom=False, overflow=True)
             return None
 
-        verdict = relay(processes, observe, wall, diagnostic)
+        verdict = relay(processes, observe, wall, diagnostic, job['interactor'].get('protocol', 'legacy'))
         # Capture natural exits before signalling the still-running peer.
         observed = [observe(i) for i in range(2)]
         for i, process in enumerate(processes):
@@ -144,6 +145,8 @@ def execute(job, case, artifact, diagnostic):
         if observed[0] is None or 'cpuTimeMs' not in observed[0]:
             observed[0] = sandbox.metadata(metas[0].read_text())
         diagnostic('対話判定: ' + verdict + '\nジャッジ標準エラー:\n' + stderr[1][:65536].decode(errors='replace') + '\n')
+        if job['interactor'].get('protocol') == 'testlib' and observed[1] and observed[1]['exitCode'] == 7:
+            diagnostic('testlibの部分点（_points）は未対応です。\n')
         return dict(verdict=verdict, **{key: observed[0][key] for key in ('cpuTimeMs', 'wallTimeMs', 'memoryBytes')})
     finally:
         for process in processes:

@@ -22,6 +22,27 @@ TerraformのplanでDB、ジョブ用S3、キューが削除対象に含まれな
 
 ## ランタイム配布物の構築
 
+ADR 0010の追加環境は、既存の検証済みアーカイブを拡張する。
+ベースの`judge/.build/runtime.tar.gz`は上書きせず、追加版を別のファイル名で保存する。
+ベースのSHA-256は`runtime-extension.Dockerfile`で検証する。
+追加依存の固定値と互換パッチは[実装計画](runtime-extension-plan.md)を参照する。
+
+```sh
+python3 judge/prepare-runtime-inputs.py --extensions
+docker build -f judge/runtime-extension.Dockerfile -t openoj-runtime:adr0010 judge
+docker create --name openoj-runtime-export openoj-runtime:adr0010
+docker cp openoj-runtime-export:/runtime.tar.gz judge/.build/runtime-adr0010.tar.gz
+docker rm openoj-runtime-export
+bash judge/build-assets.sh
+```
+
+`build-assets.sh`は追加版を既定で使う。
+旧版を復元する場合は`RUNTIME_ARCHIVE=.build/runtime.tar.gz`を明示する。
+変更前後のruntime treeを比較し、既存C++のコンパイラとライブラリの実体が変わっていないことを確認する。
+インストーラーは追加版を一時ディレクトリへ展開してから切り替え、旧ツリーを`/opt/judge-runtimes.previous-旧アーカイブSHA256`へ退避する。
+この退避だけではOSと制御コードを復元できないため、切り替え前のホストスナップショットも保持する。
+以下は旧版そのものを再構築する手順であり、ADR 0010の追加時には再実行しない。
+
 ビルドにはUbuntu 24.04 x86_64のDocker環境と、配布物を展開できるディスク容量を用意する。
 コンパイラのビルドは2 GBのworker上では実行しない。
 取得元とSHA-256は`judge/runtime-sources.lock.json`、Rustの推移的依存は`judge/rust-Cargo.lock`へ固定している。
@@ -35,7 +56,7 @@ docker create --name openoj-runtime-export openoj-runtime:adr0007
 docker cp openoj-runtime-export:/runtime.tar.gz judge/.build/runtime.tar.gz
 docker rm openoj-runtime-export
 make -C api package package-judge
-bash judge/build-assets.sh
+RUNTIME_ARCHIVE=.build/runtime.tar.gz bash judge/build-assets.sh
 ```
 
 `runtime.tar.gz`にはC23のGCC版とClang版、C++23のGCC版とClang版、CPython、PyPy、Codon、Rust、Javaを含める。

@@ -110,7 +110,7 @@ func Judge(ctx context.Context, source string, job Job) Result {
 	if job.Interactor != nil {
 		return Result{Verdict: "JE", Total: len(job.Cases), CheckerLog: "対話形式はisolateワーカーで実行してください。"}
 	}
-	if job.Checker != nil && (job.Checker.Runtime != "cpp17" || strings.TrimSpace(job.Checker.Source) == "" || len(job.Checker.Source) > 65536 || !utf8.ValidString(job.Checker.Source) || strings.ContainsRune(job.Checker.Source, 0) || job.Generate || job.Validate) {
+	if job.Checker != nil && (job.Checker.Runtime != "cpp17" || !job.Checker.ValidJudgeProtocol() || strings.TrimSpace(job.Checker.Source) == "" || len(job.Checker.Source) > 65536 || !utf8.ValidString(job.Checker.Source) || strings.ContainsRune(job.Checker.Source, 0) || job.Generate || job.Validate) {
 		return r
 	}
 	if len(job.Cases) == 0 || job.TimeLimitMS < 100 || job.TimeLimitMS > 5000 || job.TimeLimitMS%100 != 0 || len(job.Cases) > 100 || job.MemoryLimitMB < 64 || job.MemoryLimitMB > 1024 || !strings.HasPrefix(job.Image, "sha256:") {

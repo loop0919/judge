@@ -306,13 +306,13 @@ func validDraft(d problems.Draft) bool {
 		for _, r := range submissions.Runtimes {
 			known = known || r.ID == code.Runtime
 		}
-		if !known || len(code.Source) > 65536 || !utf8.ValidString(code.Source) || strings.ContainsRune(code.Source, 0) {
+		if !known || !code.ValidJudgeProtocol() || len(code.Source) > 65536 || !utf8.ValidString(code.Source) || strings.ContainsRune(code.Source, 0) {
 			return false
 		}
 	}
 	if d.Generators != nil {
 		for _, g := range []problems.Generator{d.Generators.Input, d.Generators.Output, d.Generators.Validation} {
-			if len(g.Runtime) > 64 || len(g.Source) > 65536 || !utf8.ValidString(g.Source) || strings.ContainsRune(g.Source+g.Runtime, 0) {
+			if g.Protocol != "" || len(g.Runtime) > 64 || len(g.Source) > 65536 || !utf8.ValidString(g.Source) || strings.ContainsRune(g.Source+g.Runtime, 0) {
 				return false
 			}
 		}

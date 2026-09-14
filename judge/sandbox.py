@@ -79,12 +79,20 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
         META.unlink(missing_ok=True)
         if compile_phase:
             (box / runtime['source']).write_text(source)
+            if runtime['source'] == 'main.go':
+                for name in ('go.mod', 'go.sum'):
+                    shutil.copyfile(ROOT + '/go-deps/' + name, box / name)
+                (box / 'vendor').symlink_to(ROOT + '/go-deps/vendor')
             command = runtime['compile']
         else:
-            command = prepare_program(box, runtime, artifact, checker_files)
             data = base64.b64decode(request.get('input', ''), validate=True)
             if len(data) > 16 * 1024 * 1024:
                 raise ValueError('input limit')
+            protocol = request.get('protocol', 'legacy')
+            if checker_files is not None and protocol == 'testlib':
+                checker_files = dict(checker_files, **{'submission-output': data})
+                data = b''
+            command = prepare_program(box, runtime, artifact, checker_files, protocol=protocol)
             (box / 'input').write_bytes(data)
         args = run_args(request.get('runtime', 'cpp17-isolate'), cpu, wall, memory,
                         compile_phase=compile_phase)
@@ -106,7 +114,8 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
                 else:
                     artifact.write_bytes(binary)
                     artifact.chmod(0o500)
-            return {'compiled': success, 'compileLog': stderr[:65536].decode(errors='replace')}
+            # Roslyn writes compiler diagnostics to stdout; other compilers use stderr.
+            return {'compiled': success, 'compileLog': (stderr + stdout)[:65536].decode(errors='replace')}
         metrics.update(output=base64.b64encode(stdout[:OUTPUT_LIMIT]).decode(), overflow=overflow)
         if checker_files is not None:
             metrics['checkerLog'] = stderr[:65536].decode(errors='replace')
@@ -119,35 +128,62 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
 
 def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, interactive=False):
     # Metadata and saved artifacts remain outside the sandbox.
+    environment = list(ENVIRONMENT) + RUNTIMES[runtime].get('env', [])
+    if runtime == 'csharp14-isolate':
+        environment.append('DOTNET_GCHeapHardLimit=' + hex((512 if compile_phase else 128 if memory == 256 else 192) * 1024 * 1024))
+    if runtime == 'go127-isolate':
+        environment.append('GOMEMLIMIT=' + ('160MiB' if memory == 256 else '384MiB'))
     return [f'--meta={META if meta is None else meta}', f'--time={cpu}', f'--wall-time={wall}',
             f'--cg-mem={memory * 1024}', '--processes=32' if interactive else '--processes=64',
             '--open-files=64', '--fsize=32768' if compile_phase else '--fsize=16384',
             *([] if interactive else ['--stdout=stdout']), '--stderr=stderr',
             '--env=PATH=/usr/bin:/bin', '--dir=/etc=/opt/judge/sandbox-etc',
             *(['--dir=' + ROOT] if runtime != 'cpp17-isolate' else []),
-            *['--env=' + value for value in ENVIRONMENT], '--run']
+            *['--env=' + value for value in environment], '--run']
 
 
-def prepare_program(box, runtime, artifact, files=None):
-    shutil.copyfile(artifact, box / 'main')
-    (box / 'main').chmod(0o555)
+def prepare_program(box, runtime, artifact, files=None, *, protocol='legacy', interactive=False):
+    program = 'main.dll' if runtime['artifact'] == 'dotnet' else 'main'
+    shutil.copyfile(artifact, box / program)
+    (box / program).chmod(0o555)
+    for name in runtime.get('files', []):
+        shutil.copyfile(ROOT + '/dotnet-libs/' + name, box / name)
+        (box / name).chmod(0o444)
     command = list(runtime['run'])
     if files is not None:
-        for name in ('test-input', 'expected-output', 'submission-source'):
+        names = ('test-input', 'expected-output') if protocol == 'testlib' else ('test-input', 'expected-output', 'submission-source')
+        for name in names:
             (box / name).write_bytes(files[name])
-        (box / 'score').write_bytes(b'')
-        (box / 'score').chmod(0o666)
-        command += ['/box/test-input', '/box/expected-output', '/box/submission-source', '/box/score']
+            (box / name).chmod(0o444)
+        if protocol == 'testlib':
+            output = 'test-output' if interactive else 'submission-output'
+            (box / output).write_bytes(b'' if interactive else files['submission-output'])
+            (box / output).chmod(0o666 if interactive else 0o444)
+            command += ['/box/test-input', '/box/' + output, '/box/expected-output']
+        else:
+            (box / 'score').write_bytes(b'')
+            (box / 'score').chmod(0o666)
+            command += ['/box/test-input', '/box/expected-output', '/box/submission-source', '/box/score']
         if runtime['artifact'] == 'java':
             command.insert(1, '-ea')
     return command
+
+
+def judge_verdict(metrics, protocol='legacy'):
+    if metrics['overflow'] or metrics['oom'] or metrics['status'] == 'TO':
+        return 'JE'
+    if protocol == 'testlib':
+        if metrics['signal'] or metrics['status'] not in ('', 'RE'):
+            return 'JE'
+        return {0: 'AC', 1: 'WA', 2: 'WA', 4: 'WA', 8: 'WA'}.get(metrics['exitCode'], 'JE')
+    return 'WA' if metrics['status'] or metrics['exitCode'] or metrics['signal'] else 'AC'
 
 
 def collect_artifact(box, runtime):
     if runtime['artifact'] == 'source':
         return regular_read(box / runtime['source'], 65536)
     if runtime['artifact'] != 'java':
-        return regular_read(box / 'main', 32 * 1024 * 1024)
+        return regular_read(box / ('main.dll' if runtime['artifact'] == 'dotnet' else 'main'), 32 * 1024 * 1024)
     # Build a jar ourselves; never execute a submission-supplied packager or
     # traverse symlinked directories while reading javac output as root.
     output = io.BytesIO()

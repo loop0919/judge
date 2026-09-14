@@ -679,7 +679,41 @@ func TestSubmissionsPostgres(t *testing.T) {
 	if _, err = queue.CreateRuntime(ctx, "alice", "99999999-9999-4999-8999-999999999999", interactiveID, "source", image, "cpp17-local", "python314"); !errors.Is(err, submissions.ErrNotReady) {
 		t.Fatal("local worker accepted interactive job", err)
 	}
-
+	t.Run("testlib protocol is pinned with judge source", func(t *testing.T) {
+		h = newHandler(AuthConfig{}, PrivateProblems{Store: store, Submissions: queue, JudgeImage: image, JudgeRuntime: "cpp17-isolate", JudgeEnabledRuntimes: "cpp23-gcc", Verifier: newCognitoVerifier(f.server.URL, "client")})
+		for index, field := range []string{"checker", "interactor"} {
+			pid := fmt.Sprintf("aaaaaaaa-aaaa-4aaa-8aaa-%012d", index)
+			code := &problems.Generator{Runtime: "cpp23-gcc", Source: "testlib-original", Protocol: "testlib"}
+			d := problems.Draft{Title: "Protocol snapshot", Markdown: "Check", TimeLimitMS: "1000", MemoryLimitMB: "512", TestCases: []problems.TestCase{{Input: "3", Output: "3"}}}
+			if field == "checker" {
+				d.Checker = code
+			} else {
+				d.Interactor = code
+			}
+			payload, _ := json.Marshal(map[string]any{"version": 0, "draft": d})
+			request("PUT", "/my/problems/"+pid, "alice", string(payload), 200)
+			var published problems.Problem
+			if err := json.Unmarshal([]byte(request("PUT", "/my/problems/"+pid+"/publication", "alice", `{"version":1,"publish":true}`, 200)), &published); err != nil {
+				t.Fatal(err)
+			}
+			var submission submissions.Submission
+			body := fmt.Sprintf(`{"problemId":%q,"runtime":"cpp23-gcc","source":"int main(){}"}`, pid)
+			if err := json.Unmarshal([]byte(request("POST", "/my/submissions", "bob", body, 202)), &submission); err != nil {
+				t.Fatal(err)
+			}
+			code.Protocol, code.Source = "legacy", "edited-legacy"
+			payload, _ = json.Marshal(map[string]any{"version": published.Version, "draft": d})
+			request("PUT", "/my/problems/"+pid, "alice", string(payload), 200)
+			var raw []byte
+			if err := store.Pool().QueryRow(ctx, `SELECT job->$2 FROM submissions WHERE id=$1`, submission.ID, field).Scan(&raw); err != nil {
+				t.Fatal(err)
+			}
+			var pinned problems.Generator
+			if json.Unmarshal(raw, &pinned) != nil || pinned.Protocol != "testlib" || pinned.Source != "testlib-original" {
+				t.Fatalf("judge protocol snapshot changed: %s", raw)
+			}
+		}
+	})
 }
 
 func TestCheckerDraftValidation(t *testing.T) {
@@ -707,5 +741,27 @@ func TestConflictingJudgeModes(t *testing.T) {
 	code := &problems.Generator{Runtime: "python314", Source: "print(1)"}
 	if validDraft(problems.Draft{TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: code, Interactor: code}) {
 		t.Fatal("accepted two judge modes")
+	}
+}
+
+func TestJudgeProtocolsAreExplicitAndBoundToSupportedRuntimes(t *testing.T) {
+	for _, tc := range []struct {
+		runtime, protocol string
+		valid             bool
+	}{
+		{"cpp23-gcc", "testlib", true}, {"cpp23-clang", "testlib", true},
+		{"cpp17", "", true}, {"python314", "legacy", true},
+		{"python314", "testlib", false}, {"cpp23-gcc", "guess", false},
+	} {
+		code := &problems.Generator{Runtime: tc.runtime, Protocol: tc.protocol, Source: "code"}
+		for _, interactive := range []bool{false, true} {
+			d := problems.Draft{TimeLimitMS: "1000", MemoryLimitMB: "512", Checker: code}
+			if interactive {
+				d.Checker, d.Interactor = nil, code
+			}
+			if validDraft(d) != tc.valid {
+				t.Fatalf("%+v interactive=%v", tc, interactive)
+			}
+		}
 	}
 }

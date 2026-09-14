@@ -11,7 +11,7 @@ import interactive
 
 
 class InteractiveTests(unittest.TestCase):
-    def run_pair(self, source, interactor, wall=3, statuses=None):
+    def run_pair(self, source, interactor, wall=3, statuses=None, protocol='legacy'):
         processes = [subprocess.Popen([sys.executable, '-c', code], stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
                      for code in (source, interactor)]
@@ -23,7 +23,7 @@ class InteractiveTests(unittest.TestCase):
             return dict(status='' if code == 0 else 'RE', exitCode=max(0, code),
                         signal=max(0, -code), overflow=False, oom=False) | (statuses or {}).get(i, {})
         try:
-            return interactive.relay(processes, observe, wall, log.append), ''.join(log)
+            return interactive.relay(processes, observe, wall, log.append, protocol), ''.join(log)
         finally:
             for p in processes:
                 if p.poll() is None:
@@ -53,6 +53,13 @@ class InteractiveTests(unittest.TestCase):
         self.assertLess(time.monotonic()-start, 1)
         result, _ = self.run_pair('raise Exception()', 'import time; time.sleep(10)')
         self.assertEqual(result, 'RE')
+
+    def test_testlib_failure_is_je_without_blaming_the_stopped_peer(self):
+        for code, expected in [(1, 'WA'), (2, 'WA'), (3, 'JE'), (7, 'JE'), (8, 'WA')]:
+            result, _ = self.run_pair('import time; time.sleep(10)', f'raise SystemExit({code})', protocol='testlib')
+            self.assertEqual(result, expected)
+        result, _ = self.run_pair('import time; time.sleep(10)', 'import os,signal; os.kill(os.getpid(),signal.SIGABRT)', protocol='testlib')
+        self.assertEqual(result, 'JE')
 
     def test_acceptance_requires_submission_exit_and_waits_have_shared_deadline(self):
         for interactor in ('pass', 'input()'):

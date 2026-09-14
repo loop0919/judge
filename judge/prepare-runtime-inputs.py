@@ -61,13 +61,22 @@ def download(item):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lock', action='store_true', help='Resolve and pin upstream inputs for a new runtime')
+    parser.add_argument('--extensions', action='store_true', help='Verify and download ADR 0010 inputs')
     args = parser.parse_args()
+    if args.extensions:
+        if args.lock:
+            parser.error('extension versions must be selected and pinned explicitly')
+        LOCK = HERE / 'runtime-extension-sources.lock.json'
+        DEST = HERE / '.build/extension-inputs'
     manifest = sources() if args.lock else json.loads(LOCK.read_text())
+    if not args.lock and any(len(entry.get('sha256', '')) != 64 for entry in manifest['files'].values()):
+        parser.error('every locked input must have a SHA-256 checksum')
     DEST.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         manifest['files'] = dict(executor.map(download, manifest['files'].items()))
     if args.lock:
         LOCK.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
     (DEST / 'sources.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
-    (DEST / 'requirements.txt').write_text(''.join(f'{name}=={version}\n' for name, version in manifest['python_packages'].items()))
+    if 'python_packages' in manifest:
+        (DEST / 'requirements.txt').write_text(''.join(f'{name}=={version}\n' for name, version in manifest['python_packages'].items()))
     print('All runtime inputs verified.', flush=True)

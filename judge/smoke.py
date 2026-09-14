@@ -63,7 +63,10 @@ with slot():
                 continue
             assertion = ('#include <assert.h>\nint main(){assert(0);}' if name.startswith(('cpp', 'c23')) else
                          'fn main(){assert!(false);}' if name == 'rust2024-isolate' else
-                         'public class Main { public static void main(String[] args){assert false;} }' if name == 'java24-isolate' else
+                         'public class Main { public static void main(String[] args){assert false;} }' if name.startswith('java') else
+                         'class Program { static void Main(){throw new System.Exception();} }' if name.startswith('csharp') else
+                         'package main\nfunc main(){panic("rejected")}' if name.startswith('go') else
+                         'doAssert false' if name.startswith('nim') else
                          'assert False')
             job['checker'] = dict(runtime=name.removesuffix('-isolate'), source=assertion)
             result = judge(job, runtime)
@@ -98,9 +101,16 @@ int main(int argc,char** argv){
                 continue
             passed.append(name)
             print(name, 'checker OK', flush=True)
-    if not failed:
-        import interactive_smoke
-        interactive_smoke.run(runtime, requested, fixtures, judge)
+    import interactive_smoke
+    try:
+        interactive_smoke.run(runtime, passed, fixtures, judge)
+        import testlib_smoke
+        testlib_smoke.run(runtime, passed, judge)
+    except Exception as error:
+        # An incomplete role/isolation test can never authorize publication.
+        print('judge role smoke FAILED', repr(error), flush=True)
+        failed.extend(passed)
+        passed = []
     print(json.dumps({'runtimeDigest': runtime, 'passedRuntimes': passed, 'failedRuntimes': failed}), flush=True)
     if failed:
         raise SystemExit(1)
