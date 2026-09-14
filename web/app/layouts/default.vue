@@ -3,8 +3,9 @@ const route = useRoute()
 const { data: judgeCatalog, error: judgeCatalogError, refresh: refreshJudge } = await useJudgeCatalog()
 let judgeTimer: ReturnType<typeof setInterval> | undefined
 function refreshVisibleJudge() { if (document.visibilityState === 'visible') void refreshJudge() }
+// A refresh during hydration reuses Nuxt's server payload.
+onNuxtReady(refreshVisibleJudge)
 onMounted(() => {
-  refreshVisibleJudge()
   judgeTimer = setInterval(refreshVisibleJudge, 30_000)
   document.addEventListener('visibilitychange', refreshVisibleJudge)
 })

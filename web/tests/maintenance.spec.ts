@@ -43,9 +43,8 @@ test('a maintenance rejection refreshes the banner without discarding input', as
 
 test('the banner remains visible in the mobile editor while drafts can still be edited', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/problems/new?fresh=1')
   await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [], maintenance: true } }))
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await page.goto('/problems/new?fresh=1')
   await expect(page.locator('.judge-banner')).toHaveText(message)
   const bounds = await page.locator('.judge-banner').boundingBox()
   expect(bounds?.y).toBe(0)
