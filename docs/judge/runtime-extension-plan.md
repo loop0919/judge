@@ -92,6 +92,7 @@ neoとbignumを同時に使用できるよう、Nim-GMPとbignumのdestructor分
 保証するサブパッケージを一覧化し、vendoringで漏れたものがないことを確認する。
 
 提出用の`main.go`と固定の`go.mod`、`go.sum`をboxへ置き、vendorは読み取り専用で参照する。
+isolateは起動時にbox内のシンボリックリンクを削除するため、vendorはGoのコンパイル時だけ`/box/vendor`へ読み取り専用でbind mountする。
 `GOWORK=off`、`GOTOOLCHAIN=local`、`GOPROXY=off`、`CGO_ENABLED=0`を固定する。
 初期のビルド並列度は`-p=1`、実行時は`GOMAXPROCS=1`とする。
 `GOCACHE`と一時ファイルはbox内へ置き、共有の書き込み可能なキャッシュを作らない。

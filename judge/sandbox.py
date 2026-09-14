@@ -82,7 +82,7 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
             if runtime['source'] == 'main.go':
                 for name in ('go.mod', 'go.sum'):
                     shutil.copyfile(ROOT + '/go-deps/' + name, box / name)
-                (box / 'vendor').symlink_to(ROOT + '/go-deps/vendor')
+                (box / 'vendor').mkdir()
             command = runtime['compile']
         else:
             data = base64.b64decode(request.get('input', ''), validate=True)
@@ -143,6 +143,9 @@ def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, inte
             *([] if interactive else ['--stdout=stdout']), '--stderr=stderr',
             '--env=PATH=/usr/bin:/bin', '--dir=/etc=/opt/judge/sandbox-etc',
             *(['--dir=' + ROOT] if runtime != 'cpp17-isolate' else []),
+            # isolate removes symlinks from /box before running the compiler.
+            *(['--dir=/box/vendor=' + ROOT + '/go-deps/vendor']
+              if compile_phase and runtime == 'go127-isolate' else []),
             *['--env=' + value for value in environment], '--run']
 
 
