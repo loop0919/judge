@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -44,7 +45,11 @@ func TestRuntimeCatalogFollowsAdmissionConfiguration(t *testing.T) {
 		if strings.Contains(r.Body.String(), "java24") {
 			t.Fatal("unverified runtime published")
 		}
-		if enabled == "none" && strings.TrimSpace(r.Body.String()) != "{\"items\":[]}" {
+		var response struct {
+			Items       []submissions.Runtime
+			Maintenance bool
+		}
+		if err := json.Unmarshal(r.Body.Bytes(), &response); err != nil || response.Maintenance != (enabled == "none") || (enabled == "none" && len(response.Items) != 0) {
 			t.Fatal(r.Body.String())
 		}
 		if strings.Contains(r.Body.String(), "c23-gcc") != (enabled == "cpp17,c23-gcc") {
@@ -54,5 +59,27 @@ func TestRuntimeCatalogFollowsAdmissionConfiguration(t *testing.T) {
 	p.JudgeImage = ""
 	if len(p.availableRuntimes()) != 0 {
 		t.Fatal("disabled judge advertised runtimes")
+	}
+}
+
+func TestMaintenanceRejectsAllJudgeRequestsBeforeCreatingJobs(t *testing.T) {
+	p := PrivateProblems{JudgeEnabledRuntimes: "none", Submissions: &submissions.Store{}}
+	// admission --pause also clears the digest. Maintenance must take priority.
+	for _, body := range []string{
+		`{"source":"normal"}`, `{"contestId":"contest"}`, `{"easyTest":true}`,
+		`{"generation":{"mode":"input"}}`, `{"generation":{"mode":"output"}}`, `{"generation":{"mode":"validation"}}`,
+	} {
+		w := httptest.NewRecorder()
+		p.submission(w, httptest.NewRequest("POST", "/my/submissions", strings.NewReader(body)), "alice")
+		if w.Code != 503 || !strings.Contains(w.Body.String(), "judge_maintenance") {
+			t.Fatalf("%s: %d %s", body, w.Code, w.Body.String())
+		}
+	}
+	// An unavailable configuration is not announced as planned maintenance.
+	p.JudgeEnabledRuntimes = ""
+	w := httptest.NewRecorder()
+	p.runtimes(w, httptest.NewRequest("GET", "/runtimes", nil))
+	if strings.Contains(w.Body.String(), `"maintenance":true`) {
+		t.Fatal(w.Body.String())
 	}
 }

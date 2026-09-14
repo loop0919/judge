@@ -6,8 +6,8 @@ const { user } = useAccount()
 const sampleHelpId = useId()
 const source = ref('')
 const runtime = ref('cpp17')
-const { data: catalog, error: catalogError } = await useFetch('/api/runtimes')
-const available = computed(() => catalog.value?.items ?? [])
+const { data: catalog, error: catalogError, refresh: refreshCatalog } = await useJudgeCatalog()
+const available = computed(() => catalogError.value || catalog.value?.maintenance ? [] : catalog.value?.items ?? [])
 const runtimeStorageKey = 'openoj.submission-runtime'
 onMounted(() => {
   try {
@@ -62,7 +62,8 @@ async function submit(easyTest = false) {
   } catch (error) {
     const failure = error as { statusCode?: number, data?: { data?: { code?: string, retryAfter?: number } } }
     const code = failure.data?.data?.code
-    if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
+    if (code === 'judge_maintenance') { message.value = judgeMaintenanceMessage; await refreshCatalog() }
+    else if (failure.statusCode === 401) message.value = '提出するにはログインしてください。入力したコードはこの画面に残っています。'
     else if (code === 'submission_rate_limited') message.value = failure.data?.data?.retryAfter
       ? `提出頻度制限に到達しました。${failure.data.data.retryAfter}秒後に再度試してください。`
       : '提出頻度制限に到達しました。しばらく待ってから再度試してください。'

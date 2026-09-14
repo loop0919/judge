@@ -64,8 +64,8 @@
 /* Viewport workspace: only the document panes scroll. */
 .site-header { flex-wrap: wrap; padding-block: 12px; row-gap: 4px; }
 .site-header nav { width: 100%; }
-.site-shell--editor { max-width: none; padding: 0; height: 100dvh; overflow: clip; }
-.site-shell--editor > main { height: 100%; min-height: 0; }
+.site-shell--editor { max-width: none; padding: 0; height: 100dvh; overflow: clip; display: flex; flex-direction: column; }
+.site-shell--editor > main { flex: 1; min-height: 0; }
 .site-shell--editor .author-page { height: 100%; min-height: 0; padding: 0; display: flex; flex-direction: column; }
 .editor-topbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 4px 12px; border-bottom: 1px solid var(--color-line); flex-shrink: 0; }
 .editor-topbar .wordmark { font-size: 1.125rem; }

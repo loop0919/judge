@@ -51,6 +51,10 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 		writeAuthJSON(w, 200, item)
 		return
 	}
+	if p.judgeMaintenance() {
+		authError(w, http.StatusServiceUnavailable, "judge_maintenance")
+		return
+	}
 	if !strings.HasPrefix(p.JudgeImage, "sha256:") || len(p.JudgeImage) != 71 {
 		authError(w, 503, "judging_unavailable")
 		return
@@ -190,6 +194,9 @@ func (p PrivateProblems) submission(w http.ResponseWriter, r *http.Request, owne
 }
 
 func (p PrivateProblems) availableRuntimes() []submissions.Runtime {
+	if p.judgeMaintenance() {
+		return []submissions.Runtime{}
+	}
 	if !strings.HasPrefix(p.JudgeImage, "sha256:") || len(p.JudgeImage) != 71 {
 		return []submissions.Runtime{}
 	}
@@ -202,9 +209,13 @@ func (p PrivateProblems) availableRuntimes() []submissions.Runtime {
 	return submissions.PublishedRuntimes(p.JudgeEnabledRuntimes)
 }
 
+func (p PrivateProblems) judgeMaintenance() bool {
+	return strings.TrimSpace(p.JudgeEnabledRuntimes) == "none"
+}
+
 func (p PrivateProblems) runtimes(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	writeAuthJSON(w, 200, map[string]any{"items": p.availableRuntimes()})
+	writeAuthJSON(w, 200, map[string]any{"items": p.availableRuntimes(), "maintenance": p.judgeMaintenance()})
 }
 
 func newSubmissionID() string {

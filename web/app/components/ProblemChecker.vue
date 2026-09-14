@@ -4,8 +4,8 @@ import type { ProblemDraft } from '~/utils/problem-draft'
 const checker = defineModel<ProblemDraft['checker']>({ required: true })
 const interactor = defineModel<ProblemDraft['interactor']>('interactor', { required: true })
 defineProps<{ disabled: boolean, problemId: string, published: boolean, save: () => Promise<boolean> }>()
-const { data: catalog } = useFetch('/api/runtimes')
-const available = computed(() => catalog.value?.items ?? [])
+const { data: catalog, error: catalogError } = useJudgeCatalog()
+const available = computed(() => catalogError.value || catalog.value?.maintenance ? [] : catalog.value?.items ?? [])
 let previousCode: ProblemDraft['checker'] = null
 const method = computed({
   get: () => interactor.value ? 'interactive' : checker.value ? 'special' : 'normal',

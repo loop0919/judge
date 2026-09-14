@@ -1,5 +1,17 @@
 <script setup lang="ts">
 const route = useRoute()
+const { data: judgeCatalog, error: judgeCatalogError, refresh: refreshJudge } = await useJudgeCatalog()
+let judgeTimer: ReturnType<typeof setInterval> | undefined
+function refreshVisibleJudge() { if (document.visibilityState === 'visible') void refreshJudge() }
+onMounted(() => {
+  judgeTimer = setInterval(refreshVisibleJudge, 30_000)
+  document.addEventListener('visibilitychange', refreshVisibleJudge)
+})
+onBeforeUnmount(() => {
+  clearInterval(judgeTimer)
+  document.removeEventListener('visibilitychange', refreshVisibleJudge)
+})
+watch(() => route.fullPath, () => { void refreshJudge() })
 const createMenu = ref<HTMLDetailsElement>()
 function closeCreateMenu() { if (createMenu.value) createMenu.value.open = false }
 function onOutsideClick(event: MouseEvent) {
@@ -15,6 +27,9 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
 <template>
   <div class="site-shell" :class="{ 'site-shell--editor': route.meta.editorLayout }">
     <a class="skip-link" href="#main">本文へ移動</a>
+    <div v-if="judgeCatalog?.maintenance || judgeCatalogError" class="judge-banner" role="status">
+      {{ judgeCatalog?.maintenance ? judgeMaintenanceMessage : 'ジャッジ機能の状態を確認できません。現在、提出等を利用できません。' }}
+    </div>
     <header v-if="!route.meta.editorLayout" class="site-header">
       <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-beta">(β)</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
@@ -43,6 +58,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
 </template>
 
 <style scoped>
+.judge-banner { flex-shrink: 0; padding: 12px 16px; background: var(--color-surface); color: var(--color-ink); border-bottom: 2px solid var(--color-accent); font-size: .875rem; overflow-wrap: anywhere; }
 .account-nav { min-width: 44px; min-height: 44px; justify-content: center; }
 .site-header nav { position: relative; }
 .create-menu { font-size: .875rem; }

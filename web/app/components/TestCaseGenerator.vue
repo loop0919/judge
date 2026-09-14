@@ -14,8 +14,8 @@ const message = ref('')
 const failure = ref('')
 const validationResults = ref<{ name: string, verdict: string }[]>([])
 const modeLabel = computed(() => ({ input: '入力生成', output: '出力生成', validation: '入力検証' })[mode.value])
-const { data: catalog } = useFetch('/api/runtimes')
-const available = computed(() => catalog.value?.items ?? [])
+const { data: catalog, error: catalogError, refresh: refreshCatalog } = useJudgeCatalog()
+const available = computed(() => catalogError.value || catalog.value?.maintenance ? [] : catalog.value?.items ?? [])
 const program = computed(() => config.value[mode.value])
 watch([mode, start, count, () => JSON.stringify(program.value), () => JSON.stringify(persistedDraft({ testCases: cases.value }))], () => {
   if (validationResults.value.length) { validationResults.value = []; message.value = '' }
@@ -25,7 +25,7 @@ onBeforeUnmount(() => { disposed = true })
 watch(mode, () => { start.value = 1; count.value = 1; failure.value = ''; message.value = '' })
 
 async function generate() {
-  if (busy.value || props.disabled) return
+  if (busy.value || props.disabled || !available.value.length) return
   failure.value = ''
   message.value = ''
   validationResults.value = []
@@ -112,7 +112,8 @@ async function generate() {
   } catch (error) {
     message.value = ''
     const detail = (error as { data?: { data?: { code?: string, retryAfter?: number } } }).data?.data
-    if (detail?.code === 'submission_rate_limited') {
+    if (detail?.code === 'judge_maintenance') { failure.value = judgeMaintenanceMessage; await refreshCatalog() }
+    else if (detail?.code === 'submission_rate_limited') {
       failure.value = detail.retryAfter
         ? `提出頻度制限に到達しました。${detail.retryAfter}秒後に再度試してください。`
         : '提出頻度制限に到達しました。しばらく待ってから再度試してください。'
