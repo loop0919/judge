@@ -80,6 +80,10 @@ cold cacheで全6モジュールの代表操作がコンパイル上限に収ま
 
 ## 変更箇所と完了条件
 
+C++は既存の`cpp23-gcc`と`cpp23-clang`の構成を更新し、testlib対応用の新しい言語IDは追加しない。
+公開するC++23はtestlib対応版だけとし、新しいdigestで既存の通常提出と両方の判定形式を検証する。
+旧配布物は切り戻し用に退避するが、提出画面で選択できる別構成としては残さない。
+
 | 工程 | 主な変更先 | 完了条件 |
 | --- | --- | --- |
 | 配布物の固定 | `judge/prepare-runtime-inputs.py`、`runtime-sources.lock.json`、言語別lock | 配布元、正確な版、SHA-256、推移的依存、ライセンスを記録 |
@@ -109,6 +113,7 @@ C#、Java 25、Nim、Goの失敗例とflush付き対話例を明示的に追加�
 | C++のtestlib | GCCとClangで無修正の`registerTestlibCmd`例、空出力、形式違反、`_ok`、`_wa`、`_fail`、未対応部分点 |
 | testlibの対話 | `registerInteraction`、`inf`、`ouf`、`ans`、`tout`、flush、EOF、早期終了、出力量超過、相手の強制停止 |
 | 既存判定との共存 | protocol省略とlegacyで従来引数と非ゼロWAを維持。公開後の編集で受付済みprotocolが変わらない |
+| C++環境の上書き | 既存IDを維持し、testlibをincludeしない提出、ACL、Boostの既存fixtureが新digestで合格。testlibなし版が公開一覧に増えない |
 | C# | 標準入出力、MathNetの行列計算、ACLのDSUと区間木。Debug.Assertに依存せず明示的な失敗コードも検証 |
 | Java 25 | 標準入出力、ACLの代表操作、JAR収集、checkerのassert、用途別メモリ設定 |
 | Nim | ACL、Arraymancer、Eigen、Boost、neo、SIMD、regex、satの代表操作。各多倍長とFFTWを実際にリンクして実行 |
