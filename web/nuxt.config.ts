@@ -10,7 +10,10 @@ copyFileSync(fileURLToPath(new URL('./node_modules/@resvg/resvg-wasm/index_bg.wa
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-08',
   ssr: true,
+  // Bundle Zod for Vite SSR so Bun does not lose its named exports in dev mode.
+  vite: { ssr: { noExternal: process.env.NODE_ENV === 'development' ? ['zod'] : [] } },
   nitro: {
+    preset: 'bun',
     serveStatic: true,
     serverAssets: [{ baseName: 'resvg', dir: resvgAssets, pattern: '*.wasm' }],
     ...(process.env.OPENOJ_LAMBDA_BUILD === '1' ? { preset: 'aws-lambda', output: { dir: '.output-lambda' } } : {}),

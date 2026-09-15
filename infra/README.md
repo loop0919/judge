@@ -163,13 +163,17 @@ cat /tmp/judge-migration-result.json
 
 ## フロントエンドのデプロイ
 
-Node.js 22とPython 3を使い、NuxtのAWS Lambda用出力をzipにまとめる。
+Bun 1.3.13とPython 3を使い、NuxtのAWS Lambda用出力をzipにまとめる。
+Lambdaは`provided.al2023`のカスタムランタイムで、ZIP内の`bootstrap`がBunを起動する。
+ARM64版Bunはビルド時に公式リリースから取得し、SHA-256を検証して同梱する。
+Bunの更新時は`web/package.json`、`flake.lock`、`web/scripts/package-lambda.py`のバージョンとチェックサムを揃える。
+既存のAPI Gateway v2向けNitroハンドラーをRuntime APIアダプターから呼び出す。
 通常のローカル用ビルドは`.output/`、Lambda用は`.output-lambda/`へ出力する。
 
 ```console
-npm --prefix web ci
-npm --prefix web run package:lambda
-npm --prefix web run test:lambda
+bun install --cwd web --frozen-lockfile
+bun run --cwd web package:lambda
+bun run --cwd web test:lambda
 terraform -chdir=infra/frontend init \
   -backend-config="bucket=$JUDGE_STATE_BUCKET" \
   -backend-config="key=judge/dev/frontend.tfstate" \
@@ -178,11 +182,11 @@ export TF_VAR_api_endpoint="$(terraform -chdir=infra/api output -raw api_endpoin
 terraform -chdir=infra/frontend plan -out=deploy.tfplan
 terraform -chdir=infra/frontend apply deploy.tfplan
 terraform -chdir=infra/frontend output -raw site_url
-node web/scripts/smoke-frontend.mjs "$(terraform -chdir=infra/frontend output -raw site_url)"
+bun web/scripts/smoke-frontend.mjs "$(terraform -chdir=infra/frontend output -raw site_url)"
 ```
 
 `site_url`がブラウザーで開くHTTPS URLになる。
-Nuxt LambdaはNode.js 22、ARM64、512 MiBで動作し、HTML、JavaScript、CSS、KaTeXフォントを配信する。
+Nuxt LambdaはBun 1.3.13（`provided.al2023`）、ARM64、512 MiBで動作し、HTML、JavaScript、CSS、KaTeXフォントを配信する。
 問題ページはAPIのデータを使ってSSRし、canonical URLも公開先に合わせる。
 API接続先は入力変数で渡し、フロントエンドからAPIのstateを読み取らない。
 編集画面の下書きは引き続きブラウザー内に保存される。
@@ -229,7 +233,7 @@ APIの`api_endpoint`、`health_url`、`login_url`出力もこの独自ドメイ�
 切り替え後は次のコマンドで公開ページ、静的ファイル、API接続を確認する。
 
 ```console
-node web/scripts/smoke-frontend.mjs https://www.share-oj.net
+bun web/scripts/smoke-frontend.mjs https://www.share-oj.net
 ```
 
 2026年9月13日のInfracost解析では、ドメイン用構成の固定費は既存ホストゾーンの月$0.50で、費用とタグのポリシー違反は0件だった。

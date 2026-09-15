@@ -13,7 +13,7 @@ export default defineConfig({
       gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
     },
     {
-      command: 'node .output/server/index.mjs',
+      command: 'bun .output/server/index.mjs',
       env: { HOST: '127.0.0.1', PORT: '13002', NUXT_API_BASE_URL: 'http://127.0.0.1:18082', NUXT_PUBLIC_SITE_URL: 'http://127.0.0.1:13002', NUXT_COGNITO_DOMAIN: 'https://example.auth.ap-northeast-1.amazoncognito.com', NUXT_COGNITO_CLIENT_ID: 'browser-client', NUXT_COGNITO_CLIENT_SECRET: 'browser-secret' },
       url: 'http://127.0.0.1:13002',
     },

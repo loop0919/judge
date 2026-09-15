@@ -13,7 +13,7 @@ make dev
 ```
 
 Nix 開発環境を読み込み、フロントエンドの依存関係のインストール、Go API のビルド、ローカルPostgreSQLの準備、APIとNuxtの起動を行う。
-依存関係は初回と `web/package.json`、`web/package-lock.json`、Node.js のバージョンが変わったときにインストールする。
+依存関係は初回と `web/package.json`、`web/bun.lock`、Bun のバージョンが変わったときにインストールする。
 初回はツールと依存関係のダウンロードに時間がかかる。
 
 - ホーム: <http://localhost:3000/>
@@ -45,7 +45,7 @@ API_PORT=18080 WEB_PORT=13000 make dev
 ### 開発ツールのみを利用する場合
 
 ルートの`flake.nix`と`flake.lock`で、API、フロントエンド、infraに共通する開発ツールを管理する。
-Go、gopls、gofumpt、golangci-lint、Node.js 22（npmを含む）、PostgreSQL 17、AWS CLI、Terraform、zipを利用できる。
+Go、gopls、gofumpt、golangci-lint、Bun 1.3.13、Node.js 22（Playwright実行用）、PostgreSQL 17、AWS CLI、Terraform、zipを利用できる。
 
 リポジトリのルートで開発シェルを起動する。
 

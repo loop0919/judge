@@ -30,7 +30,8 @@
               gofumpt
               golangci-lint
               gopls
-              nodejs_22
+              bun
+              nodejs_22 # Playwright test runner; Nuxt runs on Bun.
               postgresql_17
               gnumake
               awscli2
