@@ -37,6 +37,27 @@ watch([offset, activeView, canViewSubmissions], () => { void loadSubmissions() }
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => { void loadSubmissions(); timer = setInterval(() => { if (!document.hidden) void update() }, 15000) })
 onBeforeUnmount(() => clearInterval(timer))
+function problemLabel(index: number): string {
+  return index < 26 ? String.fromCharCode(65 + index) : problemLabel(Math.floor(index / 26) - 1) + problemLabel(index % 26)
+}
+function elapsed(acceptedAt: string) { return duration(new Date(acceptedAt).getTime() - new Date(contest.value!.startsAt).getTime()) }
+const problemStats = computed(() => contest.value!.problems.map(problem => {
+  let submitted = 0
+  let accepted = 0
+  let firstAt = Infinity
+  let handles: string[] = []
+  for (const row of standings.value ?? []) {
+    const score = row.problems[problem.id]
+    if (!score) continue
+    submitted++
+    if (!score.acceptedAt) continue
+    accepted++
+    const at = new Date(score.acceptedAt).getTime()
+    if (at < firstAt) { firstAt = at; handles = [row.handle] }
+    else if (at === firstAt) handles.push(row.handle)
+  }
+  return { id: problem.id, submitted, accepted, handles, time: accepted ? duration(firstAt - new Date(contest.value!.startsAt).getTime()) : '' }
+}))
 function duration(ms: number) { const seconds = Math.floor(ms / 1000); return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` }
 useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => contest.value!.title, path: () => `/contests/${contest.value!.id}`, description: () => contest.value!.description.slice(0, 160) })
 </script>
@@ -64,7 +85,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
       <h2 id="problems-title">問題</h2>
       <p v-if="contest.status === 'scheduled'" class="notice">問題は開始時刻に公開されます。事前に閲覧できるのは作成者と、その問題のテスターです。</p>
       <div v-if="contest.problems.length" class="content-table-scroll" role="region" aria-label="コンテストの問題" tabindex="0">
-        <table class="content-table contest-problems"><thead><tr><th scope="col">#</th><th scope="col">問題</th><th scope="col">配点</th></tr></thead><tbody><tr v-for="(p, index) in contest.problems" :key="p.id"><td>{{ index + 1 }}</td><th scope="row"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ p.title }}</NuxtLink></th><td>{{ p.points }} 点</td></tr></tbody></table>
+        <table class="content-table contest-problems"><thead><tr><th scope="col">#</th><th scope="col">問題</th><th scope="col">配点</th></tr></thead><tbody><tr v-for="(p, index) in contest.problems" :key="p.id"><td>{{ problemLabel(index) }}</td><th scope="row"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ p.title }}</NuxtLink></th><td>{{ p.points }} 点</td></tr></tbody></table>
       </div>
     </section>
     <section v-if="activeView === 'standings'" id="standings" class="contest-section" aria-labelledby="standings-title">
@@ -73,8 +94,29 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
       <p v-if="standingsError" class="notice notice-error" role="alert">順位表を取得できませんでした。</p>
       <p v-else-if="!standings?.length" class="contest-empty muted">公式順位の対象となる提出はまだありません。</p>
       <div v-else class="content-table-scroll" role="region" aria-label="順位表のスクロール領域" tabindex="0" :aria-busy="updating">
-        <table class="content-table"><thead><tr><th scope="col">順位</th><th scope="col">ユーザー</th><th scope="col">得点</th><th scope="col">時間（分:秒）</th><th v-for="(p, i) in contest.problems" :key="p.id" scope="col"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ i + 1 }}</NuxtLink></th></tr></thead>
-          <tbody><tr v-for="row in standings" :key="row.handle"><td>{{ row.rank }}</td><th scope="row">{{ row.handle }}</th><td>{{ row.points }}</td><td>{{ duration(row.timeMs) }}</td><td v-for="p in contest.problems" :key="p.id"><template v-if="row.problems[p.id]"><strong v-if="row.problems[p.id]!.acceptedAt">{{ row.problems[p.id]!.points }} 点</strong><span v-else>未正解</span><small>誤答 {{ row.problems[p.id]!.wrong }}<template v-if="row.problems[p.id]!.pending"> · 判定待ち {{ row.problems[p.id]!.pending }}</template></small></template><span v-else>—</span></td></tr></tbody>
+        <table class="content-table standings-table">
+          <thead><tr><th scope="col">順位</th><th scope="col">ユーザー</th><th scope="col">得点</th><th scope="col">時間</th><th v-for="(p, i) in contest.problems" :key="p.id" scope="col"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ problemLabel(i) }}</NuxtLink></th></tr></thead>
+          <tbody>
+            <tr v-for="row in standings" :key="row.handle">
+              <td>{{ row.rank }}</td><th scope="row">{{ row.handle }}</th><td class="standing-total">{{ row.points }}</td><td>{{ duration(row.timeMs) }}</td>
+              <td v-for="p in contest.problems" :key="p.id">
+                <template v-if="row.problems[p.id]">
+                  <span class="standing-result">
+                    <strong v-if="row.problems[p.id]!.acceptedAt" class="standing-accepted">{{ row.problems[p.id]!.points }}</strong>
+                    <span v-else-if="!row.problems[p.id]!.wrong && !row.problems[p.id]!.pending" class="muted">—</span>
+                    <span v-if="row.problems[p.id]!.wrong" class="standing-wrong" :aria-label="`誤答 ${row.problems[p.id]!.wrong} 回`">({{ row.problems[p.id]!.wrong }})</span>
+                    <span v-if="row.problems[p.id]!.pending" role="img" aria-label="判定待ち">⌛</span>
+                  </span>
+                  <small v-if="row.problems[p.id]!.acceptedAt">{{ elapsed(row.problems[p.id]!.acceptedAt!) }}</small>
+                </template>
+                <span v-else class="muted">—</span>
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr><th colspan="4" scope="row">FA（初正解）</th><td v-for="stat in problemStats" :key="stat.id"><template v-if="stat.accepted"><span v-for="handle in stat.handles" :key="handle" class="standing-fa">{{ handle }}</span><small>{{ stat.time }}</small></template><span v-else class="muted">—</span></td></tr>
+            <tr><th colspan="4" scope="row">正解者数 / 提出者数</th><td v-for="stat in problemStats" :key="stat.id"><span class="standing-accepted">{{ stat.accepted }}</span> / {{ stat.submitted }}</td></tr>
+          </tfoot>
         </table>
       </div>
     </section>
@@ -90,7 +132,8 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
   </div>
 </template>
 <style scoped>
-/* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V4
+/* Hallmark · component: contest standings · genre: modern-minimal · theme: existing ShareOJ tokens
+ * pre-emit critique: P4 H4 E4 S5 R5 V4
  * modern-minimal · Long Document · existing problem page tokens and hierarchy */
 .contest-page { padding-bottom: 64px; }
 .contest-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px 24px; margin-bottom: 20px; }
@@ -112,6 +155,16 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
 .contest-problems td:first-child { width: 3rem; color: var(--color-muted); }
 .contest-problems thead th:last-child, .contest-problems td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .contest-empty { margin: 0; padding-block: 24px; border-top: 1px solid var(--color-line); }
+.standings-table th, .standings-table td { padding: 8px 12px; border: 1px solid var(--color-line); text-align: center; font-variant-numeric: tabular-nums; }
+.standings-table thead, .standings-table tfoot, .standings-table tbody tr:nth-child(even) { background: var(--color-surface); }
+.standings-table tbody th { text-align: left; }
+.standings-table tfoot th { font-weight: 500; }
+.standing-total { font-weight: 700; }
+.standing-result { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.standing-accepted, .standing-fa { color: var(--color-accent); }
+.standing-wrong { color: var(--color-error); }
+.standing-fa { display: block; }
+.standings-table small { font-size: .75rem; }
 small { display: block; color: var(--color-muted); }
 @media (max-width: 39.999rem) { .contest-section-heading { align-items: flex-start; flex-direction: column; } }
 </style>
