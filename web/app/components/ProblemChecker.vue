@@ -63,7 +63,7 @@ const error = computed(() => code.value && (!code.value.source.trim() || new Tex
     </template>
     <p v-if="published">提出は公開中の設定で採点します。編集内容を採点へ反映するには、問題管理から公開内容を更新してください。</p>
     <p v-else>テストケースを登録して解答を提出すると、保存した下書きで採点できます。正解例と不正解例の両方を試してください。</p>
-    <SubmissionForm v-if="problemId" :problem-id="problemId" :before-submit="save" :disabled="disabled || !!error" />
+    <SubmissionForm v-if="problemId" class="checker-submission" :problem-id="problemId" :before-submit="save" :disabled="disabled || !!error" />
   </section>
 </template>
 
@@ -74,5 +74,7 @@ const error = computed(() => code.value && (!code.value.source.trim() || new Tex
 label { display: block; margin-block: 16px 8px; }
 select { max-width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); }
 .checker-settings :deep(.source-code-editor) { max-width: 1000px; margin-block: 12px; }
+.checker-submission { max-width: 1000px; padding: 16px; border: 1px solid var(--color-line); border-radius: 4px; }
+.checker-submission :deep(h2:first-child) { margin-top: 0; }
 @media (max-width: 600px) { .checker-settings { padding: 16px 12px; } }
 </style>
