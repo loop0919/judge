@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"judge/api/internal/posts"
 	"judge/api/internal/problems"
 )
 
@@ -48,6 +49,11 @@ func (p PrivateProblems) publicContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	id := r.PathValue("id")
+	author := r.URL.Query().Get("author")
+	if author != "" && !userHandle.MatchString(author) {
+		authError(w, 400, "invalid_author")
+		return
+	}
 	if id != "" && !problemID.MatchString(id) {
 		authError(w, 404, "not_found")
 		return
@@ -73,7 +79,13 @@ func (p PrivateProblems) publicContent(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		list, err := p.Posts.PublicList(ctx, cursor)
+		var list []posts.Post
+		var err error
+		if author == "" {
+			list, err = p.Posts.PublicList(ctx, cursor)
+		} else {
+			list, err = p.Posts.PublicListByHandle(ctx, cursor, author)
+		}
 		if err != nil {
 			problemError(w, err)
 			return
@@ -108,7 +120,20 @@ func (p PrivateProblems) publicContent(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	list, err := store.PublicList(ctx, cursor)
+	var list []problems.PublicProblem
+	var err error
+	if author == "" {
+		list, err = store.PublicList(ctx, cursor)
+	} else {
+		filtered, ok := store.(interface {
+			PublicListByHandle(context.Context, *problems.Cursor, string) ([]problems.PublicProblem, error)
+		})
+		if !ok {
+			authError(w, 503, "database_unavailable")
+			return
+		}
+		list, err = filtered.PublicListByHandle(ctx, cursor, author)
+	}
 	if err != nil {
 		problemError(w, err)
 		return

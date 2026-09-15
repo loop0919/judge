@@ -103,10 +103,14 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 }
 
 func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem, error) {
-	query := `SELECT d.id,d.published_draft->>'title',(d.published_draft->>'difficulty')::integer,d.published_draft->>'timeLimitMs',d.published_draft->>'memoryLimitMb',u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id),` + publicSolverCount + ` FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL`
-	args := []any{}
+	return s.PublicListByHandle(ctx, cursor, "")
+}
+
+func (s *Store) PublicListByHandle(ctx context.Context, cursor *Cursor, handle string) ([]PublicProblem, error) {
+	query := `SELECT d.id,d.published_draft->>'title',(d.published_draft->>'difficulty')::integer,d.published_draft->>'timeLimitMs',d.published_draft->>'memoryLimitMb',u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id),` + publicSolverCount + ` FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL AND ($1='' OR u.handle=$1)`
+	args := []any{handle}
 	if cursor != nil {
-		query += ` AND (d.published_at,d.id)<($1,$2::uuid)`
+		query += ` AND (d.published_at,d.id)<($2,$3::uuid)`
 		args = append(args, cursor.UpdatedAt, cursor.ID)
 	}
 	rows, err := s.pool.Query(ctx, query+` ORDER BY d.published_at DESC,d.id DESC LIMIT 51`, args...)

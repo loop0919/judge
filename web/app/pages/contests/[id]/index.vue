@@ -72,7 +72,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
         <h1>{{ contest.title }}</h1>
         <NuxtLink v-if="contest.canEdit" class="editor-button contest-edit" :to="`/my/contests/${contest.id}`"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-4-4L4 15Z" /></svg>コンテストを編集</NuxtLink>
       </div>
-      <div class="problem-summary"><div class="problem-meta muted"><span class="contest-status" :data-status="contest.status">{{ contestStatus[contest.status] }}</span><p>作成者 {{ contest.author }}</p></div></div>
+      <div class="problem-summary"><div class="problem-meta muted"><span class="contest-status" :data-status="contest.status">{{ contestStatus[contest.status] }}</span><p>作成者 <UserLink :handle="contest.author" /></p></div></div>
       <dl class="limits contest-schedule"><div><dt>開始日時</dt><dd><time :datetime="contest.startsAt">{{ contestDate(contest.startsAt) }}</time></dd></div><div><dt>終了日時</dt><dd><time :datetime="contest.endsAt">{{ contestDate(contest.endsAt) }}</time></dd></div></dl>
       <p class="schedule-timezone muted">日時は日本時間で表示しています。</p>
       <p class="contest-scoring muted">誤答ペナルティ {{ contest.penaltyMinutes }} 分 · 部分点なし</p>
@@ -98,7 +98,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
           <thead><tr><th scope="col">順位</th><th scope="col">ユーザー</th><th scope="col">得点</th><th scope="col">時間</th><th v-for="(p, i) in contest.problems" :key="p.id" scope="col"><NuxtLink :to="`/contests/${contest.id}/problems/${p.id}`">{{ problemLabel(i) }}</NuxtLink></th></tr></thead>
           <tbody>
             <tr v-for="row in standings" :key="row.handle">
-              <td>{{ row.rank }}</td><th scope="row">{{ row.handle }}</th><td class="standing-total">{{ row.points }}</td><td>{{ duration(row.timeMs) }}</td>
+              <td>{{ row.rank }}</td><th scope="row"><UserLink :handle="row.handle" /></th><td class="standing-total">{{ row.points }}</td><td>{{ duration(row.timeMs) }}</td>
               <td v-for="p in contest.problems" :key="p.id">
                 <template v-if="row.problems[p.id]">
                   <span class="standing-result">
@@ -114,7 +114,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
             </tr>
           </tbody>
           <tfoot>
-            <tr><th colspan="4" scope="row">FA（初正解）</th><td v-for="stat in problemStats" :key="stat.id"><template v-if="stat.accepted"><span v-for="handle in stat.handles" :key="handle" class="standing-fa">{{ handle }}</span><small>{{ stat.time }}</small></template><span v-else class="muted">—</span></td></tr>
+            <tr><th colspan="4" scope="row">FA（初正解）</th><td v-for="stat in problemStats" :key="stat.id"><template v-if="stat.accepted"><span v-for="handle in stat.handles" :key="handle" class="standing-fa"><UserLink :handle="handle" /></span><small>{{ stat.time }}</small></template><span v-else class="muted">—</span></td></tr>
             <tr><th colspan="4" scope="row">正解者数 / 提出者数</th><td v-for="stat in problemStats" :key="stat.id"><span class="standing-accepted">{{ stat.accepted }}</span> / {{ stat.submitted }}</td></tr>
           </tfoot>
         </table>
@@ -126,7 +126,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
       <template v-else><p class="muted">提出コードを閲覧できます。練習提出も掲載します。</p>
       <p v-if="submissionsError" class="notice notice-error" role="alert">{{ submissionsError }}</p>
       <p v-if="!submissions && !submissionsError" class="muted" role="status">提出一覧を読み込み中…</p>
-      <template v-if="submissions"><p v-if="!submissions.items.length" class="contest-empty muted">提出はまだありません。</p><div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0"><table class="content-table"><thead><tr><th scope="col">問題</th><th scope="col">ユーザー</th><th scope="col">結果</th><th scope="col">提出日時（日本時間）</th></tr></thead><tbody><tr v-for="s in submissions.items" :key="s.id"><th scope="row"><NuxtLink :to="`/contests/${contest.id}/submissions/${s.id}`">{{ s.problemTitle }}</NuxtLink></th><td>{{ s.author }}</td><td><SubmissionStatus :item="s" /></td><td>{{ contestDate(s.createdAt) }}<span v-if="new Date(s.createdAt) >= new Date(contest.endsAt)"> · 練習</span></td></tr></tbody></table></div><ContentPagination :index="offset / 50" :has-next="submissions.hasMore" :loading="updating" @move="direction => offset += direction * 50" /></template>
+      <template v-if="submissions"><p v-if="!submissions.items.length" class="contest-empty muted">提出はまだありません。</p><div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0"><table class="content-table"><thead><tr><th scope="col">問題</th><th scope="col">ユーザー</th><th scope="col">結果</th><th scope="col">提出日時（日本時間）</th></tr></thead><tbody><tr v-for="s in submissions.items" :key="s.id"><th scope="row"><NuxtLink :to="`/contests/${contest.id}/submissions/${s.id}`">{{ s.problemTitle }}</NuxtLink></th><td><UserLink :handle="s.author" /></td><td><SubmissionStatus :item="s" /></td><td>{{ contestDate(s.createdAt) }}<span v-if="new Date(s.createdAt) >= new Date(contest.endsAt)"> · 練習</span></td></tr></tbody></table></div><ContentPagination :index="offset / 50" :has-next="submissions.hasMore" :loading="updating" @move="direction => offset += direction * 50" /></template>
       </template>
     </section>
   </div>

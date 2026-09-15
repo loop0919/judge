@@ -113,10 +113,14 @@ func (s *Store) PublicGet(ctx context.Context, id string) (Post, error) {
 }
 
 func (s *Store) PublicList(ctx context.Context, cursor *problems.Cursor) ([]Post, error) {
-	query := `SELECT b.id,b.published_title,b.published_at,u.handle,b.owner_id FROM blog_posts b JOIN user_profiles u ON b.owner_id=u.owner_id WHERE b.published_title IS NOT NULL`
-	args := []any{}
+	return s.PublicListByHandle(ctx, cursor, "")
+}
+
+func (s *Store) PublicListByHandle(ctx context.Context, cursor *problems.Cursor, handle string) ([]Post, error) {
+	query := `SELECT b.id,b.published_title,b.published_at,u.handle,b.owner_id FROM blog_posts b JOIN user_profiles u ON b.owner_id=u.owner_id WHERE b.published_title IS NOT NULL AND ($1='' OR u.handle=$1)`
+	args := []any{handle}
 	if cursor != nil {
-		query += ` AND (b.published_at,b.id)<($1,$2::uuid)`
+		query += ` AND (b.published_at,b.id)<($2,$3::uuid)`
 		args = append(args, cursor.UpdatedAt, cursor.ID)
 	}
 	rows, err := s.pool.Query(ctx, query+` ORDER BY b.published_at DESC,b.id DESC LIMIT 51`, args...)

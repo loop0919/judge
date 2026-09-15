@@ -43,14 +43,18 @@ createServer(async (req, res) => {
     }
     res.end(JSON.stringify({ items: [], nextCursor: '' }))
   }
+  else if (['/users/alice', '/users/bob', '/users/carol'].includes(path)) res.end(JSON.stringify({ handle: path.split('/').at(-1), avatar: '', createdAt: '2026-09-10T00:00:00Z' }))
   else if (path === '/health') res.end('{}')
   else if (path === '/runtimes') res.end(JSON.stringify({ items: [{ id: 'cpp17', label: 'C++17 (GCC)' }, { id: 'python314', label: 'Python 3.14' }] }))
-  else if (path === '/problems') res.end(JSON.stringify({ items: [problem], nextCursor: '' }))
+  else if (path === '/problems') res.end(JSON.stringify({ items: !new URL(req.url, 'http://localhost').searchParams.get('author') || new URL(req.url, 'http://localhost').searchParams.get('author') === 'alice' ? [problem] : [], nextCursor: '' }))
   else if (path === `/problems/${problem.id}`) res.end(JSON.stringify(problem))
   else if (path === `/problems/${problem.id}/submissions`) res.end(JSON.stringify({ items: [submission], hasMore: false }))
   else if (path === `/problems/${problem.id}/submissions/${submission.id}`) res.end(JSON.stringify(submission))
   else if (path === `/contests/88888888-8888-4888-8888-888888888888/submissions/${submission.id}`) res.end(JSON.stringify({ ...submission, contestId: '88888888-8888-4888-8888-888888888888' }))
-  else if (path === '/posts') res.end('{"items":[],"nextCursor":""}')
+  else if (path === '/posts') res.end(JSON.stringify({ items: new URL(req.url, 'http://localhost').searchParams.get('author') === 'alice' ? [{
+    id: '77777777-7777-4777-8777-777777777777', title: '公開記事', author: 'alice', publishedVersion: 1,
+    updatedAt: '2026-09-10T00:00:00Z', publishedAt: '2026-09-10T00:00:00Z', isOperator: false,
+  }] : [], nextCursor: '' }))
   else if (path === '/posts/77777777-7777-4777-8777-777777777777') res.end(JSON.stringify({ id: '77777777-7777-4777-8777-777777777777', title: '日本語 & #記事 + 共有', author: 'alice', markdown: '共有する記事です。', publishedVersion: 1, updatedAt: '2026-09-10T00:00:00Z', isOperator: false, publishedAt: '2026-09-10T00:00:00Z' }))
   else if (/^\/contests\/(88888888-8888-4888-8888-888888888888|99999999-9999-4999-8999-999999999999)$/.test(path)) res.end(JSON.stringify({
     id: path.split('/').pop(), title: '共有コンテスト', author: 'alice', description: '共有するコンテストです。',

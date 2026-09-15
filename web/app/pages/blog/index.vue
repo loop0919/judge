@@ -22,7 +22,7 @@ useSharePreview({ type: 'website', title: '記事', path: '/blog', description }
         <thead><tr><th scope="col">タイトル</th><th scope="col">投稿者</th><th scope="col">公開日</th></tr></thead>
         <tbody><tr v-for="post in current.items" :key="post.id">
           <th scope="row"><NuxtLink :to="`/blog/${post.id}`">{{ post.title }}</NuxtLink></th>
-          <td>{{ post.author }} <span v-if="post.isOperator" class="operator-label">運営</span></td>
+          <td><UserLink :handle="post.author" /> <span v-if="post.isOperator" class="operator-label">運営</span></td>
           <td><time v-if="post.publishedAt" :datetime="post.publishedAt">{{ date(post.publishedAt) }}</time><span v-else>—</span></td>
         </tr></tbody>
       </table>

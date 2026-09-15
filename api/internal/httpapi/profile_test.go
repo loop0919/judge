@@ -129,6 +129,15 @@ func TestProfilesPostgres(t *testing.T) {
 		t.Fatal("profile not persisted")
 	}
 
+	for _, handle := range []string{"alice", "missing", "!"} {
+		if w := request("GET", "/users/"+handle, "", ""); w.Code != 404 {
+			t.Fatalf("missing public profile: %d", w.Code)
+		}
+	}
+	if w := request("GET", "/users/alice_new", "", ""); w.Code != 200 || strings.Contains(w.Body.String(), "version") || strings.Contains(w.Body.String(), "owner") || !strings.Contains(w.Body.String(), `"handle":"alice_new"`) {
+		t.Fatalf("public identity: %d %s", w.Code, w.Body.String())
+	}
+
 	// Public snapshots never expose later private edits; all mutation paths enforce ownership and version.
 	if w := request("PUT", "/my/profile", "bob", `{"handle":"bob","avatar":"","version":0}`); w.Code != 200 {
 		t.Fatal(w.Body.String())
@@ -154,6 +163,10 @@ func TestProfilesPostgres(t *testing.T) {
 		check("PUT", private, "", body(0, "public body"), 401)
 		check("PUT", private, "alice", body(0, "public body"), 200)
 		check("GET", public, "", "", 404)
+		if result := check("GET", "/"+kind+"?author=alice_new", "", "", 200); strings.Contains(result, id) {
+			t.Fatal("private draft leaked", result)
+		}
+
 		if kind == "problems" {
 			check("PUT", "/my/favorites/"+id, "bob", `{"favorited":true}`, 404)
 			for _, level := range []string{"0", "11", "1.5", `"4"`} {
@@ -165,6 +178,18 @@ func TestProfilesPostgres(t *testing.T) {
 		check("PUT", private+"/publication", "alice", `{"version":1}`, 400)
 		check("PUT", private+"/publication", "alice", `{"version":1,"publish":true}`, 200)
 		visible := check("GET", public, "", "", 200)
+		if result := check("GET", "/"+kind+"?author=alice_new", "", "", 200); !strings.Contains(result, id) {
+			t.Fatal("published item missing", result)
+		}
+		if result := check("GET", "/"+kind+"?author=bob", "", "", 200); strings.Contains(result, id) {
+			t.Fatal("another author's item leaked", result)
+		}
+		check("GET", "/"+kind+"?author=invalid!", "", "", 400)
+		cursor := nextContentCursor(id, time.Now().Add(time.Hour))
+		if result := check("GET", "/"+kind+"?author=alice_new&cursor="+cursor, "", "", 200); !strings.Contains(result, id) {
+			t.Fatal("filtered pagination missing item", result)
+		}
+
 		var initial struct {
 			PublishedAt time.Time `json:"publishedAt"`
 		}

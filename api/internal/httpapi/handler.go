@@ -28,6 +28,7 @@ func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 		private.Contests = &contests.Store{Pool: store.Pool()}
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/{handle}", private.publicProfile)
 	mux.HandleFunc("GET /contests", private.publicContest)
 	mux.HandleFunc("GET /contests/{id}", private.publicContest)
 	mux.HandleFunc("GET /contests/{id}/problems/{problem}", private.publicContest)

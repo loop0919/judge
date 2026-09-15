@@ -45,7 +45,7 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer) })
         <p v-if="!data.items.length" class="muted">提出はまだありません。</p>
         <div v-else class="content-table-scroll" role="region" aria-label="提出一覧のスクロール領域" tabindex="0" :aria-busy="loading">
           <table class="content-table"><thead><tr><th scope="col">提出日時（日本時間）</th><th scope="col">ユーザー</th><th scope="col">言語</th><th scope="col">結果</th><th scope="col">詳細</th></tr></thead>
-            <tbody><tr v-for="item in data.items" :key="item.id"><td><time :datetime="item.createdAt">{{ contestDate(item.createdAt) }}</time></td><td>{{ item.author }}</td><td>{{ runtimeLabel(item.runtime) }}</td><td><SubmissionStatus :item="item" /></td><td><NuxtLink :to="detail(item)">詳細</NuxtLink></td></tr></tbody>
+            <tbody><tr v-for="item in data.items" :key="item.id"><td><time :datetime="item.createdAt">{{ contestDate(item.createdAt) }}</time></td><td><UserLink :handle="item.author" /></td><td>{{ runtimeLabel(item.runtime) }}</td><td><SubmissionStatus :item="item" /></td><td><NuxtLink :to="detail(item)">詳細</NuxtLink></td></tr></tbody>
           </table>
         </div>
         <ContentPagination :index="offset / 50" :has-next="data.hasMore" :loading="loading" @move="direction => offset += direction * 50" />

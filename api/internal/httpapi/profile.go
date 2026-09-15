@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"judge/api/internal/profiles"
 )
@@ -116,4 +118,32 @@ func (p PrivateProblems) profile(w http.ResponseWriter, r *http.Request, owner s
 	default:
 		writeAuthJSON(w, 200, map[string]any{"profile": result})
 	}
+}
+
+func (p PrivateProblems) publicProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	handle := r.PathValue("handle")
+	if !userHandle.MatchString(handle) {
+		authError(w, 404, "not_found")
+		return
+	}
+	store, ok := p.Profiles.(interface {
+		GetByHandle(context.Context, string) (profiles.Profile, error)
+	})
+	if !ok {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	profile, err := store.GetByHandle(ctx, handle)
+	if errors.Is(err, profiles.ErrNotFound) {
+		authError(w, 404, "not_found")
+		return
+	}
+	if err != nil {
+		authError(w, 503, "database_unavailable")
+		return
+	}
+	writeAuthJSON(w, 200, map[string]any{"handle": profile.Handle, "avatar": profile.Avatar, "createdAt": profile.CreatedAt})
 }

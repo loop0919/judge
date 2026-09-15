@@ -36,7 +36,7 @@ async function accept() {
     <p v-if="loading" role="status">招待を確認しています…</p>
     <template v-else-if="invitation">
       <h2>{{ invitation.title.trim() || '無題の問題' }}</h2>
-      <p>作成者 {{ invitation.author }}</p>
+      <p>作成者 <UserLink :handle="invitation.author" /></p>
       <template v-if="invitation.joined"><p>この問題はすでに操作できます。</p><NuxtLink class="editor-button primary" :to="`/problems/new?problem=${invitation.id}`">問題を編集</NuxtLink></template>
       <template v-else>
         <p>テスターとして参加すると、非公開の問題文・解説・テストケースの閲覧や提出に加え、編集・公開・削除を含む作者と同じ操作ができます。</p>

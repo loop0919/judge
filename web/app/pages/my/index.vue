@@ -31,16 +31,4 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
     <div class="account-actions"><button class="editor-button" @click="logout">ログアウト</button></div>
   </section>
 </template>
-<style scoped>
-.content-menu { display: flex; flex-wrap: wrap; gap: 4px 16px; border-bottom: 1px solid var(--color-line); margin-top: 24px; }
-.content-menu button { white-space: nowrap; min-height: 44px; padding: 12px 4px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-muted); font: inherit; cursor: pointer; text-decoration: none; }
-.content-menu button[aria-pressed="true"] { border-bottom-color: currentColor; color: var(--color-ink); font-weight: 600; }
-.account-actions { padding-block: 24px 40px; border-top: 1px solid var(--color-line); }
-.my-page { margin-top: 40px; }
-.profile-header { display: flex; align-items: center; gap: 24px; padding-bottom: 32px; border-bottom: 1px solid var(--color-line); }
-.profile-identity { flex: 1; min-width: 0; }
-.profile-identity h1 { font-size: 2rem; margin: 0 0 4px; }
-.profile-identity p { margin: 0; }
-.eyebrow { font-size: .8rem; color: var(--color-muted); }
-@media(max-width: 600px) { .profile-header { flex-wrap: wrap; gap: 16px; } .profile-header > a { margin-left: auto; } }
-</style>
+<style scoped src="../../assets/css/profile.css"></style>
