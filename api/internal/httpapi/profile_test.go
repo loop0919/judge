@@ -200,6 +200,20 @@ func TestProfilesPostgres(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// Recent failures must not hide an older AC.
+			if _, err := store.Pool().Exec(ctx, `INSERT INTO submissions
+				(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,status,result)
+				SELECT gen_random_uuid(),'bob',$1,1,'test','cpp17','','{"privateDraft":false}','DONE','{"verdict":"WA"}'
+				FROM generate_series(1,51)`, id); err != nil {
+				t.Fatal(err)
+			}
+			check("GET", "/my/solved-problems", "", "", 401)
+			if result := check("GET", "/my/solved-problems", "bob", "", 200); strings.TrimSpace(result) != `{"items":["`+id+`"]}` {
+				t.Fatal(result)
+			}
+			if result := check("GET", "/my/solved-problems", "alice", "", 200); strings.TrimSpace(result) != `{"items":[]}` {
+				t.Fatal(result)
+			}
 			for _, path := range []string{public, "/problems"} {
 				if result := check("GET", path, "", "", 200); !strings.Contains(result, `"solverCount":1`) {
 					t.Fatal(result)
@@ -270,6 +284,9 @@ func TestProfilesPostgres(t *testing.T) {
 		check("PUT", private+"/publication", "alice", `{"version":4,"publish":false}`, 200)
 		if kind == "problems" {
 			check("GET", "/my/favorites/"+id, "bob", "", 404)
+			if result := check("GET", "/my/solved-problems", "bob", "", 200); strings.TrimSpace(result) != `{"items":[]}` {
+				t.Fatal(result)
+			}
 			check("PUT", "/my/favorites/"+id, "bob", `{"favorited":true}`, 404)
 		}
 		check("GET", public, "", "", 404)

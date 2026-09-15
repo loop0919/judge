@@ -65,15 +65,16 @@ func (s *Store) Publish(ctx context.Context, owner, id string, version int64, pu
 	return p, err
 }
 
-// Count distinct solvers only from submissions visible on the public problem page.
-const publicSolverCount = `(SELECT count(DISTINCT s.owner_id) FROM submissions s WHERE s.problem_id=d.id
- AND s.status='DONE' AND s.result->>'verdict'='AC'
+// Accepted submissions visible on the public problem page.
+const publicAcceptedSubmission = `s.status='DONE' AND s.result->>'verdict'='AC'
  AND NOT COALESCE((s.job->>'easyTest')::boolean,false)
  AND NOT COALESCE((s.job->>'generate')::boolean,false)
  AND NOT COALESCE((s.job->>'validate')::boolean,false)
  AND ((s.contest_id IS NULL AND NOT COALESCE((s.job->>'privateDraft')::boolean,true))
   OR EXISTS(SELECT 1 FROM contests c WHERE c.id=s.contest_id
-   AND statement_timestamp()>=c.ends_at AND s.created_at>=c.starts_at)))`
+   AND statement_timestamp()>=c.ends_at AND s.created_at>=c.starts_at))`
+
+const publicSolverCount = `(SELECT count(DISTINCT s.owner_id) FROM submissions s WHERE s.problem_id=d.id AND ` + publicAcceptedSubmission + `)`
 
 func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error) {
 	var p PublicProblem
@@ -117,4 +118,15 @@ func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem
 		err := row.Scan(&p.ID, &p.Title, &p.Difficulty, &p.TimeLimitMS, &p.MemoryLimitMB, &p.Author, &p.PublishedAt, &p.FavoriteCount, &p.SolverCount)
 		return p, err
 	})
+}
+
+// SolvedProblems returns all publicly solved problem IDs, beyond the recent submission history.
+func (s *Store) SolvedProblems(ctx context.Context, owner string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT DISTINCT s.problem_id::text FROM submissions s
+ JOIN problem_drafts d ON d.id=s.problem_id
+ WHERE s.owner_id=$1 AND d.published_draft IS NOT NULL AND `+publicAcceptedSubmission, owner)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
