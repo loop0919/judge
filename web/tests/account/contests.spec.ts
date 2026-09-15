@@ -196,7 +196,7 @@ test('scheduled problems open for submission, then publish with editorial and so
   await authorMenu.getByRole('link', { name: 'すべての提出', exact: true }).click()
   await expect(page.getByRole('region', { name: 'すべての提出', exact: true })).toContainText('bob')
   await page.getByRole('region', { name: 'すべての提出', exact: true }).getByRole('row').filter({ hasText: 'bob' }).getByRole('link', { name: '詳細' }).click()
-  await expect(page.locator('pre')).toContainText('int main(){}')
+  await expect(page.getByRole('textbox', { name: 'ソースコード', exact: true })).toHaveText('int main(){}')
   const reader = await guest.newPage()
   await reader.goto(`/contests/${id}/problems/${pid}`)
   await expect(reader.getByRole('navigation', { name: '問題メニュー' }).getByRole('link')).toHaveText(['問題', '自分の提出', 'すべての提出'])
