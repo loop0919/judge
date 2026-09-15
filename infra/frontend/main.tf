@@ -31,8 +31,8 @@ resource "aws_iam_role_policy" "logs" {
 resource "aws_lambda_function" "web" {
   function_name     = "${local.name}-web"
   description       = "OpenOJ Nuxt SSR frontend"
-  runtime           = "provided.al2023"
-  handler           = "bootstrap"
+  runtime           = "nodejs22.x"
+  handler           = "server/index.handler"
   architectures     = ["arm64"]
   memory_size       = 512
   timeout           = 25

@@ -99,13 +99,13 @@ try {
 
   const fingerprint = createHash('sha256')
     .update(readFileSync('web/package.json'))
-    .update(readFileSync('web/bun.lock'))
-    .update(process.versions.bun)
+    .update(readFileSync('web/package-lock.json'))
+    .update(process.version)
     .digest('hex')
   const stamp = 'web/node_modules/.dev-dependencies'
   if (!existsSync(stamp) || readFileSync(stamp, 'utf8') !== fingerprint) {
     console.log('Installing frontend dependencies…')
-    await run('bun', ['install', '--frozen-lockfile'], `${root}web`)
+    await run('npm', ['ci'], `${root}web`)
     writeFileSync(stamp, fingerprint)
   }
 

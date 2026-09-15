@@ -13,8 +13,8 @@ run "frontend_contract" {
   command = apply
   assert {
     condition = (
-      aws_lambda_function.web.runtime == "provided.al2023" &&
-      aws_lambda_function.web.handler == "bootstrap" &&
+      aws_lambda_function.web.runtime == "nodejs22.x" &&
+      aws_lambda_function.web.handler == "server/index.handler" &&
       aws_lambda_function.web.architectures == tolist(["arm64"]) &&
       aws_lambda_function.web.memory_size == 512 &&
       aws_lambda_function.web.environment[0].variables["NUXT_API_BASE_URL"] == var.api_endpoint &&

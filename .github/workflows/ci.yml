@@ -42,20 +42,22 @@ jobs:
         with:
           go-version-file: api/go.mod
           cache-dependency-path: api/go.sum
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version-file: web/package.json
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm ci
       - name: Check types
-        run: bun run typecheck
+        run: npm run typecheck
       - name: Build SSR server
-        run: bun run build
+        run: npm run build
       - name: Build and test frontend Lambda
         run: |
-          bun run package:lambda
-          bun run test:lambda
+          npm run package:lambda
+          npm run test:lambda
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -67,23 +69,19 @@ jobs:
           terraform init -backend=false -input=false -lockfile=readonly
           terraform validate
           terraform test
-      - name: Set up Node.js for Playwright
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
       - name: Install Chromium
         run: |
           # Playwright downloads its own Chromium. The runner's unrelated Chrome
           # APT feed can have inconsistent indexes while Google publishes updates.
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
-          node node_modules/@playwright/test/cli.js install --with-deps chromium
+          npx playwright install --with-deps chromium
       - name: Test SSR, browser rendering and PostgreSQL accounts
         shell: bash
         run: |
           # The suites use separate API servers, ports and output directories.
-          bun run test &
+          npm test &
           browser_pid=$!
-          node node_modules/@playwright/test/cli.js test --config playwright.account.config.ts &
+          npx playwright test --config playwright.account.config.ts &
           account_pid=$!
           # Wait for both suites and preserve either failure (bare wait loses it).
           status=0
@@ -91,7 +89,7 @@ jobs:
           wait "$account_pid" || status=1
           exit "$status"
       - name: Test deployment smoke checks
-        run: bun test scripts/smoke-frontend.test.mjs
+        run: node --test scripts/smoke-frontend.test.mjs
 
       - name: Upload frontend Lambda package
         if: inputs.upload-deploy-artifacts

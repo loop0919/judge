@@ -9,8 +9,7 @@ API とフロントエンドをまとめて起動する場合は、リポジト�
 準備と停止方法は[ルートの README](../README.md#開発環境)を参照する。
 以下は個別に起動する手順である。
 
-Bun 1.3.13 と Go が必要になる。
-Playwrightのテスト実行器にはNode.js 22を使い、テスト対象のNuxtサーバーはBunで起動する。
+Node.js 22.19 以上の 22 系と Go が必要になる。
 リポジトリのルートで `nix develop .` を実行すると、共通の開発環境に入れる。
 
 まず、ターミナルで API を起動する。
@@ -24,9 +23,9 @@ go run ./cmd/api
 
 ```console
 cd web
-bun install --frozen-lockfile
+npm ci
 cp -n .env.example .env
-bun run dev
+npm run dev
 ```
 
 `http://localhost:3000/problems` で DB の公開問題一覧を表示できます。
@@ -160,20 +159,20 @@ Cookieを使う書き込み要求はOriginを検証し、NuxtからGo APIへBear
 以下は `web/` で実行する。
 
 ```console
-bun run typecheck
-bun run build
-node node_modules/@playwright/test/cli.js install chromium
-bun run test
+npm run typecheck
+npm run build
+npx playwright install chromium
+npm test
 ```
 
-Linux でブラウザーの共有ライブラリが不足する場合は `node node_modules/@playwright/test/cli.js install --with-deps chromium` を使う。
+Linux でブラウザーの共有ライブラリが不足する場合は `npx playwright install --with-deps chromium` を使う。
 テストは Go API とビルド済み Nuxt を自動起動し、HTML 本文、SEO メタデータ、404 と 502、JavaScript 無効時の閲覧、画面遷移、画面幅 320 / 375 / 414 / 768 / 1280 px での表示を検証する。
 テスト用にポート13000、13001、18080、18081を使用する。
 
 実DBを使うブラウザーテストは`TEST_DATABASE_URL`を設定して実行する。
 
 ```console
-node node_modules/@playwright/test/cli.js test --config playwright.account.config.ts
+npx playwright test --config playwright.account.config.ts
 ```
 
 このテストはポート13002と18082を使う。
@@ -190,19 +189,15 @@ curl -i http://localhost:3000/problems/missing
 ## 本番起動
 
 SSR には Nuxt サーバーを実行する環境が必要になる。
-`bun run build` 後、接続先と公開 URL を指定して起動する。
+`npm run build` 後、接続先と公開 URL を指定して起動する。
 
 ```console
 NUXT_API_BASE_URL=https://api.example.com \
 NUXT_PUBLIC_SITE_URL=https://judge.example.com \
-bun --no-env-file .output/server/index.mjs
+node .output/server/index.mjs
 ```
 
 ビルド済みサーバーは `.env` を自動では読み込まないため、実行環境で変数を設定する。
-Lambdaでは`provided.al2023`上でBunを起動する。
-配布ZIPにチェックサム検証済みのARM64版BunとRuntime APIアダプターを同梱する。
-詳細は[デプロイ手順](../infra/README.md#フロントエンドのデプロイ)を参照する。
-
 AWSへのデプロイとは別に、[ローカルC++提出](../docs/judge/local-cpp.md)を利用できる。
 Go API のカタログには、ユーザーが公開した問題を表示します。
 
@@ -243,7 +238,7 @@ Public pages expose Open Graph and Twitter Card metadata during SSR. `/og/<page-
 returns a 1200×630 PNG with the ShareOJ mark and the page title (`/og/index.png` for home).
 The renderer uses `@resvg/resvg-wasm` and the bundled, unmodified IPAex Gothic font;
 the font license is in `server/assets/fonts/LICENSE.txt`. Nuxt stages the WASM under
-`.build/og-renderer` and Nitro bundles both assets for Bun and Lambda.
+`.build/og-renderer` and Nitro bundles both assets for Node and Lambda.
 
 Dynamic images fetch only the public API, never session cookies or private fallbacks.
 Private and pre-start contest problems have no image preview. Responses use `no-store`
