@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type { z } from 'zod'
+import type { publicProblemSummarySchema } from '~~/shared/types/problem'
+import type { postSummarySchema } from '~~/shared/types/post'
 const props = defineProps<{ handle: string, kind: 'problems' | 'posts' }>()
 const endpoint = `/api/${props.kind}` as const
-type Item = { id: string, title: string, publishedAt: string | null }
+type Item = z.infer<typeof publicProblemSummarySchema> | z.infer<typeof postSummarySchema>
 type Page = { items: Item[], nextCursor: string }
 const fetchPage = (cursor: string) => $fetch<Page>(endpoint, { query: { author: props.handle, cursor } })
 const { data, error, refresh } = await useAsyncData(`user-content:${props.handle}:${props.kind}`, () => fetchPage(''))

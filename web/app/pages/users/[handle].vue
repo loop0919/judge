@@ -23,8 +23,8 @@ useSeoMeta({ title: () => `${profile.value?.handle} | ShareOJ` })
       <div class="profile-identity"><p class="eyebrow">ユーザーページ</p><h1>{{ profile.handle }}</h1><p class="muted">{{ joined }}に登録</p></div>
     </header>
     <nav class="content-menu" aria-label="公開コンテンツ">
-      <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">公開済みの問題</button>
-      <button :aria-pressed="activeContent === 'posts'" @click="activeContent = 'posts'">公開済みの記事</button>
+      <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">問題</button>
+      <button :aria-pressed="activeContent === 'posts'" @click="activeContent = 'posts'">記事</button>
     </nav>
     <PublicUserContent :key="`${handle}:${activeContent}`" :handle="handle" :kind="activeContent" />
   </section>
