@@ -12,6 +12,7 @@ const pages = computed(() => data.value)
 </script>
 <template>
   <div class="catalogue">
+    <header class="draft-library-heading"><h2>{{ kind === 'problems' ? '問題' : '記事' }}</h2></header>
     <p v-if="error" role="alert">一覧を取得できませんでした。<button class="editor-button" @click="refresh()">再試行</button></p>
     <UserContentTable v-else-if="pages" :key="`${handle}:${kind}`" :initial="pages" :kind="kind" :fetch-page="fetchPage" />
     <p v-else role="status">読み込み中…</p>
