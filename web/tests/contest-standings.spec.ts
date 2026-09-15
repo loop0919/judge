@@ -82,3 +82,33 @@ test('standings retain empty and error states', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText('順位表を取得できませんでした。')
   await expect(page.locator('.standings-table')).toHaveCount(0)
 })
+
+
+test('contest problem rows highlight own ACs and refresh after judging', async ({ page }, testInfo) => {
+  const current = { ...contest, title: 'ShareOJ Beginner Contest', problems: [
+    { id: 'a', title: 'A + B', points: 100, solved: true },
+    { id: 'b', title: 'Range Sum Query', points: 200, solved: false },
+    { id: 'c', title: 'Shortest Path', points: 300, solved: false },
+  ] }
+  await page.clock.install()
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: startsAt } } }))
+  await page.route(`**/api/contests/${id}**`, route => route.fulfill({ json: route.request().url().includes('/standings') ? rows : current }))
+  await page.goto(`/contests/${id}?view=standings`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: '今すぐ更新' }).click()
+  await page.getByRole('navigation', { name: 'コンテストメニュー' }).getByRole('link', { name: '問題', exact: true }).click()
+  const problems = page.locator('.contest-problems tbody tr')
+  await expect(problems.nth(0)).toHaveClass('solved')
+  await expect(problems.nth(1)).not.toHaveClass('solved')
+  current.problems[1]!.solved = true
+  await page.clock.fastForward(15000)
+  await expect(problems.nth(1)).toHaveClass('solved')
+  await expect(problems.nth(1)).toHaveCSS('background-color', 'rgb(237, 249, 241)')
+  await expect(problems.nth(2)).not.toHaveClass('solved')
+  await expect(page.getByRole('link', { name: 'Range Sum Query（AC 済み）', exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 1280, height: 1000 })
+  await page.screenshot({ path: testInfo.outputPath('contest-solved-desktop.png'), fullPage: true })
+  await page.setViewportSize({ width: 375, height: 900 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: testInfo.outputPath('contest-solved-mobile.png'), fullPage: true })
+})

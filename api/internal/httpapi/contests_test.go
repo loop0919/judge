@@ -251,6 +251,28 @@ func TestContestsPostgres(t *testing.T) {
 	set(tester, 15, "AC")
 	tied := submit("carol", a, false)
 	set(tied, 40, "AC")
+	checkSolved := func(owner string, wantA, wantB bool) {
+		t.Helper()
+		path := "/my/contests/" + cid
+		if owner == "" {
+			path = "/contests/" + cid
+		}
+		var view contests.Contest
+		if err := json.Unmarshal([]byte(request("GET", path, owner, nil, 200)), &view); err != nil {
+			t.Fatal(err)
+		}
+		solved := map[string]bool{}
+		for _, problem := range view.Problems {
+			solved[problem.ID] = problem.Solved
+		}
+		if len(view.Problems) != 2 || solved[a] != wantA || solved[b] != wantB {
+			t.Fatalf("solved for %q: %+v", owner, view.Problems)
+		}
+	}
+	checkSolved("bob", true, false)   // Sample AC on B does not count.
+	checkSolved("alice", false, true) // A participant's AC does not belong to the setter.
+	checkSolved("", false, false)
+
 	rank := func() []contests.Standing {
 		t.Helper()
 		var rows []contests.Standing
@@ -359,6 +381,8 @@ func TestContestsPostgres(t *testing.T) {
 	}
 	practice := submit("bob", b, false)
 	exec(`UPDATE submissions SET status='DONE',result='{"verdict":"AC","passed":1,"total":1}' WHERE id=$1`, practice.ID)
+	checkSolved("bob", true, true) // Practice AC is reflected outside official standings.
+	checkSolved("", false, false)
 	if rows = rank(); rows[1].Points != 100 {
 		t.Fatal("practice counted", rows)
 	}

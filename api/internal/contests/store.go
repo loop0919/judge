@@ -16,6 +16,7 @@ import (
 var ErrConflict = errors.New("contest is locked or problems are unavailable")
 
 type Problem struct {
+	Solved bool   `json:"solved,omitempty"`
 	ID     string `json:"id"`
 	Points int    `json:"points"`
 	Title  string `json:"title,omitempty"`
@@ -85,14 +86,21 @@ func (s *Store) Get(ctx context.Context, id, viewer string) (Contest, error) {
 		return c, err
 	}
 	c.CanViewSubmissions = c.Status == "ended" || (viewer != "" && !c.Official)
-	rows, err := tx.Query(ctx, `SELECT cp.problem_id,cp.points,cp.draft->>'title' FROM contest_problems cp
- WHERE cp.contest_id=$1 AND ($2 OR EXISTS(SELECT 1 FROM problem_testers t WHERE t.problem_id=cp.problem_id AND t.owner_id=$3)) ORDER BY cp.position`, id, c.Status != "scheduled" || viewer == c.Owner, viewer)
+	rows, err := tx.Query(ctx, `SELECT cp.problem_id,cp.points,cp.draft->>'title',
+ EXISTS(SELECT 1 FROM submissions s WHERE s.contest_id=cp.contest_id AND s.problem_id=cp.problem_id
+  AND s.owner_id=$3 AND s.status='DONE' AND s.result->>'verdict'='AC'
+  AND NOT COALESCE((s.job->>'easyTest')::boolean,false)
+  AND NOT COALESCE((s.job->>'generate')::boolean,false)
+  AND NOT COALESCE((s.job->>'validate')::boolean,false)
+  AND s.created_at>=$4)
+ FROM contest_problems cp
+ WHERE cp.contest_id=$1 AND ($2 OR EXISTS(SELECT 1 FROM problem_testers t WHERE t.problem_id=cp.problem_id AND t.owner_id=$3)) ORDER BY cp.position`, id, c.Status != "scheduled" || viewer == c.Owner, viewer, c.StartsAt)
 	if err != nil {
 		return c, err
 	}
 	c.Problems, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (Problem, error) {
 		var p Problem
-		e := row.Scan(&p.ID, &p.Points, &p.Title)
+		e := row.Scan(&p.ID, &p.Points, &p.Title, &p.Solved)
 		return p, e
 	})
 	if err != nil {
