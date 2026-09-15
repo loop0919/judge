@@ -216,7 +216,7 @@ test('scheduled problems open for submission, then publish with editorial and so
     await reader.screenshot({ path: testInfo.outputPath(`contest-editorial-${width}.png`), fullPage: true })
   }
   await reader.goto(`/contests/${id}/submissions/${sid}`)
-  await expect(reader.locator('pre')).toContainText('int main(){}')
+  await expect(reader.getByRole('textbox', { name: 'ソースコード', exact: true })).toHaveText('int main(){}')
   for (const width of [320, 375, 414, 768]) {
     await reader.setViewportSize({ width, height: 900 })
     expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -236,7 +236,7 @@ test('scheduled problems open for submission, then publish with editorial and so
   await expect(reader.getByRole('region', { name: 'すべての提出', exact: true })).toContainText('bob')
   await reader.getByRole('row').filter({ hasText: 'bob' }).getByRole('link', { name: '詳細' }).click()
   await expect(reader).toHaveURL(`/problems/${pid}/submissions/${sid}`)
-  await expect(reader.locator('pre')).toContainText('int main(){}')
+  await expect(reader.getByRole('textbox', { name: 'ソースコード', exact: true })).toHaveText('int main(){}')
   await reader.getByRole('link', { name: 'この問題のすべての提出', exact: true }).click()
   await bob.goto(`/problems/${pid}?view=my-submissions`)
   await expect(bob.getByRole('region', { name: '自分の提出', exact: true })).toContainText('bob')

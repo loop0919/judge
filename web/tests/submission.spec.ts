@@ -3,6 +3,43 @@ import { expect, test } from '@playwright/test'
 const problemId = '11111111-1111-4111-8111-111111111111'
 const submissionId = '22222222-2222-4222-8222-222222222222'
 
+for (const scope of ['problem', 'contest']) {
+  test(`${scope} public submission uses the full result view`, async ({ page }) => {
+    const contestId = '88888888-8888-4888-8888-888888888888'
+    const problemPath = scope === 'contest' ? `/contests/${contestId}/problems/${problemId}` : `/problems/${problemId}`
+    const detailPath = scope === 'contest' ? `/contests/${contestId}/submissions/${submissionId}?from=problem` : `/problems/${problemId}/submissions/${submissionId}`
+    if (scope === 'problem') {
+      await page.goto(`${problemPath}?view=submissions`)
+      await page.getByRole('link', { name: '詳細', exact: true }).click()
+      await expect(page).toHaveURL(detailPath)
+    } else {
+      await page.goto(detailPath)
+    }
+    await expect(page.getByRole('heading', { name: '提出結果', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: '提出者 alice', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: '言語 C++17 (GCC)', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'コード長 12 bytes', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: '正解したケース 1 / 1', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'sample_1 AC 2 ms 4 ms 1.00 MiB', exact: true })).toBeVisible()
+    const source = page.getByRole('textbox', { name: 'ソースコード', exact: true })
+    await expect(source).toHaveText('int main(){}')
+    await expect(source).toHaveAttribute('aria-readonly', 'true')
+    await page.getByRole('button', { name: '広げる', exact: true }).click()
+    await expect(page.getByRole('button', { name: '折りたたむ' })).toHaveAttribute('aria-expanded', 'true')
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.getByRole('button', { name: 'コピー', exact: true }).click()
+    await expect(page.getByText('コピーしました。', { exact: true })).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('int main(){}')
+    await expect(page.getByRole('link', { name: 'この問題のすべての提出', exact: true })).toHaveAttribute('href', `${problemPath}?view=submissions`)
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    }
+    await page.reload()
+    await expect(source).toHaveText('int main(){}')
+  })
+}
+
 test('language selection survives reloads and returning to the problem', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
   await page.goto(`/problems/${problemId}`)

@@ -9,7 +9,14 @@ import (
 func publicSubmission(s Submission) Submission {
 	// Public results must not expose private checker diagnostics or test data.
 	if s.Result != nil {
-		s.Result = &Result{Verdict: s.Result.Verdict, Passed: s.Result.Passed, Total: s.Result.Total}
+		result := &Result{Verdict: s.Result.Verdict, Passed: s.Result.Passed, Total: s.Result.Total}
+		for _, c := range s.Result.Cases {
+			result.Cases = append(result.Cases, CaseResult{
+				Name: c.Name, Verdict: c.Verdict,
+				CPUTimeMS: c.CPUTimeMS, WallTimeMS: c.WallTimeMS, MemoryBytes: c.MemoryBytes,
+			})
+		}
+		s.Result = result
 	}
 	return s
 }
@@ -47,6 +54,9 @@ func submissionList(rows pgx.Rows) (ContestSubmissionList, error) {
 	items, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Submission, error) {
 		item, e := scan(row)
 		item = publicSubmission(item)
+		if item.Result != nil {
+			item.Result.Cases = nil
+		}
 		item.Source = ""
 		return item, e
 	})
