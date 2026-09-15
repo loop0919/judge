@@ -131,6 +131,47 @@ for (const width of [320, 375, 414, 768, 1280]) {
   })
 }
 
+test.describe('small touch screens', () => {
+  test.use({ hasTouch: true, isMobile: true })
+
+  for (const viewport of [{ width: 312, height: 553 }, { width: 375, height: 667 }, { width: 667, height: 375 }, { width: 320, height: 360 }]) {
+    test(`keeps a usable Markdown area at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport)
+      await page.goto('/problems/new')
+      const source = page.locator('#problem-source')
+      await expect(source).toBeEnabled()
+      const topbar = page.locator('.editor-topbar')
+      if (viewport.width < 640) expect((await topbar.boundingBox())!.height).toBeLessThan(65)
+      const toolbar = page.getByLabel('記法を挿入', { exact: true })
+      expect((await toolbar.boundingBox())!.height).toBeLessThan(65)
+      expect((await source.boundingBox())!.height).toBeGreaterThanOrEqual(220)
+      await source.scrollIntoViewIfNeeded()
+      const visibleHeight = await source.evaluate(element => {
+        let top = 0, bottom = innerHeight
+        for (let parent: Element | null = element; parent; parent = parent.parentElement) {
+          const bounds = parent.getBoundingClientRect()
+          top = Math.max(top, bounds.top)
+          bottom = Math.min(bottom, bounds.bottom)
+        }
+        return bottom - top
+      })
+      expect(visibleHeight).toBeGreaterThanOrEqual(200)
+      await source.fill('## スマホで編集\n\n複数行を表示できます。\n')
+      await expect(source).toHaveValue(/複数行を表示できます/)
+      await page.screenshot({ path: testInfo.outputPath('mobile-markdown.png'), fullPage: true })
+      await page.getByRole('button', { name: '折りたたみ', exact: true }).click()
+      await expect(source).toHaveValue(/:::details/)
+      await page.getByLabel('問題のタイトル', { exact: true }).fill('スマホの問題')
+      await page.getByRole('button', { name: '保存', exact: true }).click()
+      await expect(page.getByRole('status')).toHaveText('保存済み')
+      await page.getByRole('button', { name: 'プレビュー', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'スマホで編集', exact: true })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true)
+    })
+  }
+})
+
 test('line numbers follow wrapped lines and scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 700 })
   await page.goto('/problems/new')

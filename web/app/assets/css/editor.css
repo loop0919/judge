@@ -109,7 +109,7 @@
   .author-workspace[data-mode="split"] .preview-pane { display: none; }
 }
 @media (max-width: 39.999rem) {
-  .editor-topbar .author-actions { width: 100%; justify-content: flex-end; }
+  .editor-topbar .author-actions { margin-left: 0; }
   .editor-topbar .editor-view-switch { margin-left: auto; }
   .editor-topbar { gap: 4px 8px; padding-inline: 8px; }
   .author-fields input, .source-pane textarea { font-size: 1rem; }
@@ -158,6 +158,13 @@
 .editor-button.danger { color: var(--color-error); border-color: var(--color-error); }
 .manage-problem-title { font-weight: 600; overflow-wrap: anywhere; }
 .author-edit-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* Keep the document usable when controls consume a small viewport. */
+@media (max-width: 59.999rem), (max-height: 32rem) {
+  .author-edit-content { overflow-y: auto; }
+  .author-edit-content .author-workspace { flex: 1 0 360px; }
+  .editor-toolbar { flex-wrap: nowrap; overflow-x: auto; }
+  .editor-toolbar button { flex-shrink: 0; min-width: var(--editor-control-size); }
+}
 .problem-management { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 32px clamp(16px, 4vw, 64px); }
 .management-content { max-width: 1000px; margin-inline: auto; }
 .management-content > header { margin-bottom: 32px; }
