@@ -21,8 +21,13 @@ func publicSubmission(s Submission) Submission {
 	return s
 }
 
+// A tester on any problem can review submissions throughout that contest.
+const contestStaff = `(c.owner_id=$3 OR EXISTS (
+ SELECT 1 FROM contest_problems cp JOIN problem_testers t ON t.problem_id=cp.problem_id
+ WHERE cp.contest_id=c.id AND t.owner_id=$3))`
+
 const contestPublic = `contest_id=$1 AND NOT COALESCE((job->>'easyTest')::boolean,false)
- AND EXISTS(SELECT 1 FROM contests c WHERE c.id=$1 AND (c.owner_id=$3 OR (statement_timestamp()>=c.ends_at AND submissions.created_at>=c.starts_at)))`
+ AND EXISTS(SELECT 1 FROM contests c WHERE c.id=$1 AND (` + contestStaff + ` OR (statement_timestamp()>=c.ends_at AND submissions.created_at>=c.starts_at)))`
 
 func (s *Store) ContestGet(ctx context.Context, contestID, id, viewer string) (Submission, error) {
 	item, err := scan(s.Pool.QueryRow(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` AND id=$2`, contestID, id, viewer))
@@ -35,12 +40,14 @@ type ContestSubmissionList struct {
 }
 
 func (s *Store) ContestList(ctx context.Context, contestID, viewer string, offset int) (ContestSubmissionList, error) {
-	var ended bool
-	err := s.Pool.QueryRow(ctx, `SELECT statement_timestamp()>=ends_at OR owner_id=$2 FROM contests WHERE id=$1`, contestID, viewer).Scan(&ended)
+	var allowed bool
+	err := s.Pool.QueryRow(ctx, `SELECT statement_timestamp()>=c.ends_at OR c.owner_id=$2 OR EXISTS (
+ SELECT 1 FROM contest_problems cp JOIN problem_testers t ON t.problem_id=cp.problem_id
+ WHERE cp.contest_id=c.id AND t.owner_id=$2) FROM contests c WHERE c.id=$1`, contestID, viewer).Scan(&allowed)
 	if err != nil {
 		return ContestSubmissionList{}, err
 	}
-	if !ended {
+	if !allowed {
 		return ContestSubmissionList{}, pgx.ErrNoRows
 	}
 	rows, err := s.Pool.Query(ctx, `SELECT `+columns+` FROM submissions WHERE `+contestPublic+` ORDER BY created_at DESC,id DESC LIMIT 51 OFFSET $2`, contestID, offset, viewer)

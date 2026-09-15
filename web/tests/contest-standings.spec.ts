@@ -6,7 +6,7 @@ const startsAt = '2026-09-15T12:00:00Z'
 const contest: Contest = {
   id, title: '順位表テスト', author: 'setter', description: '', startsAt,
   endsAt: '2026-09-15T14:00:00Z', penaltyMinutes: 5, version: 1,
-  status: 'running', canEdit: false, official: true,
+  status: 'running', canEdit: false, official: true, canViewSubmissions: false,
   problems: ['a', 'b', 'c', 'd'].map(id => ({ id, title: id, points: 100 })),
 }
 const rows: Standing[] = [

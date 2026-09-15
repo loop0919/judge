@@ -3,7 +3,7 @@ export type ContestProblem = { id: string, points: number, title?: string }
 export type Contest = {
   id: string, author: string, title: string, description: string,
   startsAt: string, endsAt: string, penaltyMinutes: number, version: number,
-  status: 'scheduled' | 'running' | 'ended', canEdit: boolean, official: boolean,
+  status: 'scheduled' | 'running' | 'ended', canEdit: boolean, official: boolean, canViewSubmissions: boolean,
   problems: ContestProblem[],
 }
 export type ContestList = { items: Contest[], hasMore: boolean }

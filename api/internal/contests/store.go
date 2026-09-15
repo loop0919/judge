@@ -21,19 +21,20 @@ type Problem struct {
 	Title  string `json:"title,omitempty"`
 }
 type Contest struct {
-	ID             string    `json:"id"`
-	Owner          string    `json:"-"`
-	Author         string    `json:"author"`
-	Title          string    `json:"title"`
-	Description    string    `json:"description"`
-	StartsAt       time.Time `json:"startsAt"`
-	EndsAt         time.Time `json:"endsAt"`
-	PenaltyMinutes int       `json:"penaltyMinutes"`
-	Version        int64     `json:"version"`
-	Status         string    `json:"status"`
-	CanEdit        bool      `json:"canEdit"`
-	Official       bool      `json:"official"`
-	Problems       []Problem `json:"problems"`
+	ID                 string    `json:"id"`
+	Owner              string    `json:"-"`
+	Author             string    `json:"author"`
+	Title              string    `json:"title"`
+	Description        string    `json:"description"`
+	StartsAt           time.Time `json:"startsAt"`
+	EndsAt             time.Time `json:"endsAt"`
+	PenaltyMinutes     int       `json:"penaltyMinutes"`
+	Version            int64     `json:"version"`
+	Status             string    `json:"status"`
+	CanEdit            bool      `json:"canEdit"`
+	CanViewSubmissions bool      `json:"canViewSubmissions"`
+	Official           bool      `json:"official"`
+	Problems           []Problem `json:"problems"`
 }
 type Input struct {
 	Title          string    `json:"title"`
@@ -83,6 +84,7 @@ func (s *Store) Get(ctx context.Context, id, viewer string) (Contest, error) {
 	if err != nil {
 		return c, err
 	}
+	c.CanViewSubmissions = c.Status == "ended" || (viewer != "" && !c.Official)
 	rows, err := tx.Query(ctx, `SELECT cp.problem_id,cp.points,cp.draft->>'title' FROM contest_problems cp
  WHERE cp.contest_id=$1 AND ($2 OR EXISTS(SELECT 1 FROM problem_testers t WHERE t.problem_id=cp.problem_id AND t.owner_id=$3)) ORDER BY cp.position`, id, c.Status != "scheduled" || viewer == c.Owner, viewer)
 	if err != nil {

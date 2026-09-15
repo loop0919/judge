@@ -10,13 +10,13 @@ const activeView = computed(() => {
   const view = route.query.view
   return view === 'problems' || view === 'standings' || view === 'submissions' ? view : 'overview'
 })
-const { user, profile } = useAccount()
+const { user } = useAccount()
 const base = `/api/contests/${encodeURIComponent(String(route.params.id))}`
 const { data: contest, error, refresh } = await useFetch<Contest>(base)
 if (error.value || !contest.value) throw createError({ statusCode: error.value?.statusCode === 404 ? 404 : 502, statusMessage: 'コンテストを取得できませんでした', fatal: true })
 useSeoMeta({ title: () => `${contest.value?.title} | ShareOJ` })
 const { data: standings, error: standingsError, refresh: refreshStandings } = await useFetch<Standing[]>(`${base}/standings`)
-const canViewSubmissions = computed(() => contest.value?.status === 'ended' || (profile.value?.handle !== undefined && profile.value.handle === contest.value?.author))
+const canViewSubmissions = computed(() => contest.value?.canViewSubmissions === true)
 const submissions = ref<{ items: Submission[], hasMore: boolean } | null>(null)
 const submissionsError = ref('')
 const offset = ref(0)
@@ -122,7 +122,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
     </section>
     <section v-if="activeView === 'submissions'" id="submissions" class="contest-section" aria-labelledby="submissions-title">
       <h2 id="submissions-title">提出一覧</h2>
-      <p v-if="!canViewSubmissions" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。終了前はコンテストセッターのみ閲覧できます。</p>
+      <p v-if="!canViewSubmissions" class="notice">提出一覧と提出コードはコンテスト終了後に公開されます。終了前はコンテストセッターとテスターが閲覧できます。</p>
       <template v-else><p class="muted">提出コードを閲覧できます。練習提出も掲載します。</p>
       <p v-if="submissionsError" class="notice notice-error" role="alert">{{ submissionsError }}</p>
       <p v-if="!submissions && !submissionsError" class="muted" role="status">提出一覧を読み込み中…</p>

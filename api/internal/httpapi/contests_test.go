@@ -161,7 +161,7 @@ func TestContestsPostgres(t *testing.T) {
 	request("GET", "/my/contests/"+cid+"/problems/"+b, "tester", nil, 404)
 	var testerView contests.Contest
 	json.Unmarshal([]byte(request("GET", "/my/contests/"+cid, "tester", nil, 200)), &testerView)
-	if testerView.Official || len(testerView.Problems) != 1 {
+	if testerView.Official || !testerView.CanViewSubmissions || len(testerView.Problems) != 1 {
 		t.Fatal(testerView)
 	}
 	submit := func(owner, pid string, easy bool) submissions.Submission {
@@ -187,6 +187,10 @@ func TestContestsPostgres(t *testing.T) {
 		t.Fatal("title did not follow source", detail)
 	}
 	pre := submit("tester", a, false)
+	preSetter := submit("alice", b, false)
+	request("GET", "/my/contests/"+cid+"/submissions", "tester", nil, 200)
+	request("GET", "/my/contests/"+cid+"/submissions/"+preSetter.ID, "tester", nil, 200)
+	request("GET", "/my/contests/"+cid+"/submissions", "bob", nil, 404)
 	start := time.Now().Add(-time.Hour).UTC().Truncate(time.Millisecond)
 	end := time.Now().Add(time.Hour).UTC().Truncate(time.Millisecond)
 	exec(`UPDATE contests SET starts_at=$2,ends_at=$3 WHERE id=$1`, cid, start, end)
@@ -260,8 +264,8 @@ func TestContestsPostgres(t *testing.T) {
 	request("GET", "/contests/"+cid+"/submissions", "", nil, 404)
 	request("GET", "/contests/"+cid+"/submissions/"+accepted.ID, "", nil, 404)
 	request("GET", "/my/submissions/"+accepted.ID, "carol", nil, 404)
-	// Lists are scoped on the server, and testers are not setters.
-	for _, viewer := range []string{"bob", "tester", "carol"} {
+	// Ordinary participants cannot view other submissions before the end.
+	for _, viewer := range []string{"bob", "carol"} {
 		request("GET", "/my/contests/"+cid+"/problems/"+a+"/submissions", viewer, nil, 404)
 		request("GET", "/my/contests/"+cid+"/submissions/"+accepted.ID, viewer, nil, 404)
 	}
@@ -282,6 +286,42 @@ func TestContestsPostgres(t *testing.T) {
 	if !strings.Contains(setter, "code of bob") || strings.Contains(setter, "private diagnostic") {
 		t.Fatal("setter source", setter)
 	}
+	// A tester of A can review both A and B, including submitted source.
+	checkTesterAccess := func(allowed bool) {
+		t.Helper()
+		want := 404
+		if allowed {
+			want = 200
+		}
+		var view contests.Contest
+		json.Unmarshal([]byte(request("GET", "/my/contests/"+cid, "tester", nil, 200)), &view)
+		if view.CanViewSubmissions != allowed {
+			t.Fatalf("tester permission: %+v", view)
+		}
+		for _, path := range []string{
+			"/submissions", "/problems/" + a + "/submissions", "/problems/" + b + "/submissions",
+			"/submissions/" + accepted.ID, "/submissions/" + unsolved.ID,
+		} {
+			body := request("GET", "/my/contests/"+cid+path, "tester", nil, want)
+			if allowed && strings.Contains(body, "private diagnostic") {
+				t.Fatal("diagnostic leak", body)
+			}
+			if allowed && (path == "/submissions/"+accepted.ID || path == "/submissions/"+unsolved.ID) && !strings.Contains(body, "code of bob") {
+				t.Fatal("missing submitted source", body)
+			}
+		}
+	}
+	checkTesterAccess(true)
+	request("GET", "/my/contests/"+cid+"/submissions/"+easy.ID, "tester", nil, 404)
+	// Membership is checked on each request; unrelated contests grant no access.
+	exec(`DELETE FROM problem_testers WHERE problem_id=$1 AND owner_id='tester'`, a)
+	checkTesterAccess(false)
+	exec(`INSERT INTO contests(id,owner_id,title,description,starts_at,ends_at) VALUES($1,'alice','Unrelated','',now(),now()+interval '1 hour')`, other)
+	request("GET", "/my/contests/"+other+"/submissions", "tester", nil, 404)
+	exec(`INSERT INTO problem_testers(problem_id,owner_id) VALUES($1,'tester')`, a)
+	checkTesterAccess(true)
+	request("GET", "/my/contests/"+other+"/submissions", "tester", nil, 404)
+	exec(`DELETE FROM contests WHERE id=$1`, other)
 	// Normal problem routes cannot bypass the contest embargo.
 	request("GET", "/problems/"+a+"/submissions", "", nil, 404)
 	request("GET", "/my/problems/"+a+"/submissions", "bob", nil, 404)
@@ -328,6 +368,11 @@ func TestContestsPostgres(t *testing.T) {
 	}
 	request("GET", "/contests/"+cid+"/submissions/"+easy.ID, "", nil, 404)
 	request("GET", "/contests/"+cid+"/submissions/"+pre.ID, "", nil, 404)
+	var endedView contests.Contest
+	json.Unmarshal([]byte(request("GET", "/contests/"+cid, "", nil, 200)), &endedView)
+	if !endedView.CanViewSubmissions {
+		t.Fatal("ended contest must allow public submission viewing")
+	}
 	list := request("GET", "/contests/"+cid+"/submissions", "", nil, 200)
 	if strings.Contains(list, "code of") || !strings.Contains(list, accepted.ID) {
 		t.Fatal(list)
