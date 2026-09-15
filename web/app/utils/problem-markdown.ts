@@ -31,6 +31,19 @@ const markdown = new MarkdownIt({ html: false, linkify: false, typographer: fals
   })
   .use(container, 'details')
 
+// Explicit heading anchors keep published guide links stable when titles change.
+markdown.core.ruler.before('inline', 'heading_ids', (state) => {
+  for (let index = 0; index < state.tokens.length - 1; index++) {
+    const heading = state.tokens[index]!
+    const content = state.tokens[index + 1]!
+    if (heading.type !== 'heading_open' || content.type !== 'inline') continue
+    const anchor = /\s+\{#([a-zA-Z][a-zA-Z0-9_-]*)\}$/.exec(content.content)
+    if (!anchor) continue
+    heading.attrSet('id', anchor[1]!)
+    content.content = content.content.slice(0, anchor.index)
+  }
+})
+
 // Discard comments without allowing general HTML; code rules keep literal examples intact.
 markdown.block.ruler.before('html_block', 'html_comment', (state, startLine, endLine, silent) => {
   const start = state.bMarks[startLine]! + state.tShift[startLine]!

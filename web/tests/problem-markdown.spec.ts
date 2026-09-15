@@ -2,6 +2,14 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('explicit heading anchors preserve formatting and reject attribute injection', () => {
+  expect(renderProblemMarkdown('## **判定**の例 {#testlib}\n\n本文'))
+    .toBe('<h2 id="testlib"><strong>判定</strong>の例</h2>\n<p>本文</p>\n')
+  for (const source of ['本文 {#testlib}', '```text\n## 見出し {#testlib}\n```', '## 見出し {#bad" onclick="alert(1)}']) {
+    expect(renderProblemMarkdown(source)).not.toContain(' id=')
+  }
+})
+
 test('HTML comments are hidden while code examples and escaped comments stay visible', () => {
   for (const label of ['問題文', '解説', '記事', 'コンテストの概要']) {
     expect(renderProblemMarkdown(`<!-- ここに${label}を記載 -->\n`)).toBe('')
