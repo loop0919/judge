@@ -21,6 +21,8 @@ function localDate(value: number) {
 }
 
 test('create, reorder and edit an unpublished contest; guests cannot inspect its problems', async ({ page, browser }, testInfo) => {
+  // This covers creation, editing and multiple viewport checks against the real DB.
+  test.slow()
   await login(page)
   const first = await seed(page, 'コンテスト選択A')
   const second = await seed(page, 'コンテスト選択B')
