@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('initial HTTP response includes the problem and SEO metadata', async ({ request }) => {
+test('initial HTTP response includes the problem and SEO metadata', async ({ request, page }) => {
   const response = await request.get('/problems/11111111-1111-4111-8111-111111111111?ref=test')
   expect(response.status()).toBe(200)
   const html = await response.text()
@@ -11,7 +11,11 @@ test('initial HTTP response includes the problem and SEO metadata', async ({ req
   expect(markup).toContain('name="description"')
   expect(markup).toContain('property="og:title"')
   expect(markup).toContain('rel="canonical" href="https://judge.example/problems/11111111-1111-4111-8111-111111111111"')
-  expect(markup).toContain('テスター bob、carol')
+  await page.setContent(markup)
+  const testers = page.locator('p').filter({ hasText: /^テスター / })
+  await expect(testers).toHaveText('テスター bob、carol')
+  await expect(testers.getByRole('link', { name: 'bob', exact: true })).toHaveAttribute('href', '/users/bob')
+  await expect(testers.getByRole('link', { name: 'carol', exact: true })).toHaveAttribute('href', '/users/carol')
   expect(markup).toContain('2 つの整数 ')
   expect(markup).toContain('class="katex"')
   expect(markup).toContain('<math xmlns="http://www.w3.org/1998/Math/MathML"')
