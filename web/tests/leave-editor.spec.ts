@@ -16,7 +16,7 @@ test('unsaved navigation can be cancelled or discarded without writing a draft',
   await page.getByRole('link', { name: 'ShareOJ マイページ' }).click()
   await page.getByRole('button', { name: '保存せずに移動', exact: true }).click()
   await expect(page).toHaveURL('/my')
-  await page.goto('/my/problems')
+  await page.goto('/my?tab=problems')
   await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
 })
 

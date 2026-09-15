@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures/account'
 
 test('multiple drafts remain independent and reopen from the library', async ({ page }) => {
-  await page.goto('/my/problems')
+  await page.goto('/my?tab=problems')
   await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
   for (const title of ['最初の問題', '次の問題']) {
     await page.getByRole('main').getByRole('link', { name: '新規問題' }).click()
@@ -27,7 +27,7 @@ test('multiple drafts remain independent and reopen from the library', async ({ 
 for (const width of [320, 375, 414, 768, 1280]) {
   test(`draft library fits ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/my/problems')
+    await page.goto('/my?tab=problems')
     await expect(page.getByText('保存した問題はまだありません。')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath(`library-${width}.png`), fullPage: true })

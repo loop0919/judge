@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
     </div>
     <section v-if="managing" class="problem-management" aria-labelledby="management-title">
       <div class="management-content">
-        <NuxtLink to="/my/posts">自分の記事</NuxtLink>
+        <NuxtLink to="/my?tab=posts">自分の記事</NuxtLink>
         <header><h1 id="management-title">記事管理</h1><p class="manage-problem-title">{{ title.trim() || '無題の記事' }}</p><p class="muted">{{ saveLocation }}</p></header>
         <section class="management-row"><div><h2>公開設定</h2><p>公開内容は「公開内容を更新」を押すまで変わりません。</p><NuxtLink v-if="publishedVersion" :to="`/blog/${id}`" target="_blank">公開ページを見る</NuxtLink></div><div class="publication-actions"><button class="editor-button primary" :disabled="busy" @click="publish(true)">{{ publishedVersion ? '公開内容を更新' : '公開する' }}</button><button v-if="publishedVersion" class="editor-button" :disabled="busy" @click="publish(false)">非公開に戻す</button></div></section>
         <section class="management-row"><div><h2>記事の削除</h2><p>記事を削除します。この操作は取り消せません。</p></div><button v-if="version" type="button" class="editor-button danger" :disabled="busy" @click="remove">削除</button></section>

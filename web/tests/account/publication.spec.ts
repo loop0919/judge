@@ -121,7 +121,7 @@ test('blog draft, preview, publication, editing and withdrawal', async ({ page, 
   await expect(page.getByRole('status')).toHaveText('非公開に戻しました')
   expect((await guest.request.get(`/blog/${id}`)).status()).toBe(404)
   await page.getByRole('button', { name: '削除', exact: true }).click()
-  await expect(page).toHaveURL('/my/posts')
+  await expect(page).toHaveURL('/my?tab=posts')
   expect((await page.request.get(`/api/my/posts/${id}`)).status()).toBe(404)
   await guest.close()
 })

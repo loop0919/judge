@@ -13,7 +13,7 @@ async function loadAccount(more = false) {
   accountMessage.value = ''
   try {
     const account = await refreshAccount()
-    if (!account) { accountEntries.value = []; nextCursor.value = ''; await navigateTo('/login?next=/my/problems', { replace: true }); return }
+    if (!account) { accountEntries.value = []; nextCursor.value = ''; await navigateTo('/login?next=/my%3Ftab%3Dproblems', { replace: true }); return }
     if (listedOwner !== account.id) { more = false; accountEntries.value = []; nextCursor.value = ''; listedOwner = account.id }
     const result = accountListSchema.parse(await $fetch('/api/my/problems', { query: { ...(props.testing ? { role: 'tester' } : {}), ...(more ? { cursor: nextCursor.value } : {}) } }))
     accountEntries.value = more ? [...accountEntries.value, ...result.items] : result.items
@@ -34,7 +34,7 @@ onMounted(() => { void loadAccount() })
     </header>
     <p v-if="accountMessage" role="alert" class="editor-error">{{ accountMessage }}</p>
     <p v-if="accountLoading" role="status">問題を読み込んでいます…</p>
-    <p v-else-if="!user"><NuxtLink to="/login?next=/my/problems">ログイン</NuxtLink>すると、問題を表示できます。</p>
+    <p v-else-if="!user"><NuxtLink to="/login?next=/my%3Ftab%3Dproblems">ログイン</NuxtLink>すると、問題を表示できます。</p>
     <template v-else>
       <p v-if="!accountEntries.length && !accountMessage">{{ testing ? 'テスト中の問題はまだありません。テスターリンクから参加すると、ここに表示されます。' : '保存した問題はまだありません。' }}</p>
       <div v-if="accountEntries.length" class="content-table-scroll">
