@@ -130,6 +130,57 @@ for (const width of [320, 375, 414, 768, 1280]) {
   })
 }
 
+test.describe('small touch screens', () => {
+  test.use({ hasTouch: true, isMobile: true })
+  for (const viewport of [{ width: 358, height: 567 }, { width: 312, height: 553 }, { width: 667, height: 375 }]) {
+    test(`can add and edit test cases at ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport)
+      await page.goto('/problems/new')
+      for (const section of ['問題文', 'テストケース', '生成と検証', '判定方法', '解説']) {
+        await page.getByRole('button', { name: section, exact: true }).click()
+        const save = (await page.getByRole('button', { name: '保存', exact: true }).boundingBox())!
+        expect(viewport.width - save.x - save.width).toBeLessThanOrEqual(12)
+      }
+      await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+      await page.getByRole('button', { name: 'テストケースを追加', exact: true }).click()
+      await page.getByLabel('テストケース名 1', { exact: true }).fill('sample.txt')
+      for (const [label, text] of [['入力', '3 5\n'], ['出力', '8\n']]) {
+        const editor = page.getByRole('textbox', { name: label, exact: true })
+        const surface = editor.locator('xpath=ancestor::div[contains(@class,"code-surface")]')
+        expect((await surface.boundingBox())!.height).toBeGreaterThanOrEqual(200)
+        await surface.scrollIntoViewIfNeeded()
+        const visibleHeight = await surface.evaluate(element => {
+          let top = 0, bottom = innerHeight
+          for (let parent: Element | null = element; parent; parent = parent.parentElement) {
+            const bounds = parent.getBoundingClientRect()
+            top = Math.max(top, bounds.top)
+            bottom = Math.min(bottom, bounds.bottom)
+          }
+          return bottom - top
+        })
+        expect(visibleHeight).toBeGreaterThanOrEqual(200)
+        await editor.fill(text)
+        await expect(editor).toHaveText(text.trim())
+        await page.screenshot({ path: testInfo.outputPath(`${label}.png`), fullPage: true })
+      }
+      await page.getByRole('button', { name: 'テストケースを追加', exact: true }).click()
+      await page.getByLabel('テストケース名 2', { exact: true }).fill('large.txt')
+      await page.getByRole('textbox', { name: '入力', exact: true }).fill('100 200')
+      await page.getByRole('textbox', { name: '出力', exact: true }).fill('300')
+      await page.getByRole('navigation', { name: 'テストケース一覧' }).getByRole('button', { name: 'sample.txt', exact: true }).click()
+      await expect(page.getByRole('textbox', { name: '入力', exact: true })).toHaveText('3 5')
+      await expect(page.getByRole('textbox', { name: '出力', exact: true })).toHaveText('8')
+      await page.getByRole('button', { name: '保存', exact: true }).click()
+      await expect(page.getByRole('status')).toHaveText('保存済み')
+      await page.reload()
+      await page.getByRole('button', { name: 'テストケース', exact: true }).click()
+      await expect(page.getByRole('textbox', { name: '入力', exact: true })).toHaveText('3 5')
+      await expect(page.getByRole('textbox', { name: '出力', exact: true })).toHaveText('8')
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true)
+    })
+  }
+})
+
 test('case limit stays at 100 when TL changes', async ({ page }) => {
   await page.goto('/problems/new')
   await page.locator('#time-limit').fill('5000')

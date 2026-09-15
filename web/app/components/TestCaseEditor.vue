@@ -215,17 +215,21 @@ function add() {
 .empty-list, .empty-editor { padding: 16px; font-size: .875rem; }
 .empty-editor { overflow-y: auto; }
 @media (max-width: 900px) { .case-workspace { grid-template-columns: 160px minmax(0, 1fr); } .file-list-heading { padding: 8px; } .case-name { flex-wrap: wrap; gap: 6px; } .case-name label { width: 100%; } }
+@media (max-width: 600px), (max-height: 32rem) {
+  .test-case-editor { display: block; overflow-y: auto; }
+  .case-workspace { min-height: 400px; }
+}
 @media (max-width: 600px) {
   .case-name input:not([type="checkbox"]) { flex-basis: 100%; max-width: none; }
   .case-name .sample-option { flex: 1; }
   .case-toolbar { padding: 8px; }
   .case-toolbar h1 span { margin-left: 4px; }
   .case-notes { padding: 6px 8px; }
-  .case-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: 144px minmax(0, 1fr); }
+  .case-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; min-height: 0; }
   .case-files { border-right: 0; border-bottom: 1px solid var(--color-line); }
   .file-list-heading { padding: 4px 8px; }
-  .case-files ul { padding: 0; }
-  .case-files li button { padding: 6px 8px; }
-  .case-fields { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(160px, 1fr)); overflow-y: auto; }
+  .case-files ul { padding: 0; max-height: 132px; }
+  .case-files li button { padding: 6px 8px; min-height: 44px; }
+  .case-fields { flex: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, 320px); }
 }
 </style>

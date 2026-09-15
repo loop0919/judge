@@ -109,7 +109,6 @@
   .author-workspace[data-mode="split"] .preview-pane { display: none; }
 }
 @media (max-width: 39.999rem) {
-  .editor-topbar .author-actions { margin-left: 0; }
   .editor-topbar .editor-view-switch { margin-left: auto; }
   .editor-topbar { gap: 4px 8px; padding-inline: 8px; }
   .author-fields input, .source-pane textarea { font-size: 1rem; }
