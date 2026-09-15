@@ -2,7 +2,7 @@ import { expect, test } from './fixtures/account'
 
 for (const [path, api, label] of [['/problems', 'problems', '問題'], ['/blog', 'posts', '記事']] as const) {
   test(`${label} table replaces pages, retains data on failure, and goes back`, async ({ page }, testInfo) => {
-    const item = (id: string, title: string) => ({ id, title, author: 'alice', publishedAt: '2026-09-10T00:00:00Z', updatedAt: '2026-09-10T00:00:00Z', publishedVersion: 1, isOperator: true, timeLimitMs: 2000, memoryLimitMb: 256, difficulty: 10, favoriteCount: 3 })
+    const item = (id: string, title: string) => ({ id, title, author: 'alice', publishedAt: '2026-09-10T00:00:00Z', updatedAt: '2026-09-10T00:00:00Z', publishedVersion: 1, isOperator: true, timeLimitMs: 2000, memoryLimitMb: 256, difficulty: 10, favoriteCount: 3, solverCount: 12 })
     let fail = true
     await page.route(`**/api/${api}*`, route => {
       if (new URL(route.request().url()).searchParams.has('cursor')) {
@@ -18,8 +18,9 @@ for (const [path, api, label] of [['/problems', 'problems', '問題'], ['/blog',
     const table = page.getByRole('table')
     await expect(table.getByRole('link', { name: '1ページ目' })).toBeVisible()
     if (api === 'problems') {
-      await expect(table).toContainText('2 秒')
-      await expect(table).toContainText('256 MiB')
+      await expect(table.getByRole('cell', { name: '2 秒・256 MiB', exact: true })).toBeVisible()
+      await expect(table.getByRole('columnheader', { name: '正解者数', exact: true })).toBeVisible()
+      await expect(table.getByRole('cell', { name: '12', exact: true })).toBeVisible()
       await expect(table.locator('.difficulty')).toHaveText('Lv.10')
       await expect(table.locator('.difficulty-crown')).toHaveCount(1)
       await expect(table.locator('.difficulty-dot')).toHaveCount(0)

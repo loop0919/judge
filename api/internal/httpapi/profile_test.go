@@ -178,6 +178,38 @@ func TestProfilesPostgres(t *testing.T) {
 			t.Fatal("missing operator badge")
 		}
 		if kind == "problems" {
+			if !strings.Contains(visible, `"solverCount":0`) {
+				t.Fatal(visible)
+			}
+			// Repeated ACs count once; draft, sample, generation, validation,
+			// unfinished, and incorrect submissions must not count as solves.
+			_, err := store.Pool().Exec(ctx, `INSERT INTO submissions
+				(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,status,result)
+				SELECT gen_random_uuid(),v.owner_id,$1,1,'test','cpp17','',v.job::jsonb,v.status,jsonb_build_object('verdict',v.verdict)
+				FROM (VALUES
+					('bob','{"privateDraft":false}','DONE','AC'),
+					('bob','{"privateDraft":false}','DONE','AC'),
+					('alice','{"privateDraft":true}','DONE','AC'),
+					('alice','{}','DONE','AC'),
+					('alice','{"privateDraft":false,"easyTest":true}','DONE','AC'),
+					('alice','{"privateDraft":false,"generate":true}','DONE','AC'),
+					('alice','{"privateDraft":false,"validate":true}','DONE','AC'),
+					('alice','{"privateDraft":false}','RUNNING','AC'),
+					('alice','{"privateDraft":false}','DONE','WA')
+				) AS v(owner_id,job,status,verdict)`, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range []string{public, "/problems"} {
+				if result := check("GET", path, "", "", 200); !strings.Contains(result, `"solverCount":1`) {
+					t.Fatal(result)
+				}
+			}
+			if _, err := store.Pool().Exec(ctx, `INSERT INTO submissions
+				(id,owner_id,problem_id,problem_version,problem_title,runtime,source,job,status,result)
+				VALUES(gen_random_uuid(),'alice',$1,1,'test','cpp17','','{"privateDraft":false}','DONE','{"verdict":"AC"}')`, id); err != nil {
+				t.Fatal(err)
+			}
 			favorite := "/my/favorites/" + id
 			check("GET", favorite, "", "", 401)
 			check("PUT", favorite, "", `{"favorited":true}`, 401)
@@ -215,7 +247,7 @@ func TestProfilesPostgres(t *testing.T) {
 			t.Fatal(listing)
 		}
 		if kind == "problems" {
-			for _, field := range []string{`"difficulty":4`, `"timeLimitMs":"2000"`, `"memoryLimitMb":"256"`, `"favoriteCount":1`} {
+			for _, field := range []string{`"difficulty":4`, `"timeLimitMs":"2000"`, `"memoryLimitMb":"256"`, `"favoriteCount":1`, `"solverCount":2`} {
 				if !strings.Contains(listing, field) {
 					t.Fatalf("missing %s: %s", field, listing)
 				}

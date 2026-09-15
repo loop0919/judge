@@ -21,11 +21,11 @@ useSharePreview({ type: 'website', title: '問題', path: '/problems', descripti
     <p v-if="!current.items.length" class="muted">公開された問題はまだありません。</p>
     <div v-else class="content-table-scroll" tabindex="0" role="region" aria-label="問題一覧" :aria-busy="loading">
       <table class="content-table">
-        <thead><tr><th scope="col">タイトル</th><th scope="col">作成者</th><th scope="col"><abbr title="実行時間制限">TL</abbr></th><th scope="col"><abbr title="メモリ制限">ML</abbr></th><th scope="col"><abbr title="お気に入り数">Fav</abbr></th><th scope="col">難易度</th></tr></thead>
+        <thead><tr><th scope="col">タイトル</th><th scope="col">作成者</th><th scope="col"><abbr title="実行時間制限 / メモリ制限">TL / ML</abbr></th><th scope="col">正解者数</th><th scope="col"><abbr title="お気に入り数">Fav</abbr></th><th scope="col">難易度</th></tr></thead>
         <tbody><tr v-for="problem in current.items" :key="problem.id">
           <th scope="row"><NuxtLink :to="`/problems/${problem.id}`">{{ problem.title }}</NuxtLink></th>
-          <td>{{ problem.author }}</td><td>{{ problem.timeLimitMs == null ? '—' : `${problem.timeLimitMs / 1000} 秒` }}</td><td>{{ problem.memoryLimitMb == null ? '—' : `${problem.memoryLimitMb} MiB` }}</td>
-          <td>{{ problem.favoriteCount }}</td><td><DifficultyBadge :level="problem.difficulty" /></td>
+          <td>{{ problem.author }}</td><td>{{ problem.timeLimitMs == null ? '—' : `${problem.timeLimitMs / 1000} 秒` }}・{{ problem.memoryLimitMb == null ? '—' : `${problem.memoryLimitMb} MiB` }}</td>
+          <td>{{ problem.solverCount }}</td><td>{{ problem.favoriteCount }}</td><td><DifficultyBadge :level="problem.difficulty" /></td>
         </tr></tbody>
       </table>
     </div>

@@ -12,6 +12,7 @@ import (
 type PublicProblem struct {
 	Testers       []string  `json:"testers,omitempty"`
 	Difficulty    *int      `json:"difficulty"`
+	SolverCount   int64     `json:"solverCount"`
 	FavoriteCount int64     `json:"favoriteCount"`
 	Interactive   bool      `json:"interactive,omitempty"`
 	SpecialJudge  bool      `json:"specialJudge,omitempty"`
@@ -64,10 +65,20 @@ func (s *Store) Publish(ctx context.Context, owner, id string, version int64, pu
 	return p, err
 }
 
+// Count distinct solvers only from submissions visible on the public problem page.
+const publicSolverCount = `(SELECT count(DISTINCT s.owner_id) FROM submissions s WHERE s.problem_id=d.id
+ AND s.status='DONE' AND s.result->>'verdict'='AC'
+ AND NOT COALESCE((s.job->>'easyTest')::boolean,false)
+ AND NOT COALESCE((s.job->>'generate')::boolean,false)
+ AND NOT COALESCE((s.job->>'validate')::boolean,false)
+ AND ((s.contest_id IS NULL AND NOT COALESCE((s.job->>'privateDraft')::boolean,true))
+  OR EXISTS(SELECT 1 FROM contests c WHERE c.id=s.contest_id
+   AND statement_timestamp()>=c.ends_at AND s.created_at>=c.starts_at)))`
+
 func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error) {
 	var p PublicProblem
 	var data []byte
-	err := s.pool.QueryRow(ctx, `SELECT d.id,d.published_draft,u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id) FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.id=$1 AND d.published_draft IS NOT NULL`, id).Scan(&p.ID, &data, &p.Author, &p.PublishedAt, &p.FavoriteCount)
+	err := s.pool.QueryRow(ctx, `SELECT d.id,d.published_draft,u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id),`+publicSolverCount+` FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.id=$1 AND d.published_draft IS NOT NULL`, id).Scan(&p.ID, &data, &p.Author, &p.PublishedAt, &p.FavoriteCount, &p.SolverCount)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return p, ErrNotFound
@@ -91,7 +102,7 @@ func (s *Store) PublicGet(ctx context.Context, id string) (PublicProblem, error)
 }
 
 func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem, error) {
-	query := `SELECT d.id,d.published_draft->>'title',(d.published_draft->>'difficulty')::integer,d.published_draft->>'timeLimitMs',d.published_draft->>'memoryLimitMb',u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id) FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL`
+	query := `SELECT d.id,d.published_draft->>'title',(d.published_draft->>'difficulty')::integer,d.published_draft->>'timeLimitMs',d.published_draft->>'memoryLimitMb',u.handle,d.published_at,(SELECT count(*) FROM problem_favorites f WHERE f.problem_id=d.id),` + publicSolverCount + ` FROM problem_drafts d JOIN user_profiles u ON u.owner_id=d.owner_id WHERE d.published_draft IS NOT NULL`
 	args := []any{}
 	if cursor != nil {
 		query += ` AND (d.published_at,d.id)<($1,$2::uuid)`
@@ -103,7 +114,7 @@ func (s *Store) PublicList(ctx context.Context, cursor *Cursor) ([]PublicProblem
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (PublicProblem, error) {
 		var p PublicProblem
-		err := row.Scan(&p.ID, &p.Title, &p.Difficulty, &p.TimeLimitMS, &p.MemoryLimitMB, &p.Author, &p.PublishedAt, &p.FavoriteCount)
+		err := row.Scan(&p.ID, &p.Title, &p.Difficulty, &p.TimeLimitMS, &p.MemoryLimitMB, &p.Author, &p.PublishedAt, &p.FavoriteCount, &p.SolverCount)
 		return p, err
 	})
 }
