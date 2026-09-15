@@ -64,6 +64,7 @@ const manageDialog = ref<HTMLDialogElement>()
 const generating = ref(false)
 const managing = computed(() => section.value === 'management')
 const sidebarExpanded = ref(false)
+const problemSettingsExpanded = ref(false)
 const confirmingDelete = ref(false)
 const deleteError = ref('')
 let deleted = false
@@ -388,14 +389,19 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
         <div class="field-heading"><label for="problem-title">問題のタイトル</label><span id="title-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.title ? errors.title : '' }}</span></div>
         <input id="problem-title" v-model="draft.title" maxlength="120" placeholder="例：A + B" :disabled="!ready || publishing" :aria-invalid="(showErrors || touched.title) && !!errors.title" aria-describedby="title-error" @blur="touched.title = true">
       </div>
-      <div class="field"><label for="problem-difficulty">難易度（作成者設定）</label><DifficultySelect id="problem-difficulty" v-model="draft.difficulty" label="難易度（作成者設定）" :disabled="!ready || publishing" /></div>
-      <div>
-        <div class="field-heading"><span class="limit-field-label" id="time-limit-label">実行時間制限 <span>ms</span></span></div>
-        <LimitStepper id="time-limit" v-model="draft.timeLimitMs" :options="timeLimitOptions" :default-value="2000" :step="100" label="実行時間制限" labelledby="time-limit-label" :disabled="!ready || publishing" />
-      </div>
-      <div>
-        <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
-        <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="512" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
+      <button type="button" class="editor-button problem-settings-toggle" aria-label="問題設定" :aria-expanded="problemSettingsExpanded" aria-controls="problem-settings" @click="problemSettingsExpanded = !problemSettingsExpanded">
+        <span>問題設定 <span aria-hidden="true">{{ problemSettingsExpanded ? '▴' : '▾' }}</span></span><span>{{ draft.timeLimitMs }} ms / {{ draft.memoryLimitMb }} MiB</span>
+      </button>
+      <div id="problem-settings" class="problem-settings" :data-expanded="problemSettingsExpanded">
+        <div class="field"><label for="problem-difficulty">難易度（作成者設定）</label><DifficultySelect id="problem-difficulty" v-model="draft.difficulty" label="難易度（作成者設定）" :disabled="!ready || publishing" /></div>
+        <div>
+          <div class="field-heading"><span class="limit-field-label" id="time-limit-label">実行時間制限 <span>ms</span></span></div>
+          <LimitStepper id="time-limit" v-model="draft.timeLimitMs" :options="timeLimitOptions" :default-value="2000" :step="100" label="実行時間制限" labelledby="time-limit-label" :disabled="!ready || publishing" />
+        </div>
+        <div>
+          <div class="field-heading"><span class="limit-field-label" id="memory-limit-label">メモリ制限 <span>MiB</span></span></div>
+          <LimitStepper id="memory-limit" v-model="draft.memoryLimitMb" :options="memoryLimitOptions" :default-value="512" label="メモリ制限" labelledby="memory-limit-label" :disabled="!ready || publishing" />
+        </div>
       </div>
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
@@ -450,6 +456,18 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
 
 <style scoped>
 #tester-link { display: block; box-sizing: border-box; width: 100%; margin-block: 8px; padding: 8px; font: inherit; }
+.problem-settings { --problem-setting-height: 43px; display: contents; }
+.problem-settings :deep(.difficulty-select > button), .problem-settings :deep(.limit-stepper) { min-height: var(--problem-setting-height); }
+.problem-settings-toggle { display: none; }
+@media (pointer: coarse) {
+  .problem-settings { --problem-setting-height: 67px; }
+}
+@media (max-width: 59.999rem) {
+  .problem-settings-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; grid-column: 1 / -1; min-height: 44px; text-align: left; }
+  .problem-settings-toggle > :last-child { font-size: .75rem; color: var(--color-muted); }
+  .problem-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; grid-column: 1 / -1; }
+  .problem-settings[data-expanded="false"] { display: none; }
+}
 @media (min-width: 60rem) {
   .editor-main .author-fields { grid-template-columns: minmax(0, 1fr) 160px 140px 140px; }
 }

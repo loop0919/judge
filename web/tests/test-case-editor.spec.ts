@@ -24,6 +24,7 @@ test('difficulty picker shows grades and supports keyboard selection and persist
   await expect(picker).toContainText('Lv.10')
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 })
+    if (width < 960) await page.getByRole('button', { name: '問題設定', exact: true }).click()
     await picker.click()
     await expect(page.getByRole('listbox')).toBeInViewport()
     await page.screenshot({ path: testInfo.outputPath(`difficulty-${width}.png`), fullPage: true })

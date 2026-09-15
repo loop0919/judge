@@ -140,6 +140,22 @@ test.describe('small touch screens', () => {
       await page.goto('/problems/new')
       const source = page.locator('#problem-source')
       await expect(source).toBeEnabled()
+      const settings = page.getByRole('button', { name: '問題設定', exact: true })
+      await expect(settings).toHaveAttribute('aria-expanded', 'false')
+      await expect(page.locator('#time-limit')).toBeHidden()
+      await expect(page.locator('#memory-limit')).toBeHidden()
+      await settings.click()
+      await expect(settings).toHaveAttribute('aria-expanded', 'true')
+      const difficultyHeight = (await page.locator('#problem-difficulty').boundingBox())!.height
+      for (const stepper of await page.locator('#problem-settings .limit-stepper').all()) {
+        expect((await stepper.boundingBox())!.height).toBe(difficultyHeight)
+      }
+      await page.locator('#time-limit').fill('3000')
+      await page.locator('#memory-limit').fill('256')
+      await page.screenshot({ path: testInfo.outputPath('mobile-settings-expanded.png'), fullPage: true })
+      await settings.click()
+      await expect(settings).toHaveText(/3000 ms \/ 256 MiB/)
+      await expect(page.locator('#memory-limit')).toBeHidden()
       const topbar = page.locator('.editor-topbar')
       if (viewport.width < 640) expect((await topbar.boundingBox())!.height).toBeLessThan(65)
       const toolbar = page.getByLabel('記法を挿入', { exact: true })
@@ -170,6 +186,31 @@ test.describe('small touch screens', () => {
       expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true)
     })
   }
+})
+
+test('problem settings follow viewport width without losing edited values', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/problems/new')
+  const settings = page.getByRole('button', { name: '問題設定', exact: true })
+  const time = page.locator('#time-limit')
+  await expect(settings).toBeHidden()
+  const difficultyHeight = (await page.locator('#problem-difficulty').boundingBox())!.height
+  for (const stepper of await page.locator('#problem-settings .limit-stepper').all()) {
+    expect((await stepper.boundingBox())!.height).toBe(difficultyHeight)
+  }
+  await time.fill('3000')
+  await page.setViewportSize({ width: 375, height: 667 })
+  await expect(settings).toHaveAttribute('aria-expanded', 'false')
+  await expect(time).toBeHidden()
+  await settings.focus()
+  await page.keyboard.press('Enter')
+  await expect(time).toBeVisible()
+  await expect(time).toHaveValue('3000')
+  await settings.click()
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect(settings).toBeHidden()
+  await expect(time).toBeVisible()
+  await expect(time).toHaveValue('3000')
 })
 
 test('line numbers follow wrapped lines and scrolling', async ({ page }) => {
