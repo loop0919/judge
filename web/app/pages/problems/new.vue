@@ -313,7 +313,7 @@ async function removeProblem() {
     deleted = true
     saved = fingerprint()
     manageDialog.value?.close()
-    await router.replace('/my/problems')
+    await router.replace('/my?tab=problems')
   } catch (error) {
     deleteError.value = accountError(error)
   }

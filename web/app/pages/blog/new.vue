@@ -73,7 +73,7 @@ async function remove() {
   busy.value = true
   try {
     await $fetch(`/api/my/posts/${id.value}`, { method: 'DELETE', query: { version: version.value } })
-    leaving = true; busy.value = false; await navigateTo('/my/posts')
+    leaving = true; busy.value = false; await navigateTo('/my?tab=posts')
   } catch (e) { error.value = failure(e) }
   finally { busy.value = false }
 }
