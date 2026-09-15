@@ -75,10 +75,19 @@ jobs:
           # APT feed can have inconsistent indexes while Google publishes updates.
           sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
           npx playwright install --with-deps chromium
-      - name: Test SSR and browser rendering
-        run: npm test
-      - name: Test account persistence and publication with PostgreSQL
-        run: npx playwright test --config playwright.account.config.ts
+      - name: Test SSR, browser rendering and PostgreSQL accounts
+        shell: bash
+        run: |
+          # The suites use separate API servers, ports and output directories.
+          npm test &
+          browser_pid=$!
+          npx playwright test --config playwright.account.config.ts &
+          account_pid=$!
+          # Wait for both suites and preserve either failure (bare wait loses it).
+          status=0
+          wait "$browser_pid" || status=1
+          wait "$account_pid" || status=1
+          exit "$status"
       - name: Test deployment smoke checks
         run: node --test scripts/smoke-frontend.test.mjs
 
