@@ -105,7 +105,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
                     <strong v-if="row.problems[p.id]!.acceptedAt" class="standing-accepted">{{ row.problems[p.id]!.points }}</strong>
                     <span v-else-if="!row.problems[p.id]!.wrong && !row.problems[p.id]!.pending" class="muted">—</span>
                     <span v-if="row.problems[p.id]!.wrong" class="standing-wrong" :aria-label="`誤答 ${row.problems[p.id]!.wrong} 回`">({{ row.problems[p.id]!.wrong }})</span>
-                    <span v-if="row.problems[p.id]!.pending" role="img" aria-label="判定待ち">⌛</span>
+                    <svg v-if="row.problems[p.id]!.pending" class="standing-pending" viewBox="0 0 24 24" role="img" aria-label="判定待ち"><path d="M5 3h14M5 21h14M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4" /></svg>
                   </span>
                   <small v-if="row.problems[p.id]!.acceptedAt">{{ elapsed(row.problems[p.id]!.acceptedAt!) }}</small>
                 </template>
@@ -161,6 +161,7 @@ useSharePreview({ enabled: () => !!contest.value, type: 'website', title: () => 
 .standings-table tfoot th { font-weight: 500; }
 .standing-total { font-weight: 700; }
 .standing-result { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.standing-pending { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; color: var(--color-muted); }
 .standing-accepted, .standing-fa { color: var(--color-accent); }
 .standing-wrong { color: var(--color-error); }
 .standing-fa { display: block; }

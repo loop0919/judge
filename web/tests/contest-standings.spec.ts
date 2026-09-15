@@ -39,7 +39,7 @@ test('standings show compact results, participant counts and earliest AC includi
   await expect(wrong).toHaveText('(2)')
   await expect(wrong).toHaveCSS('color', 'rgb(161, 38, 34)')
   await expect(table.getByRole('img', { name: '判定待ち' })).toHaveCount(1)
-  await expect(table.getByRole('img', { name: '判定待ち' })).toHaveText('⌛')
+  await expect(table.locator('svg[aria-label="判定待ち"]')).toBeVisible()
   const fa = table.locator('tfoot tr').nth(0)
   await expect(fa.locator('td').nth(0)).toHaveText('bobcarol5:00')
   await expect(fa.locator('td').nth(1)).toHaveText('alice15:00')
