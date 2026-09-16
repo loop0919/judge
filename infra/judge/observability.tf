@@ -21,7 +21,7 @@ variable "notify_package_path" {
 locals {
   metrics_namespace = "Judge/${local.name}"
   worker_log_group  = "/judge/${local.name}/worker"
-  logs_url          = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#logsV2:log-groups"
+  logs_url          = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#logsV2:logs-insights"
   alarm_actions     = var.discord_webhook_secret_arn == "" ? [] : [aws_sns_topic.alerts.arn]
   agent_config = {
     agent = { metrics_collection_interval = 60, region = var.aws_region, omit_hostname = true }
@@ -30,7 +30,7 @@ locals {
       endpoint_override      = "https://monitoring.${var.aws_region}.api.aws"
       aggregation_dimensions = [[]]
       metrics_collected = {
-        mem      = { measurement = ["mem_used_percent"], drop_original_metrics = ["mem_used_percent"] }
+        mem      = { measurement = ["mem_used_percent"] }
         disk     = { resources = ["/"], measurement = ["used_percent"], drop_device = true, drop_original_metrics = ["disk_used_percent"] }
         procstat = [{ pattern = "^/usr/bin/python3 /opt/judge/worker.py$", measurement = ["pid_count"] }]
       }

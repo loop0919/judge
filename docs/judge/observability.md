@@ -94,6 +94,8 @@ sudo bash install-observability.sh amazon-cloudwatch-agent.deb 記録したSHA25
 ```
 
 Agentはon-premiseモードで既存worker用credentialsを使い、CloudWatchのdual-stackエンドポイントへ接続する。
+インストーラーは設定原本を`/etc/judge/cloudwatch-agent.json`へ保存し、初期化時のリージョンも明示する。
+メモリのメトリクスは元からディメンションがないため、`drop_original_metrics`を設定しない。
 メトリクス送信権限は専用namespace、ログ送信権限は専用ロググループに制限する。
 プロセス監視は通常メトリクスとディメンションなしの集約メトリクスを出し、停止検知には集約側を使う。
 投稿数でディメンション数が増えることはない。
@@ -129,3 +131,24 @@ CloudWatchの試験的な状態変更で、SNS経由の異常通知と解除通�
 - [CloudWatch料金](https://aws.amazon.com/cloudwatch/pricing/)
 - [CloudWatch Agentの設定](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html)
 - [SNSとLambdaの連携](https://docs.aws.amazon.com/lambda/latest/dg/with-sns.html)
+
+## dev導入記録（2026-09-16）
+
+既存Lightsailを置換せず、受付と配送を一時停止して導入した。
+CloudWatch Agentは`1.300072.0b1766-1`、配布debのSHA-256は`05baeadca96c4bb8e43906ed09cf0bebd0f321ff6d41987bdc46ce681de0978d`である。
+14ランタイムの実機smokeが成功し、既存の公開12ランタイムを再開した。
+API、bridge、workerと運用設定のdigestは`sha256:a6bf7d578411472140e22f69c7ca369967a781a9a23b087d187f6cc7407ecaf2`に揃えた。
+
+Pythonの52テスト、Goの全テスト、Terraformの7モックテストが成功した。
+実APIからの提出で、正常コードのACとチェッカーのコンパイル失敗によるJEを確認した。
+JEのログには`judge_code / checker_compile_failed`と提出・試行IDが記録され、bridgeの`result_processed`とAPIの確定結果まで照合した。
+検証用の非公開問題とCognitoユーザーは削除した。
+
+基盤障害はCloudWatchの試験的な状態変更、作問コードの通知は実際のJEで検証した。
+SNSへのアクション成功と通知Lambdaの正常終了によりDiscordへの送信成功を確認した。
+基盤障害の試験解除と、作問コードアラームの自然解除（20:54 JST）でも通知が成功し、全10アラームがOK・通知有効の状態になった。
+ワーカーは再起動0回、要求・結果・各DLQは空で、ホストメモリ約19%、ルートディスク約71%だった。
+一時DB確認Lambdaと導入時に作成した一時スナップショットは削除し、旧制御コードと対応するmanifest・環境設定はホストの`/opt/judge-backup-observability/control.tar.gz`に残した。
+
+Infracostによる外部解析はIaC・環境情報の送信が自動承認レビューで拒否されたため未実施である。
+上記費用は公開料金に基づく概算であり、Infracostの実測結果ではない。
