@@ -10,13 +10,13 @@ mock_provider "aws" {
 }
 variables {
   discord_webhook_secret_arn = ""
-  alerts_enabled = false
-  enabled             = false
-  ssh_public_key      = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJbU10sbvSiPykk/v/mzxDSkNPF1hvszNuRt/RLGKd5L"
-  admin_ipv6_cidr     = "2001:db8::1/128"
-  runtime_digest      = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  bridge_package_path = "tests/package.txt"
-  notify_package_path = "tests/package.txt"
+  alerts_enabled             = false
+  enabled                    = false
+  ssh_public_key             = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJbU10sbvSiPykk/v/mzxDSkNPF1hvszNuRt/RLGKd5L"
+  admin_ipv6_cidr            = "2001:db8::1/128"
+  runtime_digest             = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  bridge_package_path        = "tests/package.txt"
+  notify_package_path        = "tests/package.txt"
   database = {
     host              = "db.example.rds.amazonaws.com"
     name              = "openoj"
@@ -106,28 +106,28 @@ run "ssm_only" {
 run "observability" {
   command = plan
   variables {
-    alerts_enabled = true
+    alerts_enabled             = true
     discord_webhook_secret_arn = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:discord-test"
     discord_webhook_secret_key = "ALART_DISCORD_WEBHOOK"
   }
   assert {
-    condition = aws_cloudwatch_metric_alarm.judge["worker"].treat_missing_data == "breaching" && aws_cloudwatch_metric_alarm.judge["worker"].evaluation_periods == 3 && aws_cloudwatch_metric_alarm.judge["dispatch-missing"].treat_missing_data == "breaching"
+    condition     = aws_cloudwatch_metric_alarm.judge["worker"].treat_missing_data == "breaching" && aws_cloudwatch_metric_alarm.judge["worker"].evaluation_periods == 3 && aws_cloudwatch_metric_alarm.judge["dispatch-missing"].treat_missing_data == "breaching"
     error_message = "Both worker and scheduled DB observation must detect missing telemetry."
   }
   assert {
-    condition = aws_cloudwatch_metric_alarm.judge["judge-code"].metric_name != aws_cloudwatch_metric_alarm.judge["platform"].metric_name && aws_cloudwatch_metric_alarm.judge["judge-code"].treat_missing_data == "notBreaching"
+    condition     = aws_cloudwatch_metric_alarm.judge["judge-code"].metric_name != aws_cloudwatch_metric_alarm.judge["platform"].metric_name && aws_cloudwatch_metric_alarm.judge["judge-code"].treat_missing_data == "notBreaching"
     error_message = "Author errors must be separate from infrastructure errors; inactivity is healthy."
   }
   assert {
-    condition = aws_cloudwatch_log_group.worker.retention_in_days == 14 && length(aws_cloudwatch_metric_alarm.dead["requests"].alarm_actions) == 1 && length(aws_cloudwatch_metric_alarm.dead["results"].ok_actions) == 1
+    condition     = aws_cloudwatch_log_group.worker.retention_in_days == 14 && length(aws_cloudwatch_metric_alarm.dead["requests"].alarm_actions) == 1 && length(aws_cloudwatch_metric_alarm.dead["results"].ok_actions) == 1
     error_message = "Bound retention and connect existing DLQ alarm/recovery actions."
   }
   assert {
-    condition = jsondecode(aws_iam_user_policy.worker_observability.policy).Statement[1].Condition.StringEquals["cloudwatch:namespace"] == "Judge/judge-dev" && !strcontains(aws_iam_user_policy.worker_observability.policy, "secretsmanager")
+    condition     = jsondecode(aws_iam_user_policy.worker_observability.policy).Statement[1].Condition.StringEquals["cloudwatch:namespace"] == "Judge/judge-dev" && !strcontains(aws_iam_user_policy.worker_observability.policy, "secretsmanager")
     error_message = "Worker metrics must be namespace restricted and cannot read notification secrets."
   }
   assert {
-    condition = aws_lambda_function.notify.environment[0].variables.WEBHOOK_SECRET_KEY == "ALART_DISCORD_WEBHOOK" && length(aws_lambda_function.notify.vpc_config) == 0
+    condition     = aws_lambda_function.notify.environment[0].variables.WEBHOOK_SECRET_KEY == "ALART_DISCORD_WEBHOOK" && length(aws_lambda_function.notify.vpc_config) == 0
     error_message = "Notifier reads the selected secret key and requires no NAT or judge host network."
   }
 }
