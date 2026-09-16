@@ -4,6 +4,11 @@ ShareOJ（Share Online Judge）は、オンラインジャッジサービス。
 
 Go API、Nuxtフロントエンド、AWS上のジャッジ基盤を開発するリポジトリ。
 
+## バグ報告・機能提案
+
+バグ報告・機能提案は[Issue](https://github.com/loop0919/shareoj/issues)へお願いします。
+現在、外部からのPull Requestは受け付けていません。
+
 ## 開発環境
 
 Nix と make をインストール済みなら、リポジトリのルートで次のコマンドを実行する。
