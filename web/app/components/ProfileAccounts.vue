@@ -39,7 +39,7 @@ function color(service: typeof accountServices[number]['key']) {
   </ul>
 </template>
 <style scoped>
-.profile-accounts { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 0; margin: 0 0 28px; list-style: none; }
+.profile-accounts { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 0; margin: 24px 0 28px; list-style: none; }
 li { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; min-width: 0; }
 li > span, small { color: var(--color-muted); font-size: .85rem; }
 a { font-weight: 700; overflow-wrap: anywhere; }
