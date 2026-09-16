@@ -1,5 +1,6 @@
 """Two isolated programs connected by bounded, byte-preserving pipes."""
 import os
+import telemetry
 from pathlib import Path
 import select
 import signal
@@ -94,7 +95,7 @@ def execute(job, case, artifact, diagnostic):
                                            (job['interactor']['runtime'] + '-isolate', artifact)]):
             init = sandbox.invoke(['--init'], box_id=i)
             if init.returncode:
-                raise RuntimeError('interactive isolate init')
+                raise telemetry.PlatformError('isolate_init_failed')
             box = Path(init.stdout.decode().strip()) / 'box'
             boxes.append(box)
             meta = sandbox.META.with_name(f'interactive-{i}.meta')
@@ -124,7 +125,7 @@ def execute(job, case, artifact, diagnostic):
                 pass  # isolate has not opened the child's stderr yet.
             if processes[i].poll() is not None:
                 if processes[i].returncode not in (0, 1):
-                    raise RuntimeError('interactive isolate execution')
+                    raise telemetry.PlatformError('isolate_execution_failed')
                 raw = metas[i].read_text()
                 replies[i] = sandbox.metadata(raw)
                 replies[i].update(overflow=len(stderr[i]) > 65536 or replies[i]['signal'] == 25,
@@ -164,4 +165,4 @@ def execute(job, case, artifact, diagnostic):
         for meta in metas:
             meta.unlink(missing_ok=True)
         if failed_cleanup:
-            raise SystemExit('interactive cleanup failed; refusing another job')
+            raise telemetry.FatalPlatformError('isolate_cleanup_failed')

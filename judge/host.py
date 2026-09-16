@@ -13,6 +13,7 @@ import time
 import uuid
 
 import sandbox
+import telemetry
 import interactive
 from runtimes import RUNTIMES, ROOT
 
@@ -38,7 +39,7 @@ def pointer(body):
 
 def validate_job(job, runtime):
     if job.get('runtimeDigest') != runtime or job.get('runtime') not in RUNTIMES:
-        raise ValueError('runtime mismatch')
+        raise telemetry.PlatformError('runtime_mismatch')
     if type(job.get('generate', False)) is not bool or type(job.get('validate', False)) is not bool or (job.get('generate') and job.get('validate')):
         raise ValueError('generation mode')
     if job.get('checker') is not None and job.get('interactor') is not None:
@@ -191,7 +192,8 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
     def diagnostic(message):
         result['checkerLog'] = (result.get('checkerLog', '') + message).encode()[:16384].decode(errors='ignore')
 
-    def checker_error():
+    def checker_error(reason):
+        telemetry.note_failure('judge_code', reason)
         return dict(verdict='JE', passed=0, total=len(job['cases']), checkerLog=result.get('checkerLog', ''))
 
     try:
@@ -205,12 +207,12 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                                        True, artifact=checker_artifact)
             if not compiled['compiled']:
                 diagnostic('検証コードのコンパイル失敗\n' + compiled.get('compileLog', ''))
-                return checker_error()
+                return checker_error(('interactor' if job.get('interactor') else 'checker') + '_compile_failed')
         if progress:
             progress('JUDGING', 0, result['total'])
         for index, case in enumerate(job['cases']):
             if time.monotonic() >= deadline:
-                raise TimeoutError('job deadline')
+                raise telemetry.PlatformError('job_deadline_exceeded')
             case = dict(case)
             for key in ('input', 'output'):
                 if case.get(key + 'File') is not None:
@@ -230,7 +232,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     item['checkerLog'] = sample_preview(bytes(case_log), log_limit)
                 item['name'] = case.get('name') or f'ケース{index + 1}'
                 if item['verdict'] == 'JE':
-                    return checker_error()
+                    return checker_error('interactor_execution_failed')
             else:
                 reply = sandbox.execute(dict(runtime=job['runtime'], input=base64.b64encode(case['input'].encode()).decode(),
                                              timeLimitMs=job['timeLimitMs'], memoryLimitMb=job['memoryLimitMb']))
@@ -248,7 +250,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                     if checker.get('protocol') == 'testlib' and checked['exitCode'] == 7:
                         diagnostic('testlibの部分点（_points）は未対応です。\n')
                     if verdict == 'JE':
-                        return checker_error()
+                        return checker_error('checker_execution_failed')
                     item['verdict'] = verdict
             if job.get('easyTest') and not job.get('interactor'):
                 limit = min(4096, (24 * 1024) // len(job['cases']) // 3)
@@ -273,7 +275,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
             if progress:
                 progress('JUDGING', index + 1, result['total'])
             if time.monotonic() >= deadline:
-                raise TimeoutError('job deadline')
+                raise telemetry.PlatformError('job_deadline_exceeded')
     finally:
         sandbox.ARTIFACT.unlink(missing_ok=True)
         checker_artifact.unlink(missing_ok=True)

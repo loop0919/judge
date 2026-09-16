@@ -33,6 +33,8 @@ ProtectSystem=strict
 ReadWritePaths=/run /sys/fs/cgroup /var/local/lib/isolate
 PrivateTmp=true
 Environment=PYTHONDONTWRITEBYTECODE=1
+LogsDirectory=judge
+LogsDirectoryMode=0700
 StandardOutput=journal
 StandardError=journal
 

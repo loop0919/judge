@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Trusted isolate controller on the dedicated Lightsail host."""
 import base64
+import telemetry
 import math
 import os
 from pathlib import Path
@@ -20,7 +21,8 @@ OUTPUT_LIMIT = 16 * 1024 * 1024
 
 
 def invoke(args, timeout=10, *, box_id=0):
-    return subprocess.run([ISOLATE, '--cg', f'--box-id={box_id}', *args],
+    with telemetry.operation('isolate_invocation_failed'):
+        return subprocess.run([ISOLATE, '--cg', f'--box-id={box_id}', *args],
                           stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                           stderr=subprocess.DEVNULL, timeout=timeout, check=False,
                           env={'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
@@ -34,7 +36,7 @@ def metadata(text):
             raise ValueError('invalid isolate metadata')
         data[key] = value
     if data.get('status') == 'XX':
-        raise RuntimeError('isolate failure')
+        raise telemetry.PlatformError('isolate_metadata_failed')
     values = {}
     for src, dst, scale in [('time', 'cpuTimeMs', 1000), ('time-wall', 'wallTimeMs', 1000),
                             ('cg-mem', 'memoryBytes', 1024)]:
@@ -72,7 +74,7 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
         cpu, wall = ms / 1000, 3 * ms / 1000 + 1
     init = invoke(['--init'])
     if init.returncode:
-        raise RuntimeError('isolate init')
+        raise telemetry.PlatformError('isolate_init_failed')
     # --init prints the box root; /box maps its box/ subdirectory.
     box = Path(init.stdout.decode().strip()) / 'box'
     try:
@@ -100,7 +102,7 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
             args.insert(-1, '--stdin=input')
         result = invoke([*args, '--', *command], timeout=wall + 10)
         if result.returncode not in (0, 1):
-            raise RuntimeError('isolate execution')
+            raise telemetry.PlatformError('isolate_execution_failed')
         metrics = metadata(META.read_text())
         stdout = regular_read(box / 'stdout', OUTPUT_LIMIT)
         stderr = regular_read(box / 'stderr', 65536)
@@ -122,8 +124,11 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
         return metrics
     finally:
         # isolate cleanup destroys the box and its cgroup, including descendants.
-        if invoke(['--cleanup']).returncode:
-            raise SystemExit('isolate cleanup failed; refusing another job')
+        try:
+            if invoke(['--cleanup']).returncode:
+                raise telemetry.FatalPlatformError('isolate_cleanup_failed')
+        except Exception:
+            raise telemetry.FatalPlatformError('isolate_cleanup_failed') from None
 
 
 def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, interactive=False):

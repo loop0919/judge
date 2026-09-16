@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -26,6 +27,21 @@ import (
 	"judge/api/internal/problems"
 	"judge/api/internal/submissions"
 )
+
+func TestOperationalLogsDoNotAcceptUntrustedIdentities(t *testing.T) {
+	var out bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&out, nil)))
+	defer slog.SetDefault(old)
+	observe("failure", "platform", "invalid_result_envelope", "secret source", "secret expected output")
+	if strings.Contains(out.String(), "secret") {
+		t.Fatal("untrusted identity leaked")
+	}
+	var event map[string]any
+	if err := json.Unmarshal(out.Bytes(), &event); err != nil || event["category"] != "platform" {
+		t.Fatal("invalid operational event")
+	}
+}
 
 func TestResultValidation(t *testing.T) {
 	cpu, wall, memory := 0.0, 1.0, int64(1024)
@@ -178,6 +194,18 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	b := bridge{db: db, bucket: "test-bucket", queueURL: server.URL + "/queue", runtime: digest,
 		objects: s3.NewFromConfig(cfg, func(o *s3.Options) { o.BaseEndpoint = aws.String(server.URL); o.UsePathStyle = true }),
 		queue:   sqs.NewFromConfig(cfg, func(o *sqs.Options) { o.BaseEndpoint = aws.String(server.URL) })}
+	// The DB query covers undispatched submissions, including an idle zero.
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	defer slog.SetDefault(previous)
+	if err := b.pendingAge(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var observed map[string]any
+	if err := json.Unmarshal(logs.Bytes(), &observed); err != nil || observed["oldestPendingSeconds"].(float64) < 0 {
+		t.Fatal("pending age missing")
+	}
 	// A crash between successful send and DB commit must resend the same attempt.
 	tx, _ := db.Begin(ctx)
 	if err = b.dispatchOne(ctx, tx); err != nil {

@@ -17,3 +17,10 @@ test_data_bucket = {
   arn = "REPLACE"
 }
 enabled = false
+
+# Optional Discord alerts: store the webhook outside Terraform.
+discord_webhook_secret_arn = ""
+discord_webhook_secret_key = "" # Set a JSON key if the existing secret is an object.
+alerts_enabled = false # Enable after worker telemetry and notification tests pass.
+# notify_package_path defaults to ../../api/.build/judge-notify.zip
+# Build it together with the bridge: make -C api package-judge

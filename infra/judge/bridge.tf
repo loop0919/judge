@@ -94,4 +94,7 @@ resource "aws_cloudwatch_metric_alarm" "dead" {
   threshold           = 0
   treat_missing_data  = "notBreaching"
   dimensions          = { QueueName = each.value.name }
+  actions_enabled     = var.alerts_enabled
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
 }

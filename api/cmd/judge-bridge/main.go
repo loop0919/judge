@@ -10,8 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -39,6 +42,33 @@ type envelope struct {
 	Attempt  string                `json:"attemptId"`
 	Result   *submissions.Result   `json:"result,omitempty"`
 	Progress *submissions.Progress `json:"progress,omitempty"`
+}
+
+var identity = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+
+func observe(event, category, reason, id, attempt string, fields ...any) {
+	attrs := []any{"service", "judge-bridge", "event", event}
+	if category != "" {
+		attrs = append(attrs, "category", category, "reason", reason)
+	}
+	if identity.MatchString(id) {
+		attrs = append(attrs, "submissionId", id)
+	}
+	if identity.MatchString(attempt) {
+		attrs = append(attrs, "attemptId", attempt)
+	}
+	slog.Info("judge", append(attrs, fields...)...)
+}
+
+// Emitted only after a successful DB query, so missing data detects dispatcher failure.
+func (b bridge) pendingAge(ctx context.Context) error {
+	var age float64
+	err := b.db.QueryRow(ctx, `SELECT COALESCE(GREATEST(EXTRACT(EPOCH FROM clock_timestamp()-MIN(created_at)),0),0)::float8
+      FROM submissions WHERE runtime=ANY($1::text[]) AND status <> 'DONE'`, submissions.IsolateRuntimeIDs()).Scan(&age)
+	if err == nil {
+		observe("pending_age", "", "", "", "", "oldestPendingSeconds", age)
+	}
+	return err
 }
 
 func validProgress(p submissions.Progress) bool {
@@ -109,10 +139,12 @@ func validResult(r submissions.Result) bool {
 func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEventResponse {
 	response := events.SQSEventResponse{}
 	for _, record := range event.Records {
+		started := time.Now()
 		var e envelope
 		if len(record.Body) > 256<<10 || json.Unmarshal([]byte(record.Body), &e) != nil ||
 			(e.Result == nil) == (e.Progress == nil) ||
 			(e.Result != nil && !validResult(*e.Result)) || (e.Progress != nil && !validProgress(*e.Progress)) {
+			observe("failure", "platform", "invalid_result_envelope", "", "")
 			response.BatchItemFailures = append(response.BatchItemFailures, events.SQSBatchItemFailure{ItemIdentifier: record.MessageId})
 			continue
 		}
@@ -133,22 +165,39 @@ func (b bridge) results(ctx context.Context, event events.SQSEvent) events.SQSEv
 			err = (&submissions.Store{Pool: b.db}).FinishAttempt(ctx, e.ID, e.Attempt, *e.Result)
 		}
 		if err != nil {
+			observe("failure", "platform", "result_apply_failed", e.ID, e.Attempt)
 			response.BatchItemFailures = append(response.BatchItemFailures, events.SQSBatchItemFailure{ItemIdentifier: record.MessageId})
+		}
+		if err == nil && e.Result != nil {
+			observe("result_processed", "", "", e.ID, e.Attempt, "verdict", e.Result.Verdict, "durationMs", time.Since(started).Milliseconds())
 		}
 	}
 	return response
 }
 
-func (b bridge) dispatch(ctx context.Context) error {
+func (b bridge) dispatch(ctx context.Context) (err error) {
+	started := time.Now()
+	defer func() {
+		if err != nil {
+			observe("failure", "platform", "dispatch_failed", "", "")
+		}
+		observe("dispatch_finished", "", "", "", "", "durationMs", time.Since(started).Milliseconds())
+	}()
+	if err = b.pendingAge(ctx); err != nil {
+		return err
+	}
 	// The existing minute schedule also releases contests without incoming web traffic.
 	if err := (&contests.Store{Pool: b.db}).Release(ctx); err != nil {
 		return err
 	}
 	// Bounded expiry covers queue retries too; it does not rejudge a finalized submission.
-	_, err := b.db.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}'
+	expired, err := b.db.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}'
   WHERE runtime=ANY($1::text[]) AND status <> 'DONE' AND created_at < clock_timestamp()-interval '6 hours'`, submissions.IsolateRuntimeIDs())
 	if err != nil {
 		return err
+	}
+	if expired.RowsAffected() > 0 {
+		observe("failure", "platform", "submission_expired", "", "", "count", expired.RowsAffected())
 	}
 	for range 20 {
 		tx, err := b.db.Begin(ctx)
@@ -170,10 +219,16 @@ func (b bridge) dispatch(ctx context.Context) error {
 	return nil
 }
 
-func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
+func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) (err error) {
 	var id, attempt, source, runtime string
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT id::text,judge_attempt::text,source,job,runtime FROM submissions
+	stage := "outbox_read"
+	defer func() {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			observe("failure", "platform", stage+"_failed", id, attempt)
+		}
+	}()
+	err = tx.QueryRow(ctx, `SELECT id::text,judge_attempt::text,source,job,runtime FROM submissions
   WHERE runtime=ANY($1::text[]) AND dispatched_at IS NULL AND status <> 'DONE'
   ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`, submissions.IsolateRuntimeIDs()).Scan(&id, &attempt, &source, &raw, &runtime)
 	if err != nil {
@@ -183,10 +238,12 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 	if err = json.Unmarshal(raw, &job); err != nil {
 		return err
 	}
+	stage = "test_files_resolve"
 	if err = (&submissions.Store{Pool: b.db}).ResolveTestFiles(ctx, &job); err != nil {
 		return err
 	}
 	if job.Image != b.runtime || job.MemoryLimitMB != 512 {
+		observe("failure", "platform", "runtime_mismatch", id, attempt)
 		_, err = tx.Exec(ctx, `UPDATE submissions SET status='DONE',finished_at=clock_timestamp(),result='{"verdict":"JE","passed":0,"total":0}' WHERE id=$1`, id)
 		return err
 	}
@@ -196,6 +253,7 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 	}
 	sum := sha256.Sum256(payload)
 	key := "jobs/" + id + "/" + attempt + ".json"
+	stage = "job_upload"
 	obj, err := b.objects.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(b.bucket), Key: aws.String(key), Body: bytes.NewReader(payload), ContentType: aws.String("application/json")})
 	if err != nil {
 		return err
@@ -204,16 +262,20 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) error {
 		return errors.New("versioned job bucket required")
 	}
 	pointer, _ := json.Marshal(map[string]string{"submissionId": id, "attemptId": attempt, "key": key, "versionId": *obj.VersionId, "sha256": hex.EncodeToString(sum[:])})
+	stage = "request_send"
 	_, err = b.queue.SendMessage(ctx, &sqs.SendMessageInput{QueueUrl: aws.String(b.queueURL), MessageBody: aws.String(string(pointer))})
 	if err != nil {
 		return err
 	}
+	observe("request_sent", "", "", id, attempt)
+	stage = "outbox_update"
 	// If commit fails after SendMessage, the same stable attempt is sent again.
 	_, err = tx.Exec(ctx, `UPDATE submissions SET dispatched_at=clock_timestamp() WHERE id=$1`, id)
 	return err
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	ctx := context.Background()
 	db, err := database.OpenConfigured(ctx, os.Getenv)
 	if err != nil {
@@ -232,6 +294,9 @@ func main() {
 		if len(event.Records) > 0 {
 			return b.results(ctx, event), nil
 		}
-		return nil, b.dispatch(ctx)
+		if err := b.dispatch(ctx); err != nil {
+			return nil, errors.New("dispatch failed; see operational logs")
+		}
+		return nil, nil
 	})
 }
