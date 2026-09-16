@@ -1,4 +1,6 @@
 mock_provider "aws" {
+  mock_data "aws_availability_zones" { defaults = { names = ["ap-northeast-1a", "ap-northeast-1c"] } }
+  mock_resource "aws_elasticache_serverless_cache" { defaults = { arn = "arn:aws:elasticache:ap-northeast-1:123456789012:serverlesscache:judge-dev-profiles", endpoint = [{ address = "cache.example.com", port = 6379 }] } }
   mock_resource "aws_s3_bucket" { defaults = { arn = "arn:aws:s3:::example-web-artifacts" } }
   mock_resource "aws_cloudwatch_log_group" { defaults = { arn = "arn:aws:logs:ap-northeast-1:123456789012:log-group:example" } }
   mock_resource "aws_iam_role" { defaults = { arn = "arn:aws:iam::123456789012:role/example" } }
@@ -11,6 +13,17 @@ variables {
 }
 run "frontend_contract" {
   command = apply
+  assert {
+    condition = (
+      length(aws_lambda_function.web.vpc_config) == 0 &&
+      length(aws_lambda_function.cache.vpc_config[0].subnet_ids) == 2 &&
+      aws_elasticache_serverless_cache.profiles.engine == "valkey" &&
+      aws_lambda_function.web.environment[0].variables["PROFILE_CACHE_FUNCTION"] == aws_lambda_function.cache.function_name &&
+      startswith(aws_lambda_function.cache.environment[0].variables["PROFILE_CACHE_URL"], "rediss://") &&
+      aws_vpc_security_group_ingress_rule.cache.referenced_security_group_id == aws_security_group.web.id
+    )
+    error_message = "Keep the frontend outside the VPC and access private TLS Valkey only through the cache Lambda."
+  }
   assert {
     condition = (
       aws_lambda_function.web.runtime == "nodejs22.x" &&

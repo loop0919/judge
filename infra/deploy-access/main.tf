@@ -6,6 +6,7 @@ locals {
   execution_roles = [
     "${local.arn}:iam::${local.account}:role/${var.api_execution_role_name}",
     "${local.arn}:iam::${local.account}:role/${local.name}-web",
+    "${local.arn}:iam::${local.account}:role/${local.name}-web-cache",
   ]
 }
 # Adopt the role created in the console; only this bootstrap stack manages its trust.
@@ -184,6 +185,25 @@ resource "aws_iam_role_policy" "deploy" {
         Effect   = "Allow"
         Action   = ["kms:DescribeKey"]
         Resource = "${local.arn}:kms:${var.aws_region}:${local.account}:key/*"
+      },
+      {
+        Sid      = "ProfileCache"
+        Effect   = "Allow"
+        Action   = ["elasticache:CreateServerlessCache", "elasticache:ModifyServerlessCache", "elasticache:DeleteServerlessCache", "elasticache:AddTagsToResource", "elasticache:RemoveTagsFromResource", "elasticache:ListTagsForResource"]
+        Resource = "${local.arn}:elasticache:${var.aws_region}:${local.account}:serverlesscache:${local.name}-profiles"
+      },
+      {
+        Sid      = "DescribeProfileCache"
+        Effect   = "Allow"
+        Action   = ["elasticache:DescribeServerlessCaches"]
+        Resource = "*"
+      },
+      {
+        Sid       = "CacheServiceLinkedRole"
+        Effect    = "Allow"
+        Action    = ["iam:CreateServiceLinkedRole"]
+        Resource  = "${local.arn}:iam::${local.account}:role/aws-service-role/elasticache.amazonaws.com/AWSServiceRoleForElastiCache"
+        Condition = { StringEquals = { "iam:AWSServiceName" = "elasticache.amazonaws.com" } }
       },
       {
         Sid       = "RDSServiceLinkedRole"
