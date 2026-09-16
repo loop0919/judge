@@ -447,3 +447,8 @@ Lambda Permissionの`statement_id`も既存の値に合わせる。
 
 以前の共有キャッシュ構成をデプロイ済みの場合は、`infra/frontend` の削除 plan を確認して適用した後に `infra/deploy-access` を適用する。
 キャッシュの削除に必要なデプロイ権限を先に外さないこと。
+削除時に `ec2:DeleteNetworkInterface` または `iam:ListInstanceProfilesForRole` が拒否された場合は、管理者がデプロイロールに一時ポリシーを追加してから、失敗したデプロイジョブを再実行する。
+ENI の削除許可はエラーに出た ENI の ARN に、IAM の参照・削除許可は旧 `${project_name}-${environment}-web-cache` ロールの ARN に限定する。
+Lambda が作成した ENI にアプリのタグが付いているとは限らないため、既存のタグ条件付きネットワーク権限への追加だけでは解消しない。
+再実行は更新済みの Terraform state から残った削除を行うため、state からリソースを手動で除外しない。
+デプロイ成功後に一時ポリシーを削除し、`infra/deploy-access` を適用して通常の実行ロールにも `iam:ListInstanceProfilesForRole` を反映する。

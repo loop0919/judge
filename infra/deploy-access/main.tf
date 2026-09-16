@@ -82,7 +82,7 @@ resource "aws_iam_role_policy" "deploy" {
       {
         Sid      = "ExecutionRoles"
         Effect   = "Allow"
-        Action   = ["iam:GetRole", "iam:CreateRole", "iam:DeleteRole", "iam:UpdateRole", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy"]
+        Action   = ["iam:GetRole", "iam:CreateRole", "iam:DeleteRole", "iam:ListInstanceProfilesForRole", "iam:UpdateRole", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy"]
         Resource = local.execution_roles
       },
       {

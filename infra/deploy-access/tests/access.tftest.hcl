@@ -18,6 +18,14 @@ run "deployment_boundary" {
   command = plan
   assert {
     condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      contains(statement.Action, "iam:DeleteRole") &&
+      contains(statement.Action, "iam:ListInstanceProfilesForRole") &&
+      toset(statement.Resource) == toset(local.execution_roles)
+    ) if statement.Sid == "ExecutionRoles"])
+    error_message = "Terraform must be able to list instance profiles before deleting an application execution role."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
       statement.Effect == "Allow" &&
       toset(statement.Action) == toset(["s3:*"]) &&
       statement.Resource == "arn:aws:s3:::judge-dev-test-data-*"
