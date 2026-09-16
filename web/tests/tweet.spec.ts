@@ -7,13 +7,19 @@ for (const path of [
   '/blog/markdown-guide', '/blog/generator-guide', '/blog/language-guide', '/blog/contest-rules',
 ]) {
   test(`Tweet shares the title, canonical URL and hashtag: ${path}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' })
     await page.setViewportSize({ width: 320, height: 900 })
     await page.goto(`${path}?ref=test#top`)
     const link = page.getByRole('link', { name: 'Xでシェア（新しいタブで開く）' })
     await expect(link).toBeVisible()
     await expect(link).toHaveText('')
     await expect(link.locator('svg')).toBeVisible()
-    await expect(link).toHaveCSS('color', 'rgb(0, 0, 0)')
+    await expect(link).toHaveCSS('color', 'rgb(25, 36, 49)')
+    await page.getByRole('button', { name: 'ダークモードに切り替え', exact: true }).click()
+    await expect(link).toHaveCSS('color', 'rgb(230, 237, 243)')
+    await expect(link.locator('svg')).toHaveCSS('fill', 'rgb(230, 237, 243)')
+    await page.getByRole('button', { name: 'ライトモードに切り替え', exact: true }).click()
+    await expect(link).toHaveCSS('color', 'rgb(25, 36, 49)')
     const row = await page.locator('.breadcrumb-row').boundingBox()
     const button = await link.boundingBox()
     expect(Math.abs(button!.x + button!.width - row!.x - row!.width)).toBeLessThan(1)
