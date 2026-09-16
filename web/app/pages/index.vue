@@ -101,17 +101,18 @@ useSharePreview({ type: 'website', title: 'Share Online Judge', path: '/', descr
 .blog-invitation p { margin: 0; color: var(--color-muted); font-size: .8125rem; }
 .blog-invitation a { display: inline-flex; align-items: center; gap: 24px; min-height: 44px; margin-left: auto; font-size: .875rem; white-space: nowrap; text-decoration: none; }
 .blog-invitation a:hover { text-decoration: underline; }
+/* After the reveal, use the live theme colors instead of retaining animated fill/stroke values. */
 @media (prefers-reduced-motion: no-preference) {
   .answer-path { stroke-dasharray: 1; animation: trace-path .8s cubic-bezier(.76, 0, .24, 1) .3s both; }
   .answer-path--second { animation-duration: .65s; animation-delay: 1.45s; }
-  .start-node { animation: light-start .7s ease-in-out .5s both; }
-  .start-label { animation: light-question .7s ease-in-out .5s both; }
+  .start-node { animation: light-start .7s ease-in-out .5s backwards; }
+  .start-label { animation: light-question .7s ease-in-out .5s backwards; }
   .start-halo { animation: reveal-arrival .8s ease-in-out .55s both; }
-  .route-node { animation: light-node .18s ease-out 1.1s both; }
-  .end-node { animation: light-node .18s ease-out 2.1s both; }
+  .route-node { animation: light-node .18s ease-out 1.1s backwards; }
+  .end-node { animation: light-node .18s ease-out 2.1s backwards; }
   .end-halo { animation: reveal-arrival .3s ease-out 2.1s both; }
   .check { animation: reveal-arrival .2s ease-out 2.25s both; }
-  .grid-dot { animation: grid-ripple 1.1s ease-in-out var(--wave-delay) both; }
+  .grid-dot { animation: grid-ripple 1.1s ease-in-out var(--wave-delay) backwards; }
 }
 @keyframes grid-ripple {
   0%, 100% { transform: translateY(0); fill: var(--color-line); }

@@ -33,6 +33,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
     <header v-if="!route.meta.editorLayout" class="site-header">
       <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-beta">(β)</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
+        <ThemeSelect />
         <NuxtLink to="/">ホーム</NuxtLink>
         <NuxtLink to="/problems">問題</NuxtLink>
         <NuxtLink to="/contests">コンテスト</NuxtLink>
@@ -47,7 +48,6 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
         </details>
         <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
-        <ThemeSelect />
       </nav>
     </header>
     <main id="main" tabindex="-1"><slot /></main>
