@@ -1,5 +1,7 @@
 /.codex/
 /.agents/skills/hallmark/
+/.agents/skills/archify/
+/.agents/skills/archify-review/
 /graphify-out/
 /skills-lock.json
 /infra/.build/
