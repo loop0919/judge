@@ -1,4 +1,6 @@
-import { privateHeaders, hasSession, requireSameOrigin, limitedJSON, privateAPI } from './private-api'
+import { privateAPI } from './private-api'
+import { hasSession } from './private-session'
+import { privateHeaders, requireSameOrigin, limitedJSON } from './private-request'
 export function privateContent(kind: 'posts' | 'problems' | 'contests', publication = false) {
   return defineEventHandler(async event => {
     privateHeaders(event)

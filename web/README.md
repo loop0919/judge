@@ -245,3 +245,14 @@ Private and pre-start contest problems have no image preview. Responses use `no-
 to recheck publication on each fetch; X and Discord may independently cache previews.
 Guide titles live in `shared/social-pages.ts`. After deployment, verify a public URL
 with the [Discord Embed Debugger](https://discord.com/developers/embeds).
+
+## 作問とデータ取得の責務
+
+- `app/composables/useProblemDraft.ts` が作問の復元・保存・競合回復・キャッシュ・公開・削除・離脱確認を管理する。ページは編集欄とプレビューを担当する。
+- API の共有スキーマは `shared/types/` に置き、画面のエラー表示や編集補助は `app/utils/` に置く。`server/` と `shared/` から `app/` を参照しない。
+- 一覧取得は `useLatestRequest` で同じキーの同時実行をまとめ、条件変更や破棄後の古い応答を無視する。取得条件を変えたらキーを変え、取得をやめる場合は `invalidate()` を呼ぶ。
+- `usePolling` は取得完了後に次のタイマーを設定し、非表示タブでは取得を控え、スコープ破棄時に終了する。取得エラーの表示は呼び出し側が担当する。
+- サーバーのセッション処理は `private-session.ts`、Origin・ボディ検証と非公開レスポンスヘッダーは `private-request.ts`、上流 API 通信は `private-api.ts` が担当する。
+
+保存の機能テストは `data-save-state`、API への書き込み、再読み込み後の値を検証する。
+表示文言は `tests/problem-editor-copy.spec.ts` で検証し、保存の成否判定と分ける。

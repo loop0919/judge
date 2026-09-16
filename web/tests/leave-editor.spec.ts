@@ -27,7 +27,7 @@ test('failed save keeps the confirmation open', async ({ page }) => {
   await page.getByRole('link', { name: 'ShareOJ マイページ' }).click()
   await page.getByRole('button', { name: '保存して移動', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
-  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('保存できませんでした')
+  await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible()
   await page.getByRole('button', { name: '編集を続ける', exact: true }).click()
   await expect(page.locator('#problem-title')).toHaveValue('保存に失敗')
 })

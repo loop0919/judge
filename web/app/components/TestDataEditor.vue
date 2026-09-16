@@ -2,7 +2,7 @@
 import { basicSetup } from 'codemirror'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { testFileLimit } from '~/utils/problem-draft'
+import { testFileLimit } from '~~/shared/types/problem-draft'
 
 const text = defineModel<string>({ required: true })
 const props = defineProps<{ id: string, label: string, disabled: boolean, storedBytes?: number, loading?: boolean, error?: string }>()

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { googleOAuthConfig } from '../../utils/google-oauth'
-import { clearPrivateSession, saveSession, sessionTokensSchema, limitedJSON, privateAPI, privateHeaders, requireSameOrigin, hasSession } from '../../utils/private-api'
+import { privateAPI } from '../../utils/private-api'
+import { clearPrivateSession, saveSession, sessionTokensSchema, hasSession } from '../../utils/private-session'
+import { limitedJSON, privateHeaders, requireSameOrigin } from '../../utils/private-request'
 
 const resultSchema = z.object({
   refresh_token: z.string().min(1).max(3800).optional(), access_token: z.string().optional(), expires_in: z.number().int().positive().optional(),

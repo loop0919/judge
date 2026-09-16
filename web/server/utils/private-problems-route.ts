@@ -1,4 +1,6 @@
-import { limitedJSON, privateAPI, privateHeaders, requireSameOrigin, hasSession } from './private-api'
+import { privateAPI } from './private-api'
+import { hasSession } from './private-session'
+import { limitedJSON, privateHeaders, requireSameOrigin } from './private-request'
 
 export default defineEventHandler(async event => {
   privateHeaders(event)

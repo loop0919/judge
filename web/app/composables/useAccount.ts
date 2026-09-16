@@ -1,4 +1,4 @@
-import { profileResultSchema, type Profile } from '~/utils/profile'
+import { profileResultSchema, type Profile } from '~~/shared/types/profile'
 export function useAccount() {
   const user = useState<{ id: string } | null>('account-user', () => null)
   const profile = useState<Profile | null>('account-profile', () => null)

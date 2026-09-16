@@ -1,7 +1,8 @@
 import { loginDestination } from '~~/shared/utils/login-destination'
 import { createHash, randomBytes } from 'node:crypto'
 import { googleOAuthConfig, oauthCookie } from '../../../utils/google-oauth'
-import { cookieOptions, privateHeaders } from '../../../utils/private-api'
+import { cookieOptions } from '../../../utils/private-session'
+import { privateHeaders } from '../../../utils/private-request'
 
 export default defineEventHandler(event => {
   privateHeaders(event)

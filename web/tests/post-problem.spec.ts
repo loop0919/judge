@@ -6,7 +6,7 @@ test('posting selects only unpublished standalone problems across pages and hand
   await page.locator('#problem-source').fill('問題本文')
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page).toHaveURL(/problem=/)
-  await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
   const id = new URL(page.url()).searchParams.get('problem')!
   await page.getByRole('button', { name: '問題管理', exact: true }).click()
   await expect(page.getByRole('button', { name: '公開する', exact: true })).toHaveCount(0)

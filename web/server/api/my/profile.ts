@@ -1,5 +1,7 @@
-import { profileResultSchema } from '../../../app/utils/profile'
-import { privateHeaders, hasSession, requireSameOrigin, limitedJSON, privateAPI } from '../../utils/private-api'
+import { profileResultSchema } from '~~/shared/types/profile'
+import { privateAPI } from '../../utils/private-api'
+import { hasSession } from '../../utils/private-session'
+import { privateHeaders, requireSameOrigin, limitedJSON } from '../../utils/private-request'
 
 export default defineEventHandler(async event => {
   privateHeaders(event)

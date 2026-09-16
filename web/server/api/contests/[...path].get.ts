@@ -1,5 +1,7 @@
 import { publicContent } from '../../utils/public-content'
-import { hasSession, privateAPI, privateHeaders } from '../../utils/private-api'
+import { privateAPI } from '../../utils/private-api'
+import { hasSession } from '../../utils/private-session'
+import { privateHeaders } from '../../utils/private-request'
 export default defineEventHandler(async event => {
   privateHeaders(event)
   const path = getRouterParam(event, 'path') ?? ''

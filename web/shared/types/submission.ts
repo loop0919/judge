@@ -1,4 +1,4 @@
-import type { TestFile } from '../../app/utils/problem-draft'
+import type { TestFile } from './problem-draft'
 
 export type TextPreview = { text: string, truncated: boolean }
 export type SampleDetails = { input: TextPreview, expectedOutput: TextPreview, actualOutput: TextPreview }

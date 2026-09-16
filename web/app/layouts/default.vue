@@ -1,19 +1,17 @@
 <script setup lang="ts">
 const route = useRoute()
 const { data: judgeCatalog, error: judgeCatalogError, refresh: refreshJudge } = await useJudgeCatalog()
-let judgeTimer: ReturnType<typeof setInterval> | undefined
-function refreshVisibleJudge() { if (document.visibilityState === 'visible') void refreshJudge() }
+function refreshVisibleJudge() { if (document.visibilityState === 'visible') void refreshJudge({ dedupe: 'defer' }) }
 // A refresh during hydration reuses Nuxt's server payload.
 onNuxtReady(refreshVisibleJudge)
+usePolling(() => refreshJudge({ dedupe: 'defer' }), 30_000)
 onMounted(() => {
-  judgeTimer = setInterval(refreshVisibleJudge, 30_000)
   document.addEventListener('visibilitychange', refreshVisibleJudge)
 })
 onBeforeUnmount(() => {
-  clearInterval(judgeTimer)
   document.removeEventListener('visibilitychange', refreshVisibleJudge)
 })
-watch(() => route.fullPath, () => { void refreshJudge() })
+watch(() => route.fullPath, () => { void refreshJudge({ dedupe: 'defer' }) })
 const createMenu = ref<HTMLDetailsElement>()
 function closeCreateMenu() { if (createMenu.value) createMenu.value.open = false }
 function onOutsideClick(event: MouseEvent) {

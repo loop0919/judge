@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { limitedJSON, privateAPI, privateHeaders, requireSameOrigin } from '../../../utils/private-api'
+import { privateAPI } from '../../../utils/private-api'
+import { limitedJSON, privateHeaders, requireSameOrigin } from '../../../utils/private-request'
 const resultSchema = z.object({ favorited: z.boolean(), favoriteCount: z.number().int().nonnegative() })
 export default defineEventHandler(async event => {
   privateHeaders(event)

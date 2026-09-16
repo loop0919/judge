@@ -1,4 +1,4 @@
-import { accountProblemSchema } from './account-problems'
+import { accountProblemSchema } from '~~/shared/types/account-problems'
 import type { z } from 'zod'
 
 // Cache only server-confirmed snapshots, scoped to the signed-in owner.

@@ -1,4 +1,6 @@
-import { hasSession, privateAPI, privateHeaders } from './private-api'
+import { privateAPI } from './private-api'
+import { hasSession } from './private-session'
+import { privateHeaders } from './private-request'
 import { publicContent } from './public-content'
 
 export default defineEventHandler(async event => {

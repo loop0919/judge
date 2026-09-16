@@ -14,9 +14,7 @@ const showingEditorial = computed(() => route.query.view === 'editorial')
 const submissionView = computed(() => route.query.view === 'my-submissions' || route.query.view === 'submissions')
 const problemPath = `/contests/${id}/problems/${pid}`
 useSeoMeta({ title: () => `${problem.value?.title} | ${contest.value?.title} | ShareOJ` })
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => { timer = setInterval(() => { if (!document.hidden) void Promise.all([refresh(), refreshContest()]) }, 15000) })
-onBeforeUnmount(() => clearInterval(timer))
+usePolling(() => Promise.all([refresh(), refreshContest()]), 15000)
 useSharePreview({ title: () => problem.value!.title, path: problemPath, description: () => problem.value!.markdown.slice(0, 160), enabled: () => !!problem.value && !!contest.value && contest.value.status !== 'scheduled' })
 </script>
 <template>

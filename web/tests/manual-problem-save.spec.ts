@@ -6,7 +6,7 @@ for (const mode of ['published', 'contest']) {
     await page.locator('#problem-title').fill('保存確認')
     await page.getByRole('button', { name: '保存', exact: true }).click()
     await expect(page).toHaveURL(/problem=/)
-    await expect(page.getByRole('status')).toHaveText('保存済み')
+    await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
     const id = new URL(page.url()).searchParams.get('problem')!
     const stored = await page.evaluate(async id => (await fetch(`/api/my/problems/${id}`)).json(), id)
     stored.publishedVersion = mode === 'published' ? 1 : 0
@@ -21,14 +21,14 @@ for (const mode of ['published', 'contest']) {
       return route.fulfill({ json: stored })
     })
     await page.reload()
-    await expect(page.getByText('自動保存はオフです。', { exact: false })).toBeVisible()
+    await expect(page.locator('#problem-title')).toBeEnabled()
     await page.locator('#problem-title').fill('明示的に反映')
     // Wait beyond the autosave debounce to prove no write occurs.
     await page.waitForTimeout(900)
     expect(writes).toBe(0)
-    await expect(page.getByRole('status')).toHaveText('未保存の変更があります')
+    await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'dirty')
     await page.getByRole('button', { name: '保存', exact: true }).click()
-    await expect(page.getByRole('status')).toHaveText('保存済み')
+    await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
     expect(writes).toBe(1)
     await page.locator('#problem-title').fill('まだ未保存')
     await page.waitForTimeout(900)

@@ -1,7 +1,9 @@
 import { publicProblemSchema } from '~~/shared/types/problem'
 import { publicContent } from '../../utils/public-content'
-import { accountProblemSchema } from '../../../app/utils/account-problems'
-import { hasSession, privateAPI, privateHeaders } from '../../utils/private-api'
+import { accountProblemSchema } from '~~/shared/types/account-problems'
+import { privateAPI } from '../../utils/private-api'
+import { hasSession } from '../../utils/private-session'
+import { privateHeaders } from '../../utils/private-request'
 export default defineEventHandler(async event => {
   privateHeaders(event)
   const id = getRouterParam(event, 'id') ?? ''

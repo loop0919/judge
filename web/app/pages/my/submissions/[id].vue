@@ -5,25 +5,16 @@ useSeoMeta({ title: '提出結果 | ShareOJ', robots: 'noindex, nofollow' })
 const route = useRoute()
 const item = ref<Submission | null>(null)
 const message = ref('')
-const loading = ref(false)
-let timer: ReturnType<typeof setTimeout> | undefined
-let disposed = false
-async function load() {
-  if (loading.value || disposed) return
-  loading.value = true
-  clearTimeout(timer)
+const { loading, run } = useLatestRequest()
+function load() {
   message.value = ''
-  try {
-    const result = await $fetch<Submission>(`/api/my/submissions/${encodeURIComponent(String(route.params.id))}`)
-    if (disposed) return
-    item.value = result
-    if (result.status !== 'DONE') timer = setTimeout(load, 2000)
-  } catch {
-    if (!disposed) message.value = '提出結果を取得できませんでした。ログイン状態を確認して、再取得してください。'
-  } finally { loading.value = false }
+  const url = `/api/my/submissions/${encodeURIComponent(String(route.params.id))}`
+  return run(url, () => $fetch<Submission>(url),
+    result => { item.value = result },
+    () => { message.value = '提出結果を取得できませんでした。ログイン状態を確認して、再取得してください。' })
 }
 onMounted(load)
-onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
+usePolling(load, 2000, () => !message.value && (!!item.value && item.value.status !== 'DONE'))
 </script>
 
 <template>

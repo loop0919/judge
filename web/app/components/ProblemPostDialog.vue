@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { accountListSchema, accountProblemSchema, accountError, type AccountSummary } from '~/utils/account-problems'
+import { accountListSchema, accountProblemSchema, type AccountSummary } from '~~/shared/types/account-problems'
+import { accountError } from '~/utils/account-problems'
 const dialog = ref<HTMLDialogElement>()
 const { refreshAccount } = useAccount()
 const signedIn = ref(false)

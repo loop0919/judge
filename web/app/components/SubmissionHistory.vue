@@ -3,26 +3,17 @@ import { runtimeLabel } from '~/utils/runtime-label'
 import type { Submission } from '~~/shared/types/submission'
 withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const items = ref<Submission[]>([])
-const loading = ref(false)
 const message = ref('')
-let timer: ReturnType<typeof setTimeout> | undefined
-let disposed = false
-async function load() {
-  if (loading.value || disposed) return
-  clearTimeout(timer)
-  loading.value = true
+const { loading, run } = useLatestRequest()
+function load() {
   message.value = ''
-  try {
-    const result = await $fetch<{ items: Submission[] }>('/api/my/submissions')
-    if (disposed) return
-    items.value = result.items
-    if (items.value.some(item => item.status !== 'DONE')) timer = setTimeout(load, 2000)
-  }
-  catch { if (!disposed) message.value = '提出履歴を取得できませんでした。ログイン状態を確認してください。' }
-  finally { loading.value = false }
+  const url = '/api/my/submissions'
+  return run(url, () => $fetch<{ items: Submission[] }>(url),
+    result => { items.value = result.items },
+    () => { message.value = '提出履歴を取得できませんでした。ログイン状態を確認してください。' })
 }
 onMounted(load)
-onBeforeUnmount(() => { disposed = true; clearTimeout(timer) })
+usePolling(load, 2000, () => !message.value && (items.value.some(item => item.status !== 'DONE')))
 </script>
 
 <template>

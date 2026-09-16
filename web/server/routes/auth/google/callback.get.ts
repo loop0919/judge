@@ -1,9 +1,11 @@
 import { loginDestination } from '~~/shared/utils/login-destination'
-import { profileResultSchema } from '../../../../app/utils/profile'
+import { profileResultSchema } from '~~/shared/types/profile'
 import { timingSafeEqual } from 'node:crypto'
 import { z } from 'zod'
 import { googleOAuthConfig, oauthCookie } from '../../../utils/google-oauth'
-import { cookieOptions, privateAPI, privateHeaders, saveSession, sessionTokensSchema } from '../../../utils/private-api'
+import { privateAPI } from '../../../utils/private-api'
+import { cookieOptions, saveSession, sessionTokensSchema } from '../../../utils/private-session'
+import { privateHeaders } from '../../../utils/private-request'
 
 const tokenSchema = sessionTokensSchema.extend({ token_type: z.string().regex(/^Bearer$/i) })
 

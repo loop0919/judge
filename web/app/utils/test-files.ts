@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { testFileSchema, testFileLimit, type TestFile } from './problem-draft'
+import { testFileSchema, testFileLimit, type TestFile } from '~~/shared/types/problem-draft'
 
 const uploadSchema = z.object({ id: z.string().uuid(), url: z.string().url(), headers: z.record(z.string(), z.string()) })
 const downloadSchema = z.object({ url: z.string().url(), size: z.number().int().positive().max(testFileLimit), sha256: z.string().regex(/^[a-f0-9]{64}$/) })

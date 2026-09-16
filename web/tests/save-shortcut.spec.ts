@@ -18,7 +18,7 @@ for (const modifier of ['Control', 'Meta']) {
     // The write must finish while autosave timers are frozen. Navigation needs the clock.
     expect((await savedResponse).ok()).toBe(true)
     await page.clock.resume()
-    await expect(page.getByRole('status')).toHaveText('保存済み')
+    await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
     await expect(page.locator('body')).toHaveAttribute('data-save-prevented', 'true')
     const stored = await page.evaluate(prefix => {
       const key = Object.keys(sessionStorage).find(key => key.startsWith(prefix))!

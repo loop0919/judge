@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { accountListSchema, type AccountSummary } from '~/utils/account-problems'
+import { accountListSchema, type AccountSummary } from '~~/shared/types/account-problems'
 import type { Contest, ContestProblem } from '~~/shared/types/contest'
 const props = defineProps<{ contestId?: string }>()
 const ready = ref(false)

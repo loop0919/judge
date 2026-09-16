@@ -44,9 +44,9 @@ test('editing, math preview, automatic save, and reload work together', async ({
   await page.locator('#problem-source').fill('## 解法\n\n```cpp\nreturn A + B;\n```')
   await expect(page.getByRole('region', { name: '解説のプレビュー' }).getByRole('heading', { name: '解法' })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-draft-navigation', 'pending')
-  await expect(page.getByRole('status')).toHaveText('保存しています…')
+  await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saving')
   await page.evaluate(() => (window as any).finishDraftNavigation())
-  await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
   await expect(page).toHaveURL(/\/problems\/new\?problem=[^&]+$/)
   await page.reload()
   await expect(page.locator('#problem-title')).toHaveValue('数列の和')
@@ -63,7 +63,7 @@ test('incomplete drafts remain saveable', async ({ page }) => {
   await page.goto('/problems/new')
   await expect(page.getByRole('button', { name: 'Markdown を保存', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: '保存', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
 })
 
 test('legacy memory limits are clamped to the current maximum', async ({ page }) => {
@@ -87,7 +87,7 @@ test('cache failures do not prevent DB saving', async ({ page }) => {
   await page.goto('/problems/new')
   await page.locator('#problem-title').fill('保存できない問題')
   await page.getByRole('button', { name: '保存', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('保存済み')
+  await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
   await expect(page.locator('#problem-title')).toBeEnabled()
 })
 
@@ -179,7 +179,7 @@ test.describe('small touch screens', () => {
       await expect(source).toHaveValue(/:::details/)
       await page.getByLabel('問題のタイトル', { exact: true }).fill('スマホの問題')
       await page.getByRole('button', { name: '保存', exact: true }).click()
-      await expect(page.getByRole('status')).toHaveText('保存済み')
+      await expect(page.locator('[data-save-state]')).toHaveAttribute('data-save-state', 'saved')
       await page.getByRole('button', { name: 'プレビュー', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'スマホで編集', exact: true })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ProblemDraft } from '~/utils/problem-draft'
+import type { ProblemDraft } from '~~/shared/types/problem-draft'
 
 const checker = defineModel<ProblemDraft['checker']>({ required: true })
 const interactor = defineModel<ProblemDraft['interactor']>('interactor', { required: true })

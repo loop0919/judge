@@ -8,31 +8,28 @@ const route = useRoute()
 const title = computed(() => props.mine ? '自分の提出' : 'すべての提出')
 const data = ref<{ items: Submission[], hasMore: boolean } | null>(null)
 const offset = ref(0)
-const loading = ref(false)
+const { loading, run, invalidate } = useLatestRequest()
 const message = ref('')
-let disposed = false
-let request = 0
-async function load() {
-  const current = ++request
-  if (props.mine && !user.value) { data.value = null; loading.value = false; return }
-  loading.value = true
+function load() {
+  if (props.mine && !user.value) { invalidate(); data.value = null; return Promise.resolve() }
+  const base = props.contestId ? `/api/contests/${props.contestId}/problems/${props.problemId}` : `/api/problems/${props.problemId}`
+  const query = { mine: props.mine ? '1' : '0', offset: offset.value }
   message.value = ''
-  try {
-    const base = props.contestId ? `/api/contests/${props.contestId}/problems/${props.problemId}` : `/api/problems/${props.problemId}`
-    const result = await $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query: { mine: props.mine ? '1' : '0', offset: offset.value } })
-    if (!disposed && current === request) data.value = result
-  } catch { if (!disposed && current === request) message.value = '提出一覧を取得できませんでした。閲覧権限を確認し、再取得してください。' }
-  finally { if (!disposed && current === request) loading.value = false }
+  return run(JSON.stringify([base, query, user.value?.id]),
+    () => $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query }),
+    result => { data.value = result },
+    () => { message.value = '提出一覧を取得できませんでした。閲覧権限を確認し、再取得してください。' })
 }
 function detail(item: Submission) {
   if (props.mine) return `/my/submissions/${item.id}?from=${props.contestId ? 'contest-problem' : 'problem'}`
   return props.contestId ? `/contests/${props.contestId}/submissions/${item.id}?from=problem` : `/problems/${props.problemId}/submissions/${item.id}`
 }
-watch(offset, load)
-watch(() => user.value?.id, () => { data.value = null; offset.value = 0; void load() })
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => { void load(); timer = setInterval(() => { if (!document.hidden && !loading.value) void load() }, 15000) })
-onBeforeUnmount(() => { disposed = true; clearInterval(timer) })
+watch(() => [user.value?.id, props.problemId, props.contestId, props.mine], () => {
+  invalidate(); data.value = null; offset.value = 0
+}, { flush: 'sync' })
+watch([offset, () => user.value?.id, () => props.problemId, () => props.contestId, () => props.mine], load)
+onMounted(load)
+usePolling(load, 15000)
 </script>
 <template>
   <section class="problem-submissions" :aria-label="title">

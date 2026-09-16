@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { loginDestination } from '~~/shared/utils/login-destination'
 const route = useRoute()
-import { profileResultSchema, profileError, type Profile } from '~/utils/profile'
+import { profileResultSchema, type Profile } from '~~/shared/types/profile'
+import { profileError } from '~/utils/profile'
 const props = defineProps<{ initial: Profile | null, onboarding?: boolean }>()
 const { user, profile, refreshAccount } = useAccount()
 const owner = user.value?.id

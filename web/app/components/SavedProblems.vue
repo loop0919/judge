@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { accountListSchema, accountError, type AccountSummary } from '~/utils/account-problems'
+import { accountListSchema, type AccountSummary } from '~~/shared/types/account-problems'
+import { accountError } from '~/utils/account-problems'
 const props = defineProps<{ testing?: boolean }>()
 const heading = computed(() => props.testing ? 'テスト中の問題' : '自分の問題')
 const { user, refreshAccount } = useAccount()

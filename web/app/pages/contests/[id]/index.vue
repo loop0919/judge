@@ -20,10 +20,14 @@ const canViewSubmissions = computed(() => contest.value?.canViewSubmissions === 
 const submissions = ref<{ items: Submission[], hasMore: boolean } | null>(null)
 const submissionsError = ref('')
 const offset = ref(0)
-async function loadSubmissions() {
-  if (activeView.value !== 'submissions' || !canViewSubmissions.value) return
-  try { submissions.value = await $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query: { offset: offset.value } }); submissionsError.value = '' }
-  catch { submissionsError.value = '提出一覧を取得できませんでした。' }
+const { run: requestSubmissions, invalidate: invalidateSubmissions } = useLatestRequest()
+function loadSubmissions() {
+  if (activeView.value !== 'submissions' || !canViewSubmissions.value) { invalidateSubmissions(); submissions.value = null; return Promise.resolve() }
+  const query = { offset: offset.value }
+  return requestSubmissions(JSON.stringify([query, user.value?.id]),
+    () => $fetch<{ items: Submission[], hasMore: boolean }>(`${base}/submissions`, { query }),
+    result => { submissions.value = result; submissionsError.value = '' },
+    () => { submissionsError.value = '提出一覧を取得できませんでした。' })
 }
 const updating = ref(false)
 async function update() {
@@ -32,11 +36,10 @@ async function update() {
   try { await Promise.all([refresh(), refreshStandings()]); await loadSubmissions() }
   finally { updating.value = false }
 }
-watch(() => user.value?.id, () => { void refresh() })
+watch(() => user.value?.id, () => { invalidateSubmissions(); submissions.value = null; void update() })
 watch([offset, activeView, canViewSubmissions], () => { void loadSubmissions() })
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => { void loadSubmissions(); timer = setInterval(() => { if (!document.hidden) void update() }, 15000) })
-onBeforeUnmount(() => clearInterval(timer))
+onMounted(loadSubmissions)
+usePolling(update, 15000)
 function problemLabel(index: number): string {
   return index < 26 ? String.fromCharCode(65 + index) : problemLabel(Math.floor(index / 26) - 1) + problemLabel(index % 26)
 }

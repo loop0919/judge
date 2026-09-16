@@ -1,4 +1,6 @@
-import { privateAPI, privateHeaders, hasSession } from '../../../utils/private-api'
+import { privateAPI } from '../../../utils/private-api'
+import { hasSession } from '../../../utils/private-session'
+import { privateHeaders } from '../../../utils/private-request'
 import type { Submission } from '../../../../shared/types/submission'
 
 export default defineEventHandler(async event => {

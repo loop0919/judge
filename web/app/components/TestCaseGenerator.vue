@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Submission } from '../../shared/types/submission'
-import { testCaseError, testFileSchema, persistedDraft, type TestCase, type Generators } from '~/utils/problem-draft'
+import { testFileSchema, type Generators } from '~~/shared/types/problem-draft'
+import { testCaseError, persistedDraft, type TestCase } from '~/utils/problem-draft'
 
 const cases = defineModel<TestCase[]>({ required: true })
 const config = defineModel<Generators>('config', { required: true })

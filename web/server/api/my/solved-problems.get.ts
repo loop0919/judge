@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { privateAPI, privateHeaders } from '../../utils/private-api'
+import { privateAPI } from '../../utils/private-api'
+import { privateHeaders } from '../../utils/private-request'
 
 const resultSchema = z.object({ items: z.array(z.string().uuid()) })
 export default defineEventHandler(async event => {

@@ -1,4 +1,5 @@
-import { testCaseError, testFileLimit, testSetLimit, type TestCase } from './problem-draft'
+import { testFileLimit, testSetLimit } from '~~/shared/types/problem-draft'
+import { testCaseError, type TestCase } from './problem-draft'
 
 type DataKey = 'input' | 'output'
 export function mergeTestCases(existing: TestCase[], imported: TestCase[], fields: DataKey[] = ['input', 'output']): TestCase[] {
