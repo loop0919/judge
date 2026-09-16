@@ -1,0 +1,300 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OpenOJ インフラ構成 — Terraform / dev",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1310,
+      750
+    ],
+    "repository": {
+      "url": "https://github.com/loop0919/shareoj",
+      "revision": "82689b1e8ae232122560280ea117ac7c4d0f7f13",
+      "provider": "github",
+      "link_mode": "local-only"
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "利用者",
+      "sublabel": "ブラウザー",
+      "pos": [
+        40,
+        90
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Frontend",
+      "sublabel": "HTTP API → Nuxt Lambda",
+      "pos": [
+        370,
+        90
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/frontend/main.tf"
+        }
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "cloud",
+      "label": "Backend HTTP API",
+      "sublabel": "api.share-oj.net",
+      "pos": [
+        700,
+        90
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/api/main.tf"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API Lambda",
+      "sublabel": "Go / arm64・VPC 内",
+      "pos": [
+        1030,
+        90
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/api/main.tf"
+        }
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "RDS PostgreSQL 17",
+      "sublabel": "Single-AZ / db.t4g.micro",
+      "pos": [
+        1030,
+        340
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/api/database.tf"
+        }
+      ]
+    },
+    {
+      "id": "bridge",
+      "type": "backend",
+      "label": "Bridge Lambda",
+      "sublabel": "配信・結果反映 / VPC 内",
+      "pos": [
+        700,
+        340
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/judge/bridge.tf"
+        }
+      ]
+    },
+    {
+      "id": "queues",
+      "type": "messagebus",
+      "label": "SQS requests / results",
+      "sublabel": "要求・結果の 2 系統＋各 DLQ",
+      "pos": [
+        370,
+        340
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/judge/storage.tf"
+        }
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Lightsail worker",
+      "sublabel": "IPv6 / Ubuntu 24.04",
+      "pos": [
+        40,
+        340
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/judge/worker.tf"
+        }
+      ]
+    },
+    {
+      "id": "objects",
+      "type": "cloud",
+      "label": "S3 jobs / test-data",
+      "sublabel": "バージョン指定で取得",
+      "pos": [
+        40,
+        590
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/judge/storage.tf"
+        }
+      ]
+    },
+    {
+      "id": "timer",
+      "type": "cloud",
+      "label": "EventBridge",
+      "sublabel": "1 分ごとに起動",
+      "pos": [
+        700,
+        590
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "infra/judge/bridge.tf"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-web",
+      "from": "browser",
+      "to": "web",
+      "label": "HTTPS"
+    },
+    {
+      "id": "web-gateway",
+      "from": "web",
+      "to": "gateway",
+      "label": "HTTPS"
+    },
+    {
+      "id": "gateway-api",
+      "from": "gateway",
+      "to": "api",
+      "label": "AWS_PROXY"
+    },
+    {
+      "id": "api-db",
+      "from": "api",
+      "to": "db",
+      "label": "SQL :5432",
+      "labelDy": 140
+    },
+    {
+      "id": "bridge-db",
+      "from": "bridge",
+      "to": "db",
+      "label": "SQL :5432"
+    },
+    {
+      "id": "bridge-queues",
+      "from": "bridge",
+      "to": "queues",
+      "label": "要求送信・結果取込"
+    },
+    {
+      "id": "queues-worker",
+      "from": "queues",
+      "to": "worker",
+      "label": "要求取得・結果送信"
+    },
+    {
+      "id": "worker-objects",
+      "from": "worker",
+      "to": "objects",
+      "label": "HTTPS / S3",
+      "labelDy": 80
+    },
+    {
+      "id": "timer-bridge",
+      "from": "timer",
+      "to": "bridge",
+      "label": "定期起動"
+    },
+    {
+      "id": "api-bridge",
+      "from": "api",
+      "to": "bridge",
+      "label": "InvokeFunction",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "ネットワーク・認証",
+      "items": [
+        "VPC 10.42.0.0/16・非公開サブネット×2 AZ",
+        "IPv6 egress-only IGW / DB は TCP 5432",
+        "Cognito・Secrets Manager を利用"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "採点の分離",
+      "items": [
+        "worker は DB 接続なし・VPC peering なし",
+        "SQS 経由で要求取得・結果送信",
+        "設定: enabled=true / SSH 無効"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "公開・運用",
+      "items": [
+        "Route 53＋ACM: www / api.share-oj.net",
+        "CloudWatch → SNS → 通知 Lambda → Discord",
+        "Terraform 定義の図。実稼働は未照合"
+      ]
+    }
+  ]
+}

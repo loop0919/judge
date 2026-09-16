@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/loop/judge/docs/infrastructure/current.architecture.json",
+  "output": "/home/loop/judge/docs/infrastructure/current.html",
+  "specification": {
+    "sha256": "daa05381e2c338760e851292407387d16b9e9b69d5d89a03c783ac2d60355fde",
+    "bytes": 5643
+  },
+  "artifact": {
+    "sha256": "229c87e99f2e75e999e12aa84a1ece4f63ef1b02a74ae6adf9e5c90f01058b32",
+    "bytes": 813183
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  },
+  "evidence": {
+    "verified": true,
+    "repository": "https://github.com/loop0919/shareoj",
+    "revision": "82689b1e8ae232122560280ea117ac7c4d0f7f13",
+    "references": 9,
+    "linkMode": "local-only"
+  }
+}

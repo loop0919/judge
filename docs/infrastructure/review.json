@@ -1,0 +1,11 @@
+{
+  "diagram_type": "architecture",
+  "output": "docs/infrastructure/current.html",
+  "specification_sha256": "daa05381e2c338760e851292407387d16b9e9b69d5d89a03c783ac2d60355fde",
+  "artifact_sha256": "229c87e99f2e75e999e12aa84a1ece4f63ef1b02a74ae6adf9e5c90f01058b32",
+  "validation": "9/9 showcase, 0 errors, 0 warnings",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "review_scope": "1440x900 and 2048x1320 light/dark screenshots inspected; labels, routes, card containment and vertical balance checked. Interactive controls and exports not manually exercised."
+}

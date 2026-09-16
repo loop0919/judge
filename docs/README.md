@@ -4,3 +4,4 @@
 
 - [Architecture Decision Records](adr/README.md)
 - [ジャッジ設計](judge/README.md)
+- [Terraform に基づくインフラ構成図](infrastructure/README.md)
