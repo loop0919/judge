@@ -440,7 +440,8 @@ Lambda Permissionの`statement_id`も既存の値に合わせる。
 `infra/frontend` は ElastiCache Serverless for Valkey と読み書き専用の `judge-dev-web-cache` Lambda を作成する。
 フロントエンド Lambda は VPC 外で外部 API を取得し、IAM の `lambda:InvokeFunction` でキャッシュ Lambda を呼ぶ。
 キャッシュ Lambda と Valkey だけを専用 VPC の2サブネットに置き、セキュリティグループで TLS の6379番ポートを限定する。
-NAT Gateway・インターネットゲートウェイ・VPCエンドポイントは追加しない。
+NAT Gateway・インターネットゲートウェイは追加しない。
+Valkeyへの接続エンドポイントはElastiCache側で管理される。
 保存対象は公開レーティングと公開ユーザー名のみで、TTLは300秒、更新ロックは15秒。
 障害時は既存のプロセス内キャッシュに戻る。
 

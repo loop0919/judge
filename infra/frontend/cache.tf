@@ -83,7 +83,7 @@ resource "aws_iam_role_policy" "cache_logs" {
     Statement = [{ Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.cache.arn}:*" }]
   })
 }
-# Invoked directly with IAM. No public URL, internet route, NAT, or VPC endpoint is needed.
+# Invoked directly with IAM. No public URL, internet route, or NAT is needed.
 resource "aws_lambda_function" "cache" {
   function_name     = "${local.name}-web-cache"
   description       = "Private Valkey access for public profile cache"
