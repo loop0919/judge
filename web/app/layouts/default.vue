@@ -47,6 +47,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
         </details>
         <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
+        <ThemeSelect />
       </nav>
     </header>
     <main id="main" tabindex="-1"><slot /></main>

@@ -14,6 +14,7 @@ const bytes = ref(text.value ? encoder.encode(text.value).length : (props.stored
 const editable = new Compartment()
 const attributes = new Compartment()
 let editor: EditorView | undefined
+const themeExtension = useCodeMirrorTheme(() => editor)
 let fromModel = false
 let emittedText: string | undefined
 const editing = () => [EditorState.readOnly.of(props.disabled), EditorView.editable.of(!props.disabled)]
@@ -40,6 +41,7 @@ onMounted(() => {
     doc: text.value,
     extensions: [
       basicSetup,
+      themeExtension(),
       editable.of(editing()),
       attributes.of(contentAttributes()),
       EditorView.updateListener.of((update) => {

@@ -15,7 +15,7 @@ const href = computed(() => `https://x.com/intent/tweet?${new URLSearchParams({
 </template>
 
 <style scoped>
-.tweet-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; color: #000; border-radius: 4px; }
+.tweet-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; color: var(--color-ink); border-radius: 4px; }
 .tweet-button:hover { background: var(--color-surface); }
 .tweet-button:active { transform: translateY(1px); }
 </style>

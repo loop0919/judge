@@ -3,7 +3,7 @@ import { basicSetup } from 'codemirror'
 import { cpp } from '@codemirror/lang-cpp'
 import { Compartment, EditorState } from '@codemirror/state'
 import { indentWithTab } from '@codemirror/commands'
-import { indentUnit } from '@codemirror/language'
+import { indentUnit, defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorView, keymap } from '@codemirror/view'
 
 const source = defineModel<string>({ required: true })
@@ -16,6 +16,7 @@ const indentConfig = new Compartment()
 const indentExtensions = () => [indentUnit.of(indentation.value), EditorState.tabSize.of(settings.value.width)]
 const editable = new Compartment()
 let editor: EditorView | undefined
+const themeExtension = useCodeMirrorTheme(() => editor)
 const editing = () => [EditorState.readOnly.of(Boolean(props.disabled || props.readonly)), EditorView.editable.of(!props.disabled && !props.readonly)]
 
 onMounted(() => {
@@ -24,7 +25,12 @@ onMounted(() => {
     doc: source.value,
     extensions: [
       basicSetup,
+      themeExtension(),
       cpp(),
+      syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(style => ({
+        ...style,
+        ...(style.color ? { color: `light-dark(${style.color}, color-mix(in srgb, ${style.color} 35%, white))` } : {}),
+      })))),
       keymap.of([indentWithTab]),
       indentConfig.of(indentExtensions()),
       editable.of(editing()),

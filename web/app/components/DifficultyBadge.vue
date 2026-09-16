@@ -7,7 +7,7 @@ defineProps<{ level: number | null }>()
 </template>
 <style scoped>
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4 · existing ShareOJ tokens */
-.difficulty { --grade-black: #192431; --grade-gray: #808080; --grade-brown: #9a6324; --grade-green: #18794e; --grade-cyan: #00b8d4; --grade-blue: #2463d4; --grade-yellow: #e6c700; --grade-orange: #ed8617; --grade-red: #d83232; --grade-gold: #c49a23; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.difficulty { --grade-black: var(--color-ink); --grade-gray: #808080; --grade-brown: #9a6324; --grade-green: #18794e; --grade-cyan: #00b8d4; --grade-blue: #2463d4; --grade-yellow: #e6c700; --grade-orange: #ed8617; --grade-red: #d83232; --grade-gold: #c49a23; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .difficulty-dot { width: .75rem; height: .75rem; border-radius: 50%; background: var(--grade); border: 1px solid var(--color-muted); }
 .difficulty-crown { width: 1rem; height: 1rem; fill: var(--grade); stroke: var(--grade); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 [data-level="1"] { --grade: var(--grade-black); }
