@@ -435,24 +435,15 @@ Lambda Permissionの`statement_id`も既存の値に合わせる。
 `GET /health`、`POST /auth/login`、`POST /auth/challenge`は認証前に呼び出すエンドポイントである。
 業務APIを追加する際は、API GatewayのJWT AuthorizerやAPI内のトークン検証を追加する。
 
-### 外部プロフィールの共有キャッシュ
+### 外部プロフィールのキャッシュ
 
-`infra/frontend` は ElastiCache Serverless for Valkey と読み書き専用の `judge-dev-web-cache` Lambda を作成する。
-フロントエンド Lambda は VPC 外で外部 API を取得し、IAM の `lambda:InvokeFunction` でキャッシュ Lambda を呼ぶ。
-キャッシュ Lambda と Valkey だけを専用 VPC の2サブネットに置き、セキュリティグループで TLS の6379番ポートを限定する。
-NAT Gateway・インターネットゲートウェイは追加しない。
-Valkeyへの接続エンドポイントはElastiCache側で管理される。
-保存対象は公開レーティングと公開ユーザー名のみで、TTLは300秒、更新ロックは15秒。
-障害時は既存のプロセス内キャッシュに戻る。
+フロントエンド Lambda は VPC 外で外部 API を取得する。
+公開レーティングと公開ユーザー名は Nitro の `defineCachedFunction` で300秒キャッシュし、同じキーの取得中リクエストは結果を共有する。
+キャッシュは実行環境内のメモリに最大1,000件保持する。
+外部 API の失敗結果もキャッシュし、障害中の連打による再取得を抑える。
+実行環境の新規起動・終了や件数上限による追い出しでは再取得が発生し、実行環境をまたぐ重複は許容する。
+キャッシュ用の Valkey・Lambda・VPC は作成しない。
+`npm run package:lambda && npm run test:lambda` で、同時取得の共有・キャッシュヒット・期限切れ後の再取得を検証できる。
 
-初回は管理権限で `infra/deploy-access` の変更を適用し、デプロイロールにキャッシュ作成と新しい実行ロールの管理権限を追加する。
-その後、通常どおり `npm run package:lambda` で作った `web/.build/web.zip` を `infra/frontend` から適用する。
-キャッシュ専用ハンドラーも同じZIPに入り、別の公開HTTPエンドポイントは作成しない。
-ローカル開発では `PROFILE_CACHE_FUNCTION` 未設定で共有キャッシュを無効にする。
-`PROFILE_CACHE_TEST_URL=redis://127.0.0.1:6379 npm run test:cache` で実Valkeyに対して共有・排他・署名付きLambda呼び出し・障害時の動作を検証できる。
-
-東京リージョンのAWS公開単価（2026-09-17確認）は保存が0.101 USD/GB-hour、処理が0.0027 USD/百万ECPU。
-最低100MB、月730時間なら保存の概算は7.37 USD/月で、処理・Lambda・ログ等は別途従量課金となる。
-保存量は最大1GB、ECPUは最大1000/秒に設定する。これらは利用量の上限であり月額予算の上限ではない。
-Infracostの今回のスキャンはValkeyの料金を計上しなかったため、合計0 USDという出力を実費として扱わない。
-公式単価: https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonElastiCache/current/ap-northeast-1/index.json
+以前の共有キャッシュ構成をデプロイ済みの場合は、`infra/frontend` の削除 plan を確認して適用した後に `infra/deploy-access` を適用する。
+キャッシュの削除に必要なデプロイ権限を先に外さないこと。

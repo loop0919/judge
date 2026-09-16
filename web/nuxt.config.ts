@@ -12,6 +12,8 @@ export default defineNuxtConfig({
   ssr: true,
   nitro: {
     serveStatic: true,
+    // ponytail: per-instance cache; use shared storage if duplicate fetches across instances become a problem.
+    storage: { cache: { driver: 'lru-cache', max: 1000, ttl: 300_000 } },
     serverAssets: [{ baseName: 'resvg', dir: resvgAssets, pattern: '*.wasm' }],
     ...(process.env.OPENOJ_LAMBDA_BUILD === '1' ? { preset: 'aws-lambda', output: { dir: '.output-lambda' } } : {}),
   },

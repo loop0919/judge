@@ -56,9 +56,26 @@ process.env.NUXT_COGNITO_DOMAIN = 'https://google-test.auth.ap-northeast-1.amazo
 process.env.NUXT_COGNITO_CLIENT_ID = 'test-client'
 process.env.NUXT_COGNITO_CLIENT_SECRET = 'test-secret'
 const originalFetch = globalThis.fetch
+const originalNow = Date.now
+let clockOffset = 0
+Date.now = () => originalNow() + clockOffset
+const profileCalls = new Map()
+const profileResponses = new Map([
+  ['https://atcoder.jp/users/cachetest/history/json', [{ IsRated: true, NewRating: 1600 }]],
+  ['https://codeforces.com/api/user.info?handles=cachetest', { status: 'OK', result: [{ rating: 1500 }] }],
+  ['https://yukicoder.me/api/v1/user/id/12345', { Name: 'cache user' }],
+  ['https://atcoder.jp/users/cachefailure/history/json', null],
+])
 let exchanges = 0
 let expectedVerifier = ''
 globalThis.fetch = async (input, options) => {
+  if (profileResponses.has(String(input))) {
+    const url = String(input)
+    profileCalls.set(url, (profileCalls.get(url) ?? 0) + 1)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    const value = profileResponses.get(url)
+    return value === null ? new Response('Unavailable', { status: 503 }) : Response.json(value)
+  }
   if (String(input) !== `${process.env.NUXT_COGNITO_DOMAIN}/oauth2/token`) return originalFetch(input, options)
   exchanges++
   assert.equal(new Headers(options.headers).get('authorization'), `Basic ${Buffer.from('test-client:test-secret').toString('base64')}`)
@@ -74,6 +91,27 @@ async function invoke(path, { method = 'GET', body, cookies, origin = 'https://f
   return handler({ version: '2.0', rawPath: pathname, rawQueryString: query, queryStringParameters: Object.fromEntries(new URLSearchParams(query)), headers: { host: 'frontend.example', 'x-forwarded-proto': 'https', origin, 'content-type': 'application/json' }, requestContext: { http: { method, path: pathname, sourceIp: '127.0.0.1' } }, body: body ? JSON.stringify(body) : undefined, cookies, isBase64Encoded: false }, {})
 }
 try {
+  for (const [path, url, expected] of [
+    ['/api/ratings/atcoder?handle=cachetest', 'https://atcoder.jp/users/cachetest/history/json', { rating: 1600, unavailable: false }],
+    ['/api/ratings/codeforces?handle=cachetest', 'https://codeforces.com/api/user.info?handles=cachetest', { rating: 1500, unavailable: false }],
+    ['/api/accounts/yukicoder?id=12345', 'https://yukicoder.me/api/v1/user/id/12345', { name: 'cache user' }],
+    ['/api/ratings/atcoder?handle=cachefailure', 'https://atcoder.jp/users/cachefailure/history/json', { rating: null, unavailable: true }],
+  ]) {
+    const responses = await Promise.all(Array.from({ length: 10 }, () => invoke(path)))
+    for (const response of responses) {
+      assert.equal(response.statusCode, 200, response.body)
+      assert.deepEqual(JSON.parse(response.body), expected)
+    }
+    assert.equal(profileCalls.get(url), 1, 'Concurrent requests must share one upstream fetch')
+    clockOffset += 299_000
+    assert.deepEqual(JSON.parse((await invoke(path)).body), expected)
+    assert.equal(profileCalls.get(url), 1, 'Cache must survive repeated requests within five minutes')
+    clockOffset += 2000
+    assert.deepEqual(JSON.parse((await invoke(path)).body), expected)
+    assert.equal(profileCalls.get(url), 2, 'Expired results must be fetched again')
+  }
+  console.log('Profile cache coalescing, five-minute TTL, and failure caching passed')
+  clockOffset = 0
   const shareImage = await invoke('/og/blog/markdown-guide.png')
   assert.equal(shareImage.statusCode, 200)
   assert.equal(shareImage.headers['content-type'], 'image/png')
@@ -164,6 +202,7 @@ try {
   assert.equal((await invoke(path, { method: 'PUT', cookies, body: boundaryBody })).statusCode, 413)
   console.log('Lambda signup, confirmation, resend, login, secure cookie, authenticated body forwarding, CSRF protection, SSR, API proxy, canonical URL, JS/CSS, binary fonts, and 404 passed')
 } finally {
+  Date.now = originalNow
   globalThis.fetch = originalFetch
   await new Promise(resolve => api.close(resolve))
   await rm(directory, { recursive: true, force: true })

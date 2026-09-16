@@ -1,5 +1,4 @@
 """Package Nitro's Lambda output, including public assets at their expected paths."""
-import subprocess
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -7,7 +6,6 @@ root = Path(__file__).resolve().parents[1]
 output = root / '.output-lambda'
 if not (output / 'server/index.mjs').is_file():
     raise SystemExit('Run npm run build:lambda first')
-subprocess.run(['node', 'scripts/build-cache-lambda.mjs'], cwd=root, check=True)
 (root / '.build').mkdir(exist_ok=True)
 archive = root / '.build/web.zip'
 with ZipFile(archive, 'w', ZIP_DEFLATED) as bundle:
