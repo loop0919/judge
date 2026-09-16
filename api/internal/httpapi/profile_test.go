@@ -116,7 +116,7 @@ func TestProfilesPostgres(t *testing.T) {
 	if w := request("GET", "/my/profile", "bob", ""); !strings.Contains(w.Body.String(), `"profile":null`) {
 		t.Fatal("profile leaked")
 	}
-	if w := request("PUT", "/my/profile", "alice", `{"handle":"alice_new","avatar":"","version":1}`); w.Code != 200 {
+	if w := request("PUT", "/my/profile", "alice", `{"handle":"alice_new","avatar":"","version":1,"accounts":{"x":"@alice_x","atcoder":"tourist","codeforces":"tourist","yukicoder":"123"}}`); w.Code != 200 {
 		t.Fatalf("edit: %d", w.Code)
 	}
 	if w := request("PUT", "/my/profile", "alice", `{"handle":"stale","avatar":"","version":1}`); w.Code != 409 {
@@ -125,7 +125,7 @@ func TestProfilesPostgres(t *testing.T) {
 	var result struct {
 		Profile profiles.Profile `json:"profile"`
 	}
-	if err = json.Unmarshal(request("GET", "/my/profile", "alice", "").Body.Bytes(), &result); err != nil || result.Profile.Handle != "alice_new" {
+	if err = json.Unmarshal(request("GET", "/my/profile", "alice", "").Body.Bytes(), &result); err != nil || result.Profile.Handle != "alice_new" || result.Profile.Accounts.X != "alice_x" || result.Profile.Accounts.AtCoder != "tourist" || result.Profile.Accounts.Codeforces != "tourist" || result.Profile.Accounts.Yukicoder != "123" {
 		t.Fatal("profile not persisted")
 	}
 
@@ -134,7 +134,7 @@ func TestProfilesPostgres(t *testing.T) {
 			t.Fatalf("missing public profile: %d", w.Code)
 		}
 	}
-	if w := request("GET", "/users/alice_new", "", ""); w.Code != 200 || strings.Contains(w.Body.String(), "version") || strings.Contains(w.Body.String(), "owner") || !strings.Contains(w.Body.String(), `"handle":"alice_new"`) {
+	if w := request("GET", "/users/alice_new", "", ""); w.Code != 200 || strings.Contains(w.Body.String(), "version") || strings.Contains(w.Body.String(), "owner") || !strings.Contains(w.Body.String(), `"handle":"alice_new"`) || !strings.Contains(w.Body.String(), `"atcoder":"tourist"`) {
 		t.Fatalf("public identity: %d %s", w.Code, w.Body.String())
 	}
 
@@ -338,7 +338,11 @@ func TestProfilesPostgres(t *testing.T) {
 	statuses := make(chan error, 2)
 	for _, owner := range []string{"one", "two"} {
 		wg.Add(1)
-		go func() { defer wg.Done(); _, e := profileStore.Save(ctx, owner, "unique_name", "", 0); statuses <- e }()
+		go func() {
+			defer wg.Done()
+			_, e := profileStore.Save(ctx, owner, "unique_name", "", 0, profiles.Accounts{})
+			statuses <- e
+		}()
 	}
 	wg.Wait()
 	close(statuses)
@@ -395,5 +399,25 @@ func TestProfilesPostgres(t *testing.T) {
 	}
 	if err = store.Migrate(ctx); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAccountValidation(t *testing.T) {
+	valid := profiles.Accounts{X: " @alice_123 ", AtCoder: " tourist ", Codeforces: "a.b-c_d", Yukicoder: "123"}
+	if !cleanAccounts(&valid) || valid.X != "alice_123" || valid.AtCoder != "tourist" {
+		t.Fatal(valid)
+	}
+	if !cleanAccounts(&profiles.Accounts{}) {
+		t.Fatal("empty accounts rejected")
+	}
+	for _, value := range []profiles.Accounts{
+		{X: "https://x.com/alice"}, {X: strings.Repeat("a", 16)},
+		{AtCoder: "../admin"}, {AtCoder: strings.Repeat("a", 17)},
+		{Codeforces: "foo;bar"}, {Codeforces: "ab"}, {Codeforces: strings.Repeat("a", 25)},
+		{Yukicoder: "alice"}, {Yukicoder: "1/2"},
+	} {
+		if cleanAccounts(&value) {
+			t.Fatalf("accepted %+v", value)
+		}
 	}
 }

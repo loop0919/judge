@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('new users must choose an ID, upload an icon, and can edit their persisted profile', async ({ page }, testInfo) => {
+  await page.route('**/api/ratings/*?*', route => route.fulfill({ json: { rating: 1600, unavailable: false } }))
   const email = `profile-${Date.now()}@example.test`
   const origin = 'http://127.0.0.1:13002'
   for (const [action, data] of [
@@ -44,13 +45,36 @@ test('new users must choose an ID, upload an icon, and can edit their persisted 
   await page.screenshot({ path: testInfo.outputPath('profile-settings-mobile.png'), fullPage: true })
   await page.getByLabel('ユーザーID', { exact: true }).fill(`new_${Date.now()}`)
   await page.getByRole('button', { name: 'アイコンを削除' }).click()
+  for (const [label, id] of [['X', 'alice_x'], ['AtCoder', 'tourist'], ['Codeforces', 'tourist'], ['yukicoder', '123']]) {
+    await page.getByLabel(`${label} ID`, { exact: true }).fill(id!)
+  }
   await page.getByRole('button', { name: '変更を保存' }).click()
   await expect(page).toHaveURL('/my')
   await expect(page.locator('.profile-header img')).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect(page.getByRole('link', { name: 'alice_x', exact: true })).toHaveAttribute('href', 'https://x.com/alice_x')
+  await expect(page.locator('a[href="https://atcoder.jp/users/tourist"]')).toHaveClass('blue')
+  await page.reload()
+  await expect(page.getByRole('link', { name: '123', exact: true })).toHaveAttribute('href', 'https://yukicoder.me/users/123')
+  const saved = (await (await page.request.get('/api/my/profile')).json()).profile
+  await page.goto(`/users/${saved.handle}`)
+  await expect(page.locator('a[href="https://codeforces.com/profile/tourist"]')).toHaveClass('blue')
+  await page.route('**/api/ratings/*?*', route => route.fulfill({ json: { rating: null, unavailable: true } }))
+  await page.reload()
+  await expect(page.getByText('レーティング取得不可')).toHaveCount(2)
+  await expect(page.locator('a[href="https://atcoder.jp/users/tourist"]')).toBeVisible()
+  await page.goto('/my/settings')
+  await expect(page.getByLabel('AtCoder ID', { exact: true })).toHaveValue('tourist')
+  await page.getByLabel('AtCoder ID', { exact: true }).fill('')
+  await page.getByRole('button', { name: '変更を保存' }).click()
+  await expect(page).toHaveURL('/my')
+  await expect(page.locator('a[href="https://atcoder.jp/users/tourist"]')).toHaveCount(0)
   await page.goto('/onboarding')
   await expect(page).toHaveURL('/my')
   await page.getByRole('button', { name: 'ログアウト' }).click()
+  await page.goto(`/users/${saved.handle}`)
+  await expect(page.getByRole('link', { name: 'alice_x', exact: true })).toBeVisible()
+  await expect(page.locator('a[href="https://atcoder.jp/users/tourist"]')).toHaveCount(0)
   await page.goto('/my')
   await expect(page).toHaveURL(/\/login/)
 })

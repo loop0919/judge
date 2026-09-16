@@ -16,6 +16,7 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
       <div class="profile-identity"><p class="eyebrow">マイページ</p><h1>{{ profile.handle }}</h1><p class="muted">{{ joined }}に登録</p></div>
       <NuxtLink class="editor-button" to="/my/settings">プロフィールを編集</NuxtLink>
     </header>
+    <ProfileAccounts :accounts="profile.accounts" />
     <nav class="content-menu" aria-label="マイページのコンテンツ">
       <button :aria-pressed="activeContent === 'problems'" @click="activeContent = 'problems'">自分の問題</button>
       <button :aria-pressed="activeContent === 'testing'" @click="activeContent = 'testing'">テスト中の問題</button>

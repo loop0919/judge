@@ -76,9 +76,10 @@ func (p PrivateProblems) profile(w http.ResponseWriter, r *http.Request, owner s
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 200<<10)
 	var input struct {
-		Handle  string `json:"handle"`
-		Avatar  string `json:"avatar"`
-		Version int64  `json:"version"`
+		Accounts profiles.Accounts `json:"accounts"`
+		Handle   string            `json:"handle"`
+		Avatar   string            `json:"avatar"`
+		Version  int64             `json:"version"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -102,12 +103,16 @@ func (p PrivateProblems) profile(w http.ResponseWriter, r *http.Request, owner s
 		authError(w, 400, "invalid_profile")
 		return
 	}
+	if !cleanAccounts(&input.Accounts) {
+		authError(w, 400, "invalid_accounts")
+		return
+	}
 	avatar, err := cleanAvatar(input.Avatar)
 	if err != nil {
 		authError(w, 400, "invalid_avatar")
 		return
 	}
-	result, err := p.Profiles.Save(r.Context(), owner, input.Handle, avatar, input.Version)
+	result, err := p.Profiles.Save(r.Context(), owner, input.Handle, avatar, input.Version, input.Accounts)
 	switch {
 	case errors.Is(err, profiles.ErrHandleTaken):
 		authError(w, 409, "handle_taken")
@@ -145,5 +150,25 @@ func (p PrivateProblems) publicProfile(w http.ResponseWriter, r *http.Request) {
 		authError(w, 503, "database_unavailable")
 		return
 	}
-	writeAuthJSON(w, 200, map[string]any{"handle": profile.Handle, "avatar": profile.Avatar, "createdAt": profile.CreatedAt})
+	writeAuthJSON(w, 200, map[string]any{"handle": profile.Handle, "avatar": profile.Avatar, "createdAt": profile.CreatedAt, "accounts": profile.Accounts})
+}
+
+var accountPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`^[A-Za-z0-9_]{1,15}$`),
+	regexp.MustCompile(`^[A-Za-z0-9_]{1,16}$`),
+	regexp.MustCompile(`^[A-Za-z0-9_.-]{3,24}$`),
+	regexp.MustCompile(`^[0-9]{1,20}$`),
+}
+
+func cleanAccounts(accounts *profiles.Accounts) bool {
+	for i, value := range []*string{&accounts.X, &accounts.AtCoder, &accounts.Codeforces, &accounts.Yukicoder} {
+		*value = strings.TrimSpace(*value)
+		if i == 0 {
+			*value = strings.TrimPrefix(*value, "@")
+		}
+		if *value != "" && !accountPatterns[i].MatchString(*value) {
+			return false
+		}
+	}
+	return true
 }

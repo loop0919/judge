@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { loginDestination } from '~~/shared/utils/login-destination'
 const route = useRoute()
-import { profileResultSchema, type Profile } from '~~/shared/types/profile'
+import { accountServices, accountsSchema, profileResultSchema, type Profile } from '~~/shared/types/profile'
 import { profileError } from '~/utils/profile'
 const props = defineProps<{ initial: Profile | null, onboarding?: boolean }>()
 const { user, profile, refreshAccount } = useAccount()
 const owner = user.value?.id
 const handle = ref(props.initial?.handle ?? '')
+const accounts = reactive(accountsSchema.parse(props.initial?.accounts ?? {}))
 const avatar = ref(props.initial?.avatar ?? '')
 const saving = ref(false)
 const processing = ref(false)
@@ -46,7 +47,7 @@ async function save() {
   try {
     const account = await refreshAccount()
     if (!account || account.id !== owner) throw { statusCode: 401 }
-    const result = profileResultSchema.parse(await $fetch('/api/my/profile', { method: 'PUT', body: { handle: normalizedHandle.value, avatar: avatar.value, version: props.initial?.version ?? 0 } }))
+    const result = profileResultSchema.parse(await $fetch('/api/my/profile', { method: 'PUT', body: { handle: normalizedHandle.value, avatar: avatar.value, accounts, version: props.initial?.version ?? 0 } }))
     if (!result.profile) throw new Error('Missing profile')
     profile.value = result.profile
     await navigateTo(props.onboarding ? loginDestination(route.query.next) : '/my')
@@ -71,6 +72,13 @@ async function save() {
       <label for="profile-handle">ユーザーID</label>
       <input id="profile-handle" v-model="handle" class="handle-input" type="text" minlength="3" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" required aria-describedby="handle-help">
       <p id="handle-help" class="hint">英字で始まる3〜20文字。英小文字・数字・_ が使えます。大文字は小文字になります。</p>
+      <h2>外部アカウント（任意）</h2>
+      <p class="hint">入力した ID はユーザーページで公開されます。AtCoder・Codeforces はレーティングに応じた色で表示します。</p>
+      <div v-for="service in accountServices" :key="service.key" class="account-field">
+        <label :for="`account-${service.key}`">{{ service.label }} ID</label>
+        <input :id="`account-${service.key}`" v-model="accounts[service.key]" class="handle-input" type="text" :pattern="service.pattern" :maxlength="service.max" autocomplete="off" autocapitalize="none" spellcheck="false" :aria-describedby="service.key === 'yukicoder' ? 'yukicoder-help' : undefined">
+        <p v-if="service.key === 'yukicoder'" id="yukicoder-help" class="hint">プロフィール URL（yukicoder.me/users/123）の数値部分を入力してください。</p>
+      </div>
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
       <button class="editor-button primary" type="submit" :aria-busy="saving">{{ saving ? '保存中…' : onboarding ? '登録してはじめる' : '変更を保存' }}</button>
       <NuxtLink v-if="!onboarding && !saving" class="cancel-link" to="/my">キャンセル</NuxtLink>
@@ -87,6 +95,7 @@ label { display: block; margin-bottom: 8px; font-weight: 600; }
 input[type=file] { max-width: 100%; font: inherit; font-size: .85rem; }
 .handle-input { width: 100%; border: 1px solid var(--color-line); border-radius: 4px; min-height: 44px; padding: 8px 12px; font: inherit; }
 .hint { margin: 8px 0 24px; color: var(--color-muted); font-size: .85rem; }
+.account-field { margin-bottom: 20px; }
 .cancel-link { margin-left: 20px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 @media(max-width: 480px) { .avatar-field { align-items: flex-start; flex-direction: column; gap: 16px; } }

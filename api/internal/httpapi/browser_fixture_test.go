@@ -97,7 +97,7 @@ func TestBrowserFixture(t *testing.T) {
 	}
 	profileStore := profiles.New(store.Pool())
 	for _, name := range []string{"alice", "bob", "test_cases"} {
-		if _, err := profileStore.Save(ctx, name+"@example.test", name, "", 0); err != nil {
+		if _, err := profileStore.Save(ctx, name+"@example.test", name, "", 0, profiles.Accounts{}); err != nil {
 			t.Fatal(err)
 		}
 	}
