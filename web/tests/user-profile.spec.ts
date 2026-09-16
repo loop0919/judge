@@ -40,3 +40,19 @@ test('own username leads to my page while other users keep their public links', 
   await expect(page).toHaveURL(/\/my$/)
   await expect(page.getByRole('heading', { name: 'alice', exact: true })).toBeVisible()
 })
+
+
+test('yukicoder links show the fetched user name and retain the ID when unavailable', async ({ page, request }) => {
+  for (const id of ['', '../123', 'abc', '1&id=2']) {
+    expect((await request.get(`/api/accounts/yukicoder?id=${id}`)).status()).toBe(400)
+  }
+  await page.route('**/api/accounts/yukicoder?*', route => route.fulfill({ json: { name: 'ゆきユーザー' } }))
+  await page.goto('/users/yuki')
+  const link = page.locator('a[href="https://yukicoder.me/users/123"]')
+  await expect(link).toHaveText('ゆきユーザー')
+  await page.route('**/api/accounts/yukicoder?*', route => route.fulfill({ status: 503, json: {} }))
+  await page.reload()
+  await expect(link).toHaveText('123')
+  await page.goto('/users/bob')
+  await expect(page.locator('a[href^="https://yukicoder.me/users/"]')).toHaveCount(0)
+})

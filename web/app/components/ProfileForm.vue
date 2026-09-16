@@ -77,7 +77,7 @@ async function save() {
       <div v-for="service in accountServices" :key="service.key" class="account-field">
         <label :for="`account-${service.key}`">{{ service.label }} ID</label>
         <input :id="`account-${service.key}`" v-model="accounts[service.key]" class="handle-input" type="text" :pattern="service.pattern" :maxlength="service.max" autocomplete="off" autocapitalize="none" spellcheck="false" :aria-describedby="service.key === 'yukicoder' ? 'yukicoder-help' : undefined">
-        <p v-if="service.key === 'yukicoder'" id="yukicoder-help" class="hint">プロフィール URL（yukicoder.me/users/123）の数値部分を入力してください。</p>
+        <p v-if="service.key === 'yukicoder'" id="yukicoder-help" class="hint">プロフィール URL（yukicoder.me/users/123）の数値部分を入力してください。ユーザーページには取得したユーザー名を表示します。</p>
       </div>
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
       <button class="editor-button primary" type="submit" :aria-busy="saving">{{ saving ? '保存中…' : onboarding ? '登録してはじめる' : '変更を保存' }}</button>

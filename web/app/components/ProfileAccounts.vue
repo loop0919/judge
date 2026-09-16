@@ -16,6 +16,13 @@ const { data: ratings } = useAsyncData(
     return Object.fromEntries(entries)
   }, { server: false },
 )
+const { data: yukicoder } = useAsyncData(
+  () => `yukicoder-name:${props.accounts.yukicoder}`,
+  () => props.accounts.yukicoder
+    ? $fetch('/api/accounts/yukicoder', { query: { id: props.accounts.yukicoder } }).catch(() => ({ name: null }))
+    : Promise.resolve({ name: null }),
+  { server: false },
+)
 function color(service: typeof accountServices[number]['key']) {
   return service === 'atcoder' || service === 'codeforces' ? ratingColor(service, ratings.value?.[service]?.rating ?? null) : 'unrated'
 }
@@ -24,7 +31,7 @@ function color(service: typeof accountServices[number]['key']) {
   <ul v-if="links.length" class="profile-accounts" aria-label="外部アカウント">
     <li v-for="service in links" :key="service.key">
       <span>{{ service.label }}</span>
-      <a :href="service.url + encodeURIComponent(accounts[service.key])" target="_blank" rel="noopener noreferrer" :class="color(service.key)">{{ accounts[service.key] }}</a>
+      <a :href="service.url + encodeURIComponent(accounts[service.key])" target="_blank" rel="noopener noreferrer" :class="color(service.key)">{{ service.key === 'yukicoder' ? (yukicoder?.name ?? accounts.yukicoder) : accounts[service.key] }}</a>
       <small v-if="service.key === 'atcoder' || service.key === 'codeforces'">
         {{ ratings?.[service.key]?.unavailable ? 'レーティング取得不可' : ratings?.[service.key] ? (ratings[service.key]?.rating ?? '未レート') : '取得中…' }}
       </small>

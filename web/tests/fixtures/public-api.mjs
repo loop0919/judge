@@ -43,7 +43,7 @@ createServer(async (req, res) => {
     }
     res.end(JSON.stringify({ items: [], nextCursor: '' }))
   }
-  else if (['/users/alice', '/users/bob', '/users/carol'].includes(path)) res.end(JSON.stringify({ handle: path.split('/').at(-1), avatar: '', createdAt: '2026-09-10T00:00:00Z' }))
+  else if (['/users/alice', '/users/bob', '/users/carol', '/users/yuki'].includes(path)) res.end(JSON.stringify({ handle: path.split('/').at(-1), accounts: path === '/users/yuki' ? { yukicoder: '123' } : {}, avatar: '', createdAt: '2026-09-10T00:00:00Z' }))
   else if (path === '/health') res.end('{}')
   else if (path === '/runtimes') res.end(JSON.stringify({ items: [{ id: 'cpp17', label: 'C++17 (GCC)' }, { id: 'python314', label: 'Python 3.14' }] }))
   else if (path === '/problems') res.end(JSON.stringify({ items: !new URL(req.url, 'http://localhost').searchParams.get('author') || new URL(req.url, 'http://localhost').searchParams.get('author') === 'alice' ? [problem] : [], nextCursor: '' }))

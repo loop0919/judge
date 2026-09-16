@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('new users must choose an ID, upload an icon, and can edit their persisted profile', async ({ page }, testInfo) => {
   await page.route('**/api/ratings/*?*', route => route.fulfill({ json: { rating: 1600, unavailable: false } }))
+  await page.route('**/api/accounts/yukicoder?*', route => route.fulfill({ json: { name: 'ゆきユーザー' } }))
   const email = `profile-${Date.now()}@example.test`
   const origin = 'http://127.0.0.1:13002'
   for (const [action, data] of [
@@ -55,7 +56,7 @@ test('new users must choose an ID, upload an icon, and can edit their persisted 
   await expect(page.getByRole('link', { name: 'alice_x', exact: true })).toHaveAttribute('href', 'https://x.com/alice_x')
   await expect(page.locator('a[href="https://atcoder.jp/users/tourist"]')).toHaveClass('blue')
   await page.reload()
-  await expect(page.getByRole('link', { name: '123', exact: true })).toHaveAttribute('href', 'https://yukicoder.me/users/123')
+  await expect(page.getByRole('link', { name: 'ゆきユーザー', exact: true })).toHaveAttribute('href', 'https://yukicoder.me/users/123')
   const saved = (await (await page.request.get('/api/my/profile')).json()).profile
   await page.goto(`/users/${saved.handle}`)
   await expect(page.locator('a[href="https://codeforces.com/profile/tourist"]')).toHaveClass('blue')
