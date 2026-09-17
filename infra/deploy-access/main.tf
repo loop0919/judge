@@ -80,6 +80,22 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "*"
       },
       {
+        # HTTP API access logging uses account-level CloudWatch Logs delivery APIs.
+        Sid    = "ConfigureApiGatewayLogDelivery"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:PutResourcePolicy",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:CreateLogGroup",
+          "logs:DescribeResourcePolicies",
+          "logs:GetLogDelivery",
+          "logs:ListLogDeliveries",
+        ]
+        Resource = "*"
+      },
+      {
         Sid      = "ExecutionRoles"
         Effect   = "Allow"
         Action   = ["iam:GetRole", "iam:CreateRole", "iam:DeleteRole", "iam:ListInstanceProfilesForRole", "iam:UpdateRole", "iam:UpdateAssumeRolePolicy", "iam:TagRole", "iam:UntagRole", "iam:ListRolePolicies", "iam:ListAttachedRolePolicies", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy"]

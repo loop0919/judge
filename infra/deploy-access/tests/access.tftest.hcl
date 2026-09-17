@@ -18,6 +18,23 @@ run "deployment_boundary" {
   command = plan
   assert {
     condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
+      statement.Effect == "Allow" &&
+      statement.Resource == "*" &&
+      toset(statement.Action) == toset([
+        "logs:CreateLogDelivery",
+        "logs:PutResourcePolicy",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:CreateLogGroup",
+        "logs:DescribeResourcePolicies",
+        "logs:GetLogDelivery",
+        "logs:ListLogDeliveries",
+      ])
+    ) if statement.Sid == "ConfigureApiGatewayLogDelivery"])
+    error_message = "HTTP API access logging must have the account-level CloudWatch Logs delivery permissions required by AWS."
+  }
+  assert {
+    condition = anytrue([for statement in jsondecode(aws_iam_role_policy.deploy.policy).Statement : (
       contains(statement.Action, "iam:DeleteRole") &&
       contains(statement.Action, "iam:ListInstanceProfilesForRole") &&
       toset(statement.Resource) == toset(local.execution_roles)
