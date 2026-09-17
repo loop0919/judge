@@ -24,17 +24,18 @@ resource "aws_iam_role_policy" "bridge" {
   })
 }
 resource "aws_lambda_function" "bridge" {
-  function_name     = "${local.name}-judge-bridge"
-  role              = aws_iam_role.bridge.arn
-  handler           = "bootstrap"
-  runtime           = "provided.al2023"
-  architectures     = ["arm64"]
-  timeout           = 120
-  memory_size       = 256
-  s3_bucket         = aws_s3_object.bridge.bucket
-  s3_key            = aws_s3_object.bridge.key
-  s3_object_version = aws_s3_object.bridge.version_id
-  source_code_hash  = filebase64sha256(var.bridge_package_path)
+  function_name                  = "${local.name}-judge-bridge"
+  role                           = aws_iam_role.bridge.arn
+  handler                        = "bootstrap"
+  runtime                        = "provided.al2023"
+  architectures                  = ["arm64"]
+  timeout                        = 120
+  memory_size                    = 256
+  s3_bucket                      = aws_s3_object.bridge.bucket
+  s3_key                         = aws_s3_object.bridge.key
+  s3_object_version              = aws_s3_object.bridge.version_id
+  source_code_hash               = filebase64sha256(var.bridge_package_path)
+  reserved_concurrent_executions = 5
   vpc_config {
     subnet_ids                  = var.database.subnet_ids
     security_group_ids          = [var.database.security_group_id]

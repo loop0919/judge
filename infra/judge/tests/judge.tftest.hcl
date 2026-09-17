@@ -68,8 +68,12 @@ run "isolated_worker" {
     error_message = "Queue integration must be opt-in after migration and smoke tests."
   }
   assert {
-    condition     = aws_sqs_queue.queue["requests"].visibility_timeout_seconds > 1800 && aws_sqs_queue.queue["results"].visibility_timeout_seconds >= 6 * aws_lambda_function.bridge.timeout
-    error_message = "Queue leases must cover the job and Lambda deadlines."
+    condition = (
+      aws_sqs_queue.queue["requests"].visibility_timeout_seconds > 1800 &&
+      aws_sqs_queue.queue["results"].visibility_timeout_seconds >= 6 * aws_lambda_function.bridge.timeout &&
+      aws_lambda_function.bridge.reserved_concurrent_executions == 5
+    )
+    error_message = "Queue leases must cover deadlines and bridge concurrency must protect the database."
   }
 }
 run "enable_dispatch" {

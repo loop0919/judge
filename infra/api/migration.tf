@@ -29,7 +29,7 @@ resource "aws_lambda_function" "migration" {
   s3_key                         = aws_s3_object.migration_package.key
   s3_object_version              = aws_s3_object.migration_package.version_id
   source_code_hash               = filebase64sha256("${path.module}/../../api/.build/migrate.zip")
-  reserved_concurrent_executions = var.environment == "dev" ? -1 : 1
+  reserved_concurrent_executions = 1
   environment { variables = local.database_environment }
   vpc_config {
     ipv6_allowed_for_dual_stack = true

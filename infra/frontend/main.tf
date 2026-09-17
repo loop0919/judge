@@ -29,18 +29,19 @@ resource "aws_iam_role_policy" "logs" {
   })
 }
 resource "aws_lambda_function" "web" {
-  function_name     = "${local.name}-web"
-  description       = "OpenOJ Nuxt SSR frontend"
-  runtime           = "nodejs22.x"
-  handler           = "server/index.handler"
-  architectures     = ["arm64"]
-  memory_size       = 512
-  timeout           = 25
-  role              = aws_iam_role.web.arn
-  s3_bucket         = aws_s3_object.web_package.bucket
-  s3_key            = aws_s3_object.web_package.key
-  s3_object_version = aws_s3_object.web_package.version_id
-  source_code_hash  = filebase64sha256(local.lambda_package_path)
+  function_name                  = "${local.name}-web"
+  description                    = "OpenOJ Nuxt SSR frontend"
+  runtime                        = "nodejs22.x"
+  handler                        = "server/index.handler"
+  architectures                  = ["arm64"]
+  memory_size                    = 512
+  timeout                        = 25
+  role                           = aws_iam_role.web.arn
+  s3_bucket                      = aws_s3_object.web_package.bucket
+  s3_key                         = aws_s3_object.web_package.key
+  s3_object_version              = aws_s3_object.web_package.version_id
+  source_code_hash               = filebase64sha256(local.lambda_package_path)
+  reserved_concurrent_executions = 200
   environment {
     variables = {
       NODE_ENV                   = "production"
@@ -75,8 +76,8 @@ resource "aws_apigatewayv2_stage" "default" {
   name        = "$default"
   auto_deploy = true
   default_route_settings {
-    throttling_burst_limit = 100
-    throttling_rate_limit  = 50
+    throttling_burst_limit = 500
+    throttling_rate_limit  = 200
   }
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.gateway.arn

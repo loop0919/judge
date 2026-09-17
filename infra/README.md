@@ -16,6 +16,7 @@ Browser -> Frontend HTTP API -> Nuxt Lambda -> API HTTP API -> Go Lambda
 | `deploy-access/` | 既存GitHubデプロイロールの信頼関係・操作権限 | S3の`judge/dev/deploy-access.tfstate` |
 
 採点用のLightsail、SQS、配送用S3、配送と結果反映用Lambdaは`judge/`で管理する。
+配送と結果反映を行うbridge Lambdaは予約同時実行5とし、コンテスト時の一斉提出でDB接続が急増しないようにする。
 [ジャッジ構築手順](../judge/README.md)に従って手動で構築し、IPv6通信と2 GB実機でのisolateの制限と計測を確認してから提出受付を有効にする。
 本番テストセットの取り込みとバンドル展開は未実装である。
 請求アラートはAWSアカウント全体の設定として、別フォルダ`~/aws-setting`へ分離している。
@@ -112,8 +113,8 @@ APIのkeyは`judge/dev/api.tfstate`とし、請求アラートの`judge/billing-
 修正前に保存したplanは破棄し、planを作り直して削除対象がないことを確認する。
 
 既定値は`project_name=judge`、`environment=dev`、`aws_region=ap-northeast-1`である。
-LambdaはARM64、`provided.al2023`、256 MiB、タイムアウト10秒で動作する。
-ログ保持期間は14日、HTTP APIのスロットリングは毎秒10リクエスト、バースト20である。
+LambdaはARM64、`provided.al2023`、256 MiB、タイムアウト30秒、予約同時実行20で動作する。
+ログ保持期間は14日、HTTP APIのスロットリングは毎秒50リクエスト、バースト100である。
 変更する場合は`infra/api/variables.tf`の入力をtfvarsまたは`TF_VAR_*`で指定する。
 環境を増やすときは`environment`だけでなくbackendのkeyも分け、別の作業ディレクトリで初期化する。
 
@@ -123,7 +124,7 @@ APIのパッケージ用バケットとポリシーにも`prevent_destroy`を設
 
 ## PostgreSQLと外向き通信
 
-`api/database.tf`が東京リージョンにPostgreSQL 17の`db.t4g.micro`を作成する。
+`api/database.tf`が東京リージョンにPostgreSQL 17の`db.t4g.small`を作成する。
 20GBの暗号化gp3ストレージ、7日間の自動バックアップ、削除保護を設定し、ストレージは最大100GBまで自動拡張する。
 開発環境のためSingle-AZで、障害時の自動フェイルオーバーはない。
 DBの接続はアプリのSecurity Groupからの5432番ポートに限り、インターネットには公開しない。
@@ -134,8 +135,10 @@ IPv6の外向き通信には[egress-only Internet Gateway](https://docs.aws.amaz
 NAT GatewayとEIPは作成せず、IPv4のインターネット向け経路も設けない。
 今後APIからIPv4専用の外部サービスを呼ぶ場合は、通信経路を追加検討する必要がある。
 
-2026年9月10日のInfracost解析では、DB本体と20GBのストレージは月$21.01だった。
-RDSが管理する認証情報1件のSecrets Manager保管料約$0.40を加えると、固定費の目安は月$21.41になる。
+2026年9月18日のInfracost解析では、DB本体と20GBのストレージは月$39.26だった。
+RDSが管理する認証情報1件のSecrets Manager保管料約$0.40を加えると、固定費の目安は月$39.66になる。
+同日の直近7日間の実測はCPU最大7.7%、接続最大8、空きメモリ最小約156 MiBだった。
+CPUではなくコンテスト時の接続とメモリの余裕を確保するため、`db.t4g.micro`から`db.t4g.small`へ変更した。
 通信、ログ、APIリクエスト、ストレージ増加、無料枠を超えるバックアップ、CPUクレジットなどの料金は含めない。
 これはアプリ全体の利用料金の上限ではない。
 秘密値を除いたTerraform解析では、費用・タグポリシー違反と警告は0件だった。
@@ -183,6 +186,7 @@ node web/scripts/smoke-frontend.mjs "$(terraform -chdir=infra/frontend output -r
 
 `site_url`がブラウザーで開くHTTPS URLになる。
 Nuxt LambdaはNode.js 22、ARM64、512 MiBで動作し、HTML、JavaScript、CSS、KaTeXフォントを配信する。
+予約同時実行は200、HTTP APIのスロットリングは毎秒200リクエスト、バースト500である。
 問題ページはAPIのデータを使ってSSRし、canonical URLも公開先に合わせる。
 API接続先は入力変数で渡し、フロントエンドからAPIのstateを読み取らない。
 編集画面の下書きは引き続きブラウザー内に保存される。

@@ -18,6 +18,7 @@ run "frontend_contract" {
       aws_lambda_function.web.handler == "server/index.handler" &&
       aws_lambda_function.web.architectures == tolist(["arm64"]) &&
       aws_lambda_function.web.memory_size == 512 &&
+      aws_lambda_function.web.reserved_concurrent_executions == 200 &&
       aws_lambda_function.web.environment[0].variables["NUXT_API_BASE_URL"] == var.api_endpoint &&
       aws_lambda_function.web.environment[0].variables["NUXT_PUBLIC_SITE_URL"] == aws_apigatewayv2_api.web.api_endpoint &&
       aws_lambda_function.web.s3_object_version == aws_s3_object.web_package.version_id
@@ -28,6 +29,8 @@ run "frontend_contract" {
     condition = (
       aws_apigatewayv2_route.default.target == "integrations/${aws_apigatewayv2_integration.web.id}" &&
       aws_apigatewayv2_integration.web.payload_format_version == "2.0" &&
+      aws_apigatewayv2_stage.default.default_route_settings[0].throttling_burst_limit == 500 &&
+      aws_apigatewayv2_stage.default.default_route_settings[0].throttling_rate_limit == 200 &&
       aws_lambda_permission.gateway.source_arn == "${aws_apigatewayv2_api.web.execution_arn}/*" &&
       aws_cloudwatch_log_group.lambda.retention_in_days == 14 &&
       aws_s3_bucket_public_access_block.artifacts.block_public_policy &&
