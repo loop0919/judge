@@ -4,7 +4,7 @@ const { profile, logout } = useAccount()
 const route = useRoute()
 const router = useRouter()
 const activeContent = computed({
-  get: () => ['problems', 'testing', 'posts', 'contests', 'submissions'].includes(String(route.query.tab)) ? String(route.query.tab) : 'problems',
+  get: () => ['problems', 'testing', 'posts', 'contests', 'submissions', 'events'].includes(String(route.query.tab)) ? String(route.query.tab) : 'problems',
   set: tab => { void router.replace({ query: { ...route.query, tab } }) },
 })
 const joined = computed(() => profile.value ? new Date(profile.value.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' }) : '')
@@ -23,12 +23,14 @@ const joined = computed(() => profile.value ? new Date(profile.value.createdAt).
       <button :aria-pressed="activeContent === 'posts'" @click="activeContent = 'posts'">記事</button>
       <button :aria-pressed="activeContent === 'contests'" @click="activeContent = 'contests'">コンテスト</button>
       <button :aria-pressed="activeContent === 'submissions'" @click="activeContent = 'submissions'">提出履歴</button>
+      <button :aria-pressed="activeContent === 'events'" @click="activeContent = 'events'">イベント</button>
     </nav>
     <SavedProblems v-show="activeContent === 'problems'" />
     <SavedProblems v-if="activeContent === 'testing'" testing />
     <SavedPosts v-show="activeContent === 'posts'" />
     <ContestList v-if="activeContent === 'contests'" mine />
     <SubmissionHistory v-if="activeContent === 'submissions'" embedded />
+    <EventHistory v-if="activeContent === 'events'" />
     <div class="account-actions"><button class="editor-button" @click="logout">ログアウト</button></div>
   </section>
 </template>

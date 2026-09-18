@@ -142,12 +142,26 @@ func TestNotificationsPostgres(t *testing.T) {
 	if len(list("bob")) != 0 {
 		t.Fatal("another user's notifications leaked")
 	}
-	for _, n := range list("alice") {
-		request("POST", "/my/notifications/"+n.ID+"/read", "bob", nil, 404)
-		request("POST", "/my/notifications/"+n.ID+"/read", "alice", nil, 200)
-		request("POST", "/my/notifications/"+n.ID+"/read", "alice", nil, 200)
+	request("POST", "/my/notifications/read", "", nil, 401)
+	request("POST", "/my/notifications/read", "bob", nil, 200)
+	count(3)
+	var opened struct{ Notifications []struct{ ID, Kind string } }
+	if err := json.Unmarshal([]byte(request("POST", "/my/notifications/read", "alice", nil, 200)), &opened); err != nil || len(opened.Notifications) != 3 {
+		t.Fatalf("bulk read did not return all notifications: %+v, %v", opened, err)
 	}
 	count(0)
+	request("POST", "/my/notifications/read", "alice", nil, 200)
+	var history struct{ Notifications []struct{ ID, Kind string } }
+	if err := json.Unmarshal([]byte(request("GET", "/my/notifications?history=1", "alice", nil, 200)), &history); err != nil || len(history.Notifications) != 3 {
+		t.Fatalf("read notifications missing from history: %+v, %v", history, err)
+	}
+	if err := json.Unmarshal([]byte(request("GET", "/my/notifications?history=1", "bob", nil, 200)), &history); err != nil || len(history.Notifications) != 0 {
+		t.Fatal("another user's history leaked", err)
+	}
 	submit("carol", `{}`, "AC")
 	count(0)
+	exec(`INSERT INTO problem_favorites VALUES ($1,'carol')`, a)
+	count(1)
+	request("GET", "/my/notifications?history=1", "alice", nil, 200)
+	count(1) // Browsing history must not read newly arrived notifications.
 }

@@ -83,7 +83,7 @@ var (
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /my/notifications", p.handle)
-	mux.HandleFunc("POST /my/notifications/{id}/read", p.handle)
+	mux.HandleFunc("POST /my/notifications/read", p.handle)
 	mux.HandleFunc("POST /my/problems/{id}/tester-invitation", p.handle)
 	mux.HandleFunc("GET /my/tester-invitations/{token}", p.handle)
 	mux.HandleFunc("POST /my/tester-invitations/{token}", p.handle)
