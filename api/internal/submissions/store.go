@@ -73,6 +73,7 @@ type Result struct {
 }
 
 type Progress struct {
+	Verdict   string `json:"verdict,omitempty"`
 	Phase     string `json:"phase"`
 	Completed int    `json:"completed"`
 	Total     int    `json:"total"`

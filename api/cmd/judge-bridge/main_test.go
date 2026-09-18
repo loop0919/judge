@@ -246,8 +246,12 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if err = db.QueryRow(ctx, `SELECT status FROM submissions WHERE id=$1`, id).Scan(&status); err != nil || status != "QUEUED" {
 		t.Fatal(status, err)
 	}
-	progress := func(a, phase string, completed, total int) {
-		body, _ := json.Marshal(envelope{ID: id, Attempt: a, Progress: &submissions.Progress{Phase: phase, Completed: completed, Total: total}})
+	progress := func(a, phase string, completed, total int, verdict ...string) {
+		v := ""
+		if len(verdict) > 0 {
+			v = verdict[0]
+		}
+		body, _ := json.Marshal(envelope{ID: id, Attempt: a, Progress: &submissions.Progress{Phase: phase, Completed: completed, Total: total, Verdict: v}})
 		if response := b.results(ctx, events.SQSEvent{Records: []events.SQSMessage{{MessageId: "progress", Body: string(body)}}}); len(response.BatchItemFailures) != 0 {
 			t.Fatal(response)
 		}
@@ -263,11 +267,16 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	check("PREPARING", 0)
 	progress(attempt, "JUDGING", 0, 1)
 	check("JUDGING", 0)
-	progress(attempt, "JUDGING", 1, 1)
+	progress(attempt, "JUDGING", 1, 1, "TLE")
+	progress(attempt, "JUDGING", 1, 1) // Duplicate cannot erase the verdict.
 	progress(attempt, "JUDGING", 0, 1)
 	progress(attempt, "PREPARING", 0, 1)
 	progress(attempt, "JUDGING", 2, 2) // Valid envelope, but not this job's total.
 	check("JUDGING", 1)
+	current, err := (&submissions.Store{Pool: db}).Get(ctx, "alice", id)
+	if err != nil || current.Progress == nil || current.Progress.Verdict != "TLE" {
+		t.Fatalf("early verdict lost: %+v %v", current, err)
+	}
 	final(attempt, submissions.Result{Verdict: "CE", Total: 1, CompileLog: "compiler diagnostic"})
 	progress(attempt, "JUDGING", 1, 1)
 	final(attempt, submissions.Result{Verdict: "JE"})
@@ -278,6 +287,18 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 }
 
 func TestProgressValidation(t *testing.T) {
+	for _, verdict := range []string{"WA", "TLE", "MLE", "OLE", "RE", "AC", "CE", "JE", "unknown"} {
+		want := verdict == "WA" || verdict == "TLE" || verdict == "MLE" || verdict == "OLE" || verdict == "RE"
+		if validProgress(submissions.Progress{Phase: "JUDGING", Completed: 1, Total: 4, Verdict: verdict}) != want {
+			t.Fatal(verdict)
+		}
+		for _, phase := range []string{"PREPARING", "JUDGING"} {
+			if validProgress(submissions.Progress{Phase: phase, Total: 4, Verdict: verdict}) {
+				t.Fatal("verdict before any case completed", phase, verdict)
+			}
+		}
+	}
+
 	for _, p := range []submissions.Progress{{Phase: "PREPARING", Total: 4}, {Phase: "JUDGING", Completed: 2, Total: 4}} {
 		if !validProgress(p) {
 			t.Fatal(p)

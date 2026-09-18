@@ -273,7 +273,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
             elif result['verdict'] == 'AC':
                 result['verdict'] = item['verdict']
             if progress:
-                progress('JUDGING', index + 1, result['total'])
+                progress('JUDGING', index + 1, result['total'], result['verdict'] if result['verdict'] != 'AC' else None)
             if time.monotonic() >= deadline:
                 raise telemetry.PlatformError('job_deadline_exceeded')
     finally:

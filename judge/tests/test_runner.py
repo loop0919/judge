@@ -49,6 +49,22 @@ class RunnerTests(unittest.TestCase):
             report('JUDGING', 4, 4)
             self.assertEqual(client.send_message.call_count, 4)
 
+    def test_first_failure_bypasses_progress_throttle(self):
+        import json
+        for verdict in ('WA', 'TLE', 'MLE', 'OLE', 'RE'):
+            client = Mock()
+            report = worker.progress_reporter(client, 'queue', dict(submissionId='id', attemptId='attempt'))
+            with patch.object(worker.time, 'monotonic', side_effect=[0, .1, .2, 1.2]):
+                report('JUDGING', 0, 4)
+                report('JUDGING', 1, 4, verdict)
+                self.assertEqual(client.send_message.call_count, 2)
+                self.assertEqual(json.loads(client.send_message.call_args.kwargs['MessageBody'])['progress'],
+                                 dict(phase='JUDGING', completed=1, total=4, verdict=verdict))
+                report('JUDGING', 2, 4, verdict)
+                self.assertEqual(client.send_message.call_count, 2)
+                report('JUDGING', 3, 4, verdict)
+                self.assertEqual(json.loads(client.send_message.call_args.kwargs['MessageBody'])['progress']['verdict'], verdict)
+
     def test_all_runtime_commands_are_operator_owned_and_have_smoke_fixtures(self):
         import json
         fixtures = json.loads((Path(__file__).resolve().parents[1] / 'language-smoke.json').read_text())
@@ -112,7 +128,7 @@ class RunnerTests(unittest.TestCase):
                         output=base64.b64encode(b'3\n').decode())
         job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
                    memoryLimitMb=512, timeLimitMs=1000,
-                   cases=[dict(name='a', input='1', output='3'), dict(name='b', input='2', output='secret')])
+                   cases=[dict(name='a', input='1', output='secret'), dict(name='b', input='2', output='3')])
         import tempfile
         with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
                 patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
@@ -124,7 +140,7 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn('secret', str(calls))
         self.assertEqual(result['cases'][0]['cpuTimeMs'], 0)
         self.assertTrue(all('sampleDetails' not in case for case in result['cases']))
-        self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2), ('JUDGING', 2, 2)])
+        self.assertEqual(progress, [('PREPARING', 0, 2), ('JUDGING', 0, 2), ('JUDGING', 1, 2, 'WA'), ('JUDGING', 2, 2, 'WA')])
 
     def test_sample_details_include_file_inputs_and_actual_output_on_failure(self):
         import tempfile

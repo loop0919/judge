@@ -147,39 +147,45 @@ test('C++ submission opens its result and polls until completion', async ({ page
 })
 
 for (const view of ['detail', 'history']) {
-  test(`${view} displays actual preparation and case progress, then stops polling`, async ({ page }) => {
-    await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
-    await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
-    const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'python314-isolate', source: 'print(3)', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
-    const states = [item,
-      { ...item, status: 'RUNNING', progress: { phase: 'PREPARING', completed: 0, total: 4 } },
-      { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 0, total: 4 } },
-      { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 2, total: 4 } },
-      { ...item, status: 'DONE', progress: null, result: { verdict: 'AC', passed: 4, total: 4 } },
-    ]
-    let reads = 0
-    const endpoint = `/api/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`
-    await page.route(`**${endpoint}`, route => {
-      const state = states[Math.min(reads++, states.length - 1)]
-      return route.fulfill({ json: view === 'detail' ? state : { items: [state] } })
+  for (const verdict of ['AC', 'WA', 'TLE', 'RE', 'MLE', 'OLE']) {
+    test(`${view} ${verdict} displays actual preparation and case progress, then stops polling`, async ({ page }) => {
+      await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+      await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
+      const item = { id: submissionId, problemId, problemVersion: 2, problemTitle: 'A + B', runtime: 'python314-isolate', source: 'print(3)', status: 'QUEUED', result: null, createdAt: '2026-09-01T00:00:00Z' }
+      const states = [item,
+        { ...item, status: 'RUNNING', progress: { phase: 'PREPARING', completed: 0, total: 4 } },
+        { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 0, total: 4 } },
+        { ...item, status: 'RUNNING', progress: { phase: 'JUDGING', completed: 2, total: 4, ...(verdict === 'AC' ? {} : { verdict }) } },
+        { ...item, status: 'DONE', progress: null, result: { verdict, passed: verdict === 'AC' ? 4 : 1, total: 4 } },
+      ]
+      let reads = 0
+      const endpoint = `/api/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`
+      await page.route(`**${endpoint}`, route => {
+        const state = states[Math.min(reads++, states.length - 1)]
+        return route.fulfill({ json: view === 'detail' ? state : { items: [state] } })
+      })
+      await page.goto(`/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`)
+      await expect(page.getByRole('cell', { name: 'Python (CPython 3.14)', exact: true })).toBeVisible()
+      const badge = page.locator('.verdict-badge').first()
+      await expect(badge).toHaveText('WJ')
+      await expect(badge.locator('.judge-spinner')).toBeVisible()
+      await badge.focus()
+      await expect(page.getByRole('tooltip')).toHaveText('ジャッジ中')
+      await expect(badge).toHaveAccessibleDescription('ジャッジ中')
+      for (const [index, label] of ['WJ', 'WJ', '0/4', verdict === 'AC' ? '2/4' : `${verdict} 2/4`, verdict].entries()) {
+        await expect.poll(() => reads).toBeGreaterThanOrEqual(index + 1)
+        await expect(badge).toHaveText(label)
+        if (index === 3) {
+          await expect(badge.locator('.judge-spinner')).toBeVisible()
+          if (verdict !== 'AC') await expect(badge).toHaveAttribute('data-verdict', verdict)
+        }
+      }
+      await expect(badge.locator('.judge-spinner')).toHaveCount(0)
+      await page.clock.install()
+      await page.clock.fastForward(6000)
+      expect(reads).toBe(5)
     })
-    await page.goto(`/my/submissions${view === 'detail' ? `/${submissionId}` : ''}`)
-    await expect(page.getByRole('cell', { name: 'Python (CPython 3.14)', exact: true })).toBeVisible()
-    const badge = page.locator('.verdict-badge').first()
-    await expect(badge).toHaveText('WJ')
-    await expect(badge.locator('.judge-spinner')).toBeVisible()
-    await badge.focus()
-    await expect(page.getByRole('tooltip')).toHaveText('ジャッジ中')
-    await expect(badge).toHaveAccessibleDescription('ジャッジ中')
-    for (const [index, label] of ['WJ', 'WJ', '0/4', '2/4', 'AC'].entries()) {
-      await expect.poll(() => reads).toBeGreaterThanOrEqual(index + 1)
-      await expect(badge).toHaveText(label)
-    }
-    await expect(badge.locator('.judge-spinner')).toHaveCount(0)
-    await page.clock.install()
-    await page.clock.fastForward(6000)
-    expect(reads).toBe(5)
-  })
+  }
 }
 
 test('unready judging settings explain why submission was rejected', async ({ page }) => {

@@ -72,6 +72,16 @@ func (b bridge) pendingAge(ctx context.Context) error {
 }
 
 func validProgress(p submissions.Progress) bool {
+	if p.Verdict != "" {
+		switch p.Verdict {
+		case "WA", "TLE", "MLE", "OLE", "RE":
+		default:
+			return false
+		}
+		if p.Phase != "JUDGING" || p.Completed == 0 {
+			return false
+		}
+	}
 	return p.Total >= 1 && p.Total <= 100 && p.Completed >= 0 && p.Completed <= p.Total &&
 		(p.Phase == "JUDGING" || (p.Phase == "PREPARING" && p.Completed == 0))
 }

@@ -39,19 +39,21 @@ def write_generated_file(s3, bucket, prefix, data):
 
 
 def progress_reporter(client, queue, item):
-    last_phase, last_sent, enabled = None, 0, True
+    last_phase, last_verdict, last_sent, enabled = None, None, 0, True
 
-    def report(phase, completed, total):
-        nonlocal last_phase, last_sent, enabled
+    def report(phase, completed, total, verdict=None):
+        nonlocal last_phase, last_verdict, last_sent, enabled
         now = time.monotonic()
-        # At most one case update per second; stage changes are sent immediately.
-        if not enabled or (phase == last_phase and now - last_sent < 1):
+        # Stage changes and the first failure bypass the one-second progress throttle.
+        if not enabled or (phase == last_phase and verdict == last_verdict and now - last_sent < 1):
             return
         if phase != last_phase:
             telemetry.emit('judge_phase', phase=phase)
-        last_phase, last_sent = phase, now
+        last_phase, last_verdict, last_sent = phase, verdict, now
         payload = dict(submissionId=item['submissionId'], attemptId=item['attemptId'],
                        progress=dict(phase=phase, completed=completed, total=total))
+        if verdict is not None:
+            payload['progress']['verdict'] = verdict
         try:
             client.send_message(QueueUrl=queue, MessageBody=json.dumps(payload))
         except Exception:

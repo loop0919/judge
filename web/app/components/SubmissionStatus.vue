@@ -4,16 +4,17 @@ import type { Submission } from '../../shared/types/submission'
 const { item } = defineProps<{ item: Submission }>()
 const tooltipId = useId()
 const pending = computed(() => item.status !== 'DONE')
+const verdict = computed(() => pending.value ? item.progress?.verdict : item.result?.verdict)
 const label = computed(() => {
   if (!pending.value) return item.result?.verdict ?? '完了'
-  if (item.status === 'RUNNING' && item.progress?.phase === 'JUDGING') return `${item.progress.completed}/${item.progress.total}`
+  if (item.status === 'RUNNING' && item.progress?.phase === 'JUDGING') return `${verdict.value ? verdict.value + ' ' : ''}${item.progress.completed}/${item.progress.total}`
   return 'WJ'
 })
 </script>
 
 <template>
   <span class="judge-status">
-    <span class="verdict-badge" :data-verdict="item.result?.verdict" :tabindex="pending ? 0 : undefined" :aria-describedby="pending ? tooltipId : undefined">
+    <span class="verdict-badge" :data-verdict="verdict" :tabindex="pending ? 0 : undefined" :aria-describedby="pending ? tooltipId : undefined">
       <span v-if="pending" class="judge-spinner" aria-hidden="true" />{{ label }}
     </span>
     <span v-if="pending" :id="tooltipId" class="judge-tooltip" role="tooltip">ジャッジ中</span>
