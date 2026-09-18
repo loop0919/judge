@@ -22,7 +22,7 @@ onMounted(load)
     <h2 id="events-heading">イベント</h2>
     <p v-if="loading" role="status">イベントを読み込んでいます…</p>
     <p v-else-if="error" role="alert">{{ error }} <button class="editor-button" @click="load">再試行</button></p>
-    <p v-else-if="!items.length">イベントはまだありません</p>
+    <p v-else-if="!items.length">イベントはまだありません。</p>
     <ul v-else class="event-list">
       <li v-for="item in items" :key="item.id">
         <NuxtLink :to="`/problems/${item.problemId}`">{{ item.title }}</NuxtLink>
