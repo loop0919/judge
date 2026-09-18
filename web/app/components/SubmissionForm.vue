@@ -8,20 +8,6 @@ const source = ref('')
 const runtime = ref('cpp17')
 const { data: catalog, error: catalogError, refresh: refreshCatalog } = await useJudgeCatalog()
 const available = computed(() => catalogError.value || catalog.value?.maintenance ? [] : catalog.value?.items ?? [])
-const languageQuery = ref('')
-const filteredLanguages = computed(() => {
-  const query = [...languageQuery.value.normalize('NFKC').toLowerCase().replace(/\s/g, '')]
-  return available.value.filter(item => {
-    const label = item.label.normalize('NFKC').toLowerCase()
-    let position = 0
-    return query.every(character => {
-      const index = label.indexOf(character, position)
-      position = index + 1
-      return index !== -1
-    })
-  })
-})
-const filteredSelection = computed(() => available.value.find(item => item.id === runtime.value && !filteredLanguages.value.includes(item)))
 const runtimeStorageKey = 'openoj.submission-runtime'
 onMounted(() => {
   try {
@@ -99,15 +85,7 @@ async function submit(easyTest = false) {
     <h2 id="submission-title">提出</h2>
     <p class="muted">ソースコードは64 KiBまで</p>
     <form @submit.prevent="submit()">
-      <label for="submission-language-search">言語名で検索</label>
-      <input id="submission-language-search" v-model="languageQuery" type="search" placeholder="例: Python、pytn、C++" :disabled="sending" aria-controls="submission-language" @keydown.enter.prevent>
-      <label for="submission-language">言語</label>
-      <select id="submission-language" v-model="runtime" :disabled="sending" @change="rememberRuntime">
-        <option value="">-- 未選択 --</option>
-        <option v-if="filteredSelection" :value="filteredSelection.id" hidden>{{ filteredSelection.label }}</option>
-        <option v-for="item in filteredLanguages" :key="item.id" :value="item.id">{{ item.label }}</option>
-      </select>
-      <p v-if="available.length && !filteredLanguages.length" class="muted" role="status">一致する言語がありません。検索語を変更してください。</p>
+      <SubmissionLanguageSelect v-model="runtime" :items="available" :disabled="sending" @change="rememberRuntime" />
       <p><NuxtLink to="/blog/language-guide" target="_blank" rel="noopener noreferrer">使える言語と実行環境の仕様 ↗</NuxtLink></p>
       <p v-if="catalogError || !available.length" class="notice" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
@@ -150,11 +128,7 @@ async function submit(easyTest = false) {
 .submission-login h2 { margin-bottom: 8px; }
 .submission-login p { color: var(--color-muted); font-size: .875rem; }
 .submission-login a { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 24px; font-weight: 600; text-decoration: none; }
-label { display: block; margin-block: 20px 8px; }
-select, input[type="search"] { width: 100%; max-width: 320px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: inherit; }
-select { cursor: pointer; }
-select:focus-visible, input[type="search"]:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
-select:disabled, input[type="search"]:disabled, .submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
 .submission-actions .editor-button { min-height: 44px; padding: 10px 28px; font-weight: 600; }
 .submission-actions button:disabled { transform: none; text-decoration: none; }
 .submission-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
