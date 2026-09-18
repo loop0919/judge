@@ -72,3 +72,26 @@ bash judge/build-assets.sh
 `RESOLVE=1`は依存更新時だけ使用する。
 更新後のlockをレビューして保存し、通常ビルドで検証する。
 ベースアーカイブはADR 0010適用版で、SHA-256は`4e28c974185c64330731c15d9a0db1504c91b6c322dec92b28ecaa4bc69adfdc`とする。
+
+## 2026年9月18日の配置前検証
+
+実装コミットは`f6bb6d0`。
+既存84,718ファイルの内容とシンボリックリンクがベース配布物から変わっていないことを確認した。
+Python 56テスト、Goの関連テスト、Webの型検査・ビルド、Terraformの検証と8テストが成功した。
+新処理系の構文・型検査と全対象ライブラリの代表操作をローカルで確認した。
+Denoはisolateと同じファイルロック拒否条件でも成功し、Ruby・JS系はinteractor用のヒープ設定とファイル数上限でも検証した。
+これらは実機smokeの代わりにはならず、公開判定はまだ行っていない。
+
+| 配布物 | SHA-256 |
+| --- | --- |
+| `runtime-additions.tar.gz` | `67948063ce59af2da3b40b2ef3145ab2d6bf92e7d6c4ea30085ef18b9cec1b11` |
+| `worker.tar.gz` | `1d68168d5b710e22a8c1772fcea18db18d03d94ac511192d9c5c0d4cb6c72e99` |
+
+workerのスナップショット`judge-dev-before-language-additions-20260919`は、9月18日に作成して`available`を確認した。
+現行Lambdaのコードと設定も非公開のローカル領域へ退避した。
+worker上の古いADR 0007退避ツリーを整理し、現行ツリーを保持したまま約31 GiBの空きを確保した。
+
+DBは`db.t4g.micro`で、適用待ちは`db.t4g.small`への変更のみ。
+DBだけを対象にしたTerraform planは追加・削除・置換がなく、PostgreSQL 17.9と20 GiB/gp3を維持する。
+受付停止、DB変更、実機配置、公開は未実施。
+配布物のS3転送は、自動承認レビューによる宛先確認を経てユーザーが明示的に許可した。
