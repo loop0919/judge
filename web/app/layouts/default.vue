@@ -46,6 +46,7 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
             <NuxtLink to="/blog/new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z" /><path d="m13 6 5 5" /></svg>新規記事</NuxtLink>
           </div>
         </details>
+        <NotificationBell v-if="user" />
         <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
       </nav>

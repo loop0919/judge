@@ -155,7 +155,7 @@ func TestExactLimitUploadCompletionAndDownload(t *testing.T) {
 	if _, err = db.Save(ctx, "owner", problemID, 0, problems.Draft{Title: "shared"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = db.Pool().Exec(ctx, `INSERT INTO user_profiles(owner_id,handle) VALUES('tester','tester'); INSERT INTO problem_testers(problem_id,owner_id) VALUES('11111111-1111-4111-8111-111111111111','tester')`); err != nil {
+	if _, err = db.Pool().Exec(ctx, `INSERT INTO user_profiles(owner_id,handle) VALUES('owner','owner'),('tester','tester'); INSERT INTO problem_testers(problem_id,owner_id) VALUES('11111111-1111-4111-8111-111111111111','tester')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = store.Download(ctx, "tester", problemID, fileID); err != nil {

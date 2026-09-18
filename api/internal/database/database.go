@@ -71,6 +71,9 @@ var testerInvitationsSchema string
 //go:embed 015_profile_accounts.sql
 var profileAccountsSchema string
 
+//go:embed 016_notifications.sql
+var notificationsSchema string
+
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -83,7 +86,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err = tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version bigint PRIMARY KEY)`); err != nil {
 		return err
 	}
-	for index, schema := range []string{problemsSchema, profilesSchema, publicationsSchema, submissionsSchema, judgeOutboxSchema, testFilesSchema, multilanguageDispatchSchema, judgeProgressSchema, generatedTestFilesSchema, problemFavoritesSchema, sampleCaseFlagsSchema, contestsSchema, problemSubmissionsSchema, testerInvitationsSchema, profileAccountsSchema} {
+	for index, schema := range []string{problemsSchema, profilesSchema, publicationsSchema, submissionsSchema, judgeOutboxSchema, testFilesSchema, multilanguageDispatchSchema, judgeProgressSchema, generatedTestFilesSchema, problemFavoritesSchema, sampleCaseFlagsSchema, contestsSchema, problemSubmissionsSchema, testerInvitationsSchema, profileAccountsSchema, notificationsSchema} {
 		version := index + 1
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version=$1)`, version).Scan(&applied); err != nil {

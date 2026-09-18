@@ -362,7 +362,7 @@ func TestProfilesPostgres(t *testing.T) {
 	if _, err = store.Save(ctx, "alice", id, 0, problems.Draft{Title: "before upgrade"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = store.Pool().Exec(ctx, `DROP FUNCTION can_manage_problem(uuid,text); DROP TABLE problem_tester_invitations; DROP TABLE problem_favorites; DROP TABLE test_files; DROP TABLE submissions; DROP TABLE contest_problems; DROP TABLE contests; DROP TABLE problem_testers; DROP TABLE blog_posts; DROP TABLE user_profiles; ALTER TABLE problem_drafts DROP COLUMN published_draft, DROP COLUMN published_version, DROP COLUMN published_at; DELETE FROM schema_migrations WHERE version>=2`); err != nil {
+	if _, err = store.Pool().Exec(ctx, `DROP TABLE notifications; DROP FUNCTION notify_problem_activity() CASCADE; DROP FUNCTION notify_first_accept() CASCADE; DROP FUNCTION can_manage_problem(uuid,text); DROP TABLE problem_tester_invitations; DROP TABLE problem_favorites; DROP TABLE test_files; DROP TABLE submissions; DROP TABLE contest_problems; DROP TABLE contests; DROP TABLE problem_testers; DROP TABLE blog_posts; DROP TABLE user_profiles; ALTER TABLE problem_drafts DROP COLUMN published_draft, DROP COLUMN published_version, DROP COLUMN published_at; DELETE FROM schema_migrations WHERE version>=2`); err != nil {
 		t.Fatal(err)
 	}
 	if err = store.Migrate(ctx); err != nil {

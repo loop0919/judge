@@ -82,6 +82,8 @@ var (
 )
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /my/notifications", p.handle)
+	mux.HandleFunc("POST /my/notifications/{id}/read", p.handle)
 	mux.HandleFunc("POST /my/problems/{id}/tester-invitation", p.handle)
 	mux.HandleFunc("GET /my/tester-invitations/{token}", p.handle)
 	mux.HandleFunc("POST /my/tester-invitations/{token}", p.handle)
@@ -157,6 +159,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/notifications") {
+		p.notifications(w, r.WithContext(ctx), owner)
+		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/tester-invitations/") || strings.HasSuffix(r.URL.Path, "/tester-invitation") {
 		p.testerInvitation(w, r.WithContext(ctx), owner)
