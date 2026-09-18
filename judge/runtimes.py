@@ -54,9 +54,11 @@ RUNTIMES['nim22-isolate'] = dict(source='main.nim',
 
 # Module resolution requires the original suffix; dependencies are operator-owned mounts.
 NODE = ROOT + '/node/bin/node'
-NATIVE_ENV = ['LD_LIBRARY_PATH=' + ROOT + '/addition-native/lib:' + ROOT + '/ruby/lib']
+NATIVE_ENV = ['LD_LIBRARY_PATH=' + ROOT + '/addition-native/lib:' + ROOT + '/ruby/lib',
+              'GEOS_LIBRARY_PATH=' + ROOT + '/addition-native/lib/libgeos_c.so']
 RUNTIMES['haskell-ghc910-isolate'] = dict(source='Main.hs',
     compile=[ROOT + '/ghc/bin/ghc', '-O2', '-threaded', '-rtsopts', '-j1',
+             '-L' + ROOT + '/addition-native/lib',
              '@' + ROOT + '/haskell-deps/compile.args', '/box/Main.hs', '-o', '/box/main'],
     run=['/box/main', '+RTS', '-N1', '-RTS'], artifact='native',
     env=[*NATIVE_ENV, 'PATH=' + ROOT + '/haskell-deps/bin:/usr/bin:/bin'])
@@ -67,9 +69,10 @@ RUNTIMES['ruby40-isolate'] = dict(source='main.rb', program='main.rb', artifact=
          'BUNDLE_PATH=' + ROOT + '/ruby-deps/bundle', 'BUNDLE_FROZEN=true'])
 RUNTIMES['ruby-truffle40-isolate'] = dict(source='main.rb', program='main.rb', artifact='source',
     compile=[ROOT + '/truffleruby/bin/ruby', '-c', '/box/main.rb'],
-    run=[ROOT + '/truffleruby/bin/ruby', '-rbundler/setup', '/box/main.rb'],
-    env=[*NATIVE_ENV, 'BUNDLE_GEMFILE=' + ROOT + '/truffleruby-deps/Gemfile',
-         'BUNDLE_PATH=' + ROOT + '/truffleruby-deps/bundle', 'BUNDLE_FROZEN=true'])
+    run=[ROOT + '/truffleruby/bin/ruby', '--engine.Mode=latency', '/box/main.rb'],
+    # Every installed gem version is locked at build time; avoid loading Bundler on each run.
+    env=[*NATIVE_ENV, 'GEM_HOME=' + ROOT + '/truffleruby-deps/bundle/truffleruby/40.0.0.1',
+         'GEM_PATH=' + ROOT + '/truffleruby-deps/bundle/truffleruby/40.0.0.1'])
 
 for engine, executable in [('node24', NODE), ('bun14', ROOT + '/bun/bun'), ('deno29', ROOT + '/deno/deno')]:
     deno = engine == 'deno29'

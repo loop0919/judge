@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,26 @@ from interactive_smoke import failure_program
 
 
 class RuntimeAdditionTests(unittest.TestCase):
+    def test_caught_file_limit_signal_cannot_hide_output_overflow(self):
+        args = sandbox.run_args('javascript-node24-isolate', 1, 4, 512)
+        file_limit = int(next(a.split('=')[1] for a in args if a.startswith('--fsize='))) * 1024
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'stdout'
+            subprocess.run([sys.executable, '-c', '''
+import errno, resource, signal, sys
+resource.setrlimit(resource.RLIMIT_FSIZE, (int(sys.argv[2]), int(sys.argv[2])))
+signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+with open(sys.argv[1], 'wb', buffering=0) as file:
+    try:
+        while True: file.write(b'x' * 65536)
+    except OSError as error:
+        assert error.errno == errno.EFBIG
+''', str(output), str(file_limit)], check=True)
+            self.assertEqual(len(sandbox.regular_read(output, sandbox.OUTPUT_LIMIT)), sandbox.OUTPUT_LIMIT + 1)
+            with output.open('r+b') as file:
+                file.truncate(sandbox.OUTPUT_LIMIT)
+            self.assertEqual(len(sandbox.regular_read(output, sandbox.OUTPUT_LIMIT)), sandbox.OUTPUT_LIMIT)
+
     def test_compiled_typescript_is_collected_and_keeps_javascript_suffix(self):
         runtime = RUNTIMES['typescript-node24-isolate']
         with tempfile.TemporaryDirectory() as tmp:

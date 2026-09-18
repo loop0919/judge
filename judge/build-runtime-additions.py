@@ -231,9 +231,12 @@ def finish():
     pending += list((ROOT / 'truffleruby-deps').rglob('*.so*'))
     pending += list((ROOT / 'truffleruby').rglob('*.so*')) + list(native.glob('*.so*'))
     # GEOS and BLAS are loaded through FFI/dlopen, so ldd alone cannot discover them.
-    pending += [Path('/usr/lib/x86_64-linux-gnu') / name for name in
-                ('libgeos_c.so', 'libopenblas.so', 'liblapack.so')]
-    for source in pending[-3:]:
+    explicit = [Path('/usr/lib/x86_64-linux-gnu') / name for name in
+                ('libgeos_c.so', 'libopenblas.so', 'liblapack.so', 'libgsl.so',
+                 'libgslcblas.so', 'libglpk.so', 'libblas.so', 'libgmp.so')]
+    pending += explicit
+    # GHC also needs the unversioned linker names; the worker has no development packages.
+    for source in explicit:
         shutil.copyfile(source, native / source.name)
     pending += [ROOT / 'ghc/bin/ghc', ROOT / 'ruby/bin/ruby']
     seen = set()
@@ -253,6 +256,14 @@ def finish():
                 pending.append(source)
     with (ROOT / 'build-manifest/additions/builder-packages.txt').open('w') as out:
         run('dpkg-query', '-W', '-f=${Package}=${Version}\n', stdout=out)
+    native_hashes = {}
+    for path in sorted(native.glob('*.so*')):
+        with path.open('rb') as file:
+            native_hashes[path.name] = hashlib.file_digest(file, 'sha256').hexdigest()
+    native_lock = 'native-library-sha256.json'
+    if not RESOLVE and native_hashes != json.loads((DEPS / native_lock).read_text()):
+        raise RuntimeError('Native dependency checksums changed; update the reviewed lock first')
+    (ROOT / 'build-manifest/additions' / native_lock).write_text(json.dumps(native_hashes, indent=2) + '\n')
     # Keep inventory of vendored native objects and source cache alongside package-manager locks.
     checksums = {}
     for subtree in ('ruby-deps', 'truffleruby-deps', 'haskell-deps', 'deno-deps', 'addition-native'):
