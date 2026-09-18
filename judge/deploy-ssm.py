@@ -35,6 +35,8 @@ if __name__ == '__main__':
         'curl --fail --location --proto "=https" ' + shlex.quote(url) + ' -o /opt/judge-release/worker.tar.gz',
         "printf '%s\\n' '" + digest + "  /opt/judge-release/worker.tar.gz' | sha256sum -c -",
         'tar -xzf /opt/judge-release/worker.tar.gz -C /opt/judge-release',
+        # The verified release remains in S3; free its duplicate before staging the runtime tree.
+        'rm /opt/judge-release/worker.tar.gz',
         'bash /opt/judge-release/install.sh',
     ])
     sent = aws('ssm', 'send-command', '--region', args.region, '--instance-ids', args.instance,

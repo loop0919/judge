@@ -22,6 +22,12 @@
 | Java 25 | Temurin 25.0.4.1+1 LTS | `javac --release 25`、プレビュー機能なし |
 | Nim 2.2 | Nim 2.2.10 / GCC 16.2.0 | `nim cpp -d:release --opt:speed --mm:refc` |
 | Go 1.27 | Go 1.27.1 | `go build -mod=vendor`、CGO無効 |
+| Haskell | GHC 9.10.3 / Stackage LTS 24系列 | `-O2 -threaded`、固定パッケージDB |
+| JavaScript / TypeScript (Node.js) | Node.js 24.21.0 LTS / TypeScript 7.0.2 | JSは構文検査、TSは型検査後にJSを実行 |
+| JavaScript / TypeScript (Deno) | Deno 2.9.7 / TypeScript 6.0.3 | GitHub公式安定版、依存は事前キャッシュ |
+| JavaScript / TypeScript (Bun) | Bun 1.4.2 / TypeScript 7.0.2 | JSは構文検査、TSは型検査後にJSを実行 |
+| Ruby (CRuby) | CRuby 4.0.7 | 構文検査後に実行、YJITとZJITは無効 |
+| Ruby (TruffleRuby) | TruffleRuby Community 40.0.0 | 構文検査後に実行 |
 
 CとC++は`main`関数、Rustは`fn main()`を含めてください。
 
@@ -117,6 +123,47 @@ Nimのメモリ管理は`refc`です。bignumとそのGMPバインディング�
 | immutable | `v0.4.3` | `github.com/benbjohnson/immutable` |
 
 Goは上記のパッケージを`import`して使用します。モジュール定義は設定済みで、提出時のダウンロードとCGOは無効です。
+
+### Haskell
+
+`Main.hs`の`main :: IO ()`を実行します。
+AtCoderの2025年10月一覧にあるHaskellパッケージを事前構築しています。
+GHC付属パッケージはGHC 9.10.3の版を使い、それ以外は同時に利用できる安定版を固定しています。
+`ac-library-hs`、`vector`、`massiv`、`lens`、`hmatrix`、`hmatrix-gsl`、`hmatrix-glpk`などを`import`できます。
+パッケージ定義ファイルの提出は不要です。
+
+### JavaScriptとTypeScript
+
+Node.jsとBunでは`node:fs`などのNode互換API、Denoでは`Deno.stdin`などのAPIを利用できます。
+Node.jsのJavaScriptは`require`と`import`の両方に対応します。
+TypeScriptは型エラーをCEとして扱います。
+Node.jsとBun向けのTypeScriptは、`NodeNext`形式でJavaScriptにコンパイルします。
+
+| パッケージ | バージョン |
+| --- | --- |
+| ac-library-js | 0.1.1 |
+| data-structure-typed | 2.6.4 |
+| immutable | 5.1.9 |
+| lodash | 4.18.1 |
+| mathjs | 15.2.0 |
+| tstl | 3.0.0 |
+
+たとえば`import { DSU } from "ac-library-js"`でACLを利用できます。
+Denoでは一覧にある`@std/*`も固定しており、`import { assertEquals } from "@std/assert"`のように読み込みます。
+`@std/encoding/base64`などの公開サブパスもキャッシュしています。
+提出時の依存ダウンロードや自動インストールはできません。
+型定義は`@types/node`、`@types/lodash`を用意し、Bun向けには`@types/bun`も使用します。
+
+### Ruby
+
+CRubyとTruffleRubyのライブラリは別々に構築しています。
+両方でACL、bit_utils、bitarray、faster_prime、ffi-geos、immutable-ruby、rbtree、rgl、sorted_containers、sorted_set、z3を利用できます。
+ACLのUnion-Findは`require "ac-library-rb/dsu"`と`AcLibraryRb::DSU.new(n)`で利用します。
+
+CRubyではOR-Tools、fast_trie、numo-narray、numo-linalg、numo-openblas、polars-dfも利用できます。
+TruffleRubyはOR-ToolsのC拡張と互換性がないため、OR-Toolsを含みません。
+Torch、LightGBM、Rumaleは導入していません。
+対話問題では`$stdout.sync = true`または`STDOUT.flush`を使用してください。
 
 ## testlib形式の判定 {#testlib}
 

@@ -39,7 +39,7 @@ class SmokeReportTests(unittest.TestCase):
 
     def test_failed_language_is_excluded_without_skipping_next_language(self):
         baseline = iter(['AC', 'WA', 'CE', 'TLE', 'TLE', 'MLE', 'MLE', 'AC', 'OLE', 'AC', 'AC', 'AC', 'AC'])
-        def judge(job, _):
+        def judge(job, _, save_output=None):
             first = next(baseline, None)
             if first:
                 return {'verdict': first}
@@ -47,6 +47,10 @@ class SmokeReportTests(unittest.TestCase):
                 return {'verdict': 'WA' if 'assert(0)' in job['checker']['source'] or job['checker']['runtime'] != 'c23-gcc' else 'AC'}
             if job['runtime'] == 'cpp17-isolate':
                 return {'verdict': 'WA'}
+            if job.get('generate'):
+                for _ in job['cases']:
+                    save_output(b'3\n')
+                return {'verdict': 'AC'}
             verdict = 'CE' if job['source'] == 'not c' else 'TLE' if 'for(;;)' in job['source'] else 'WA' if job['cases'][0]['output'] == '4' else 'AC'
             return {'verdict': verdict}
         output, error = self.run_smoke(judge)

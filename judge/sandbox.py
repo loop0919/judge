@@ -81,6 +81,7 @@ def execute(request, compile_phase=False, *, artifact=None, checker_files=None):
         META.unlink(missing_ok=True)
         if compile_phase:
             (box / runtime['source']).write_text(source)
+            prepare_dependencies(box, runtime)
             if runtime['source'] == 'main.go':
                 for name in ('go.mod', 'go.sum'):
                     shutil.copyfile(ROOT + '/go-deps/' + name, box / name)
@@ -138,6 +139,12 @@ def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, inte
         environment.append('DOTNET_GCHeapHardLimit=' + hex((512 if compile_phase else 128 if memory == 256 else 192) * 1024 * 1024))
     if runtime == 'go127-isolate':
         environment.append('GOMEMLIMIT=' + ('160MiB' if memory == 256 else '384MiB'))
+    if runtime == 'ruby-truffle40-isolate':
+        environment.append('RUBYOPT=--vm.Xmx' + str(640 if compile_phase else 96 if memory == 256 else 256) + 'm')
+    if runtime.startswith(('javascript-node', 'typescript-node')) or (compile_phase and runtime.startswith('typescript-bun')):
+        environment.append('NODE_OPTIONS=--max-old-space-size=' + str(640 if compile_phase else 128 if memory == 256 else 320))
+    if runtime.startswith(('javascript-deno', 'typescript-deno')):
+        environment.append('DENO_V8_FLAGS=--max-old-space-size=' + str(640 if compile_phase else 128 if memory == 256 else 320))
     return [f'--meta={META if meta is None else meta}', f'--time={cpu}', f'--wall-time={wall}',
             f'--cg-mem={memory * 1024}', '--processes=32' if interactive else '--processes=64',
             # Pinned isolate 2.7: allow file locks only for the fixed Go build command.
@@ -151,11 +158,24 @@ def run_args(runtime, cpu, wall, memory, *, compile_phase=False, meta=None, inte
             # isolate removes symlinks from /box before running the compiler.
             *(['--dir=/box/vendor=' + ROOT + '/go-deps/vendor']
               if compile_phase and runtime == 'go127-isolate' else []),
+            *(['--dir=/box/node_modules=' + ROOT + '/' + RUNTIMES[runtime]['node_modules']]
+              if 'node_modules' in RUNTIMES[runtime] else []),
             *['--env=' + value for value in environment], '--run']
 
 
+def prepare_dependencies(box, runtime):
+    if 'node_modules' in runtime:
+        (box / 'node_modules').mkdir(exist_ok=True)
+    if runtime.get('deno_cache'):
+        # This source is operator-owned. Never share a writable cache across submissions.
+        shutil.copytree(ROOT + '/deno-deps/cache', box / 'deno-cache')
+        for path in [box / 'deno-cache', *(box / 'deno-cache').rglob('*')]:
+            path.chmod(0o777 if path.is_dir() else 0o666)
+
+
 def prepare_program(box, runtime, artifact, files=None, *, protocol='legacy', interactive=False):
-    program = 'main.dll' if runtime['artifact'] == 'dotnet' else 'main'
+    prepare_dependencies(box, runtime)
+    program = runtime.get('program', 'main.dll' if runtime['artifact'] == 'dotnet' else 'main')
     shutil.copyfile(artifact, box / program)
     (box / program).chmod(0o555)
     for name in runtime.get('files', []):
@@ -194,6 +214,10 @@ def judge_verdict(metrics, protocol='legacy'):
 def collect_artifact(box, runtime):
     if runtime['artifact'] == 'source':
         return regular_read(box / runtime['source'], 65536)
+    if runtime['artifact'] == 'generated-source':
+        if not stat.S_ISDIR((box / runtime['compile_output']).parent.lstat().st_mode):
+            raise ValueError('invalid compiler output directory')
+        return regular_read(box / runtime['compile_output'], 32 * 1024 * 1024)
     if runtime['artifact'] != 'java':
         return regular_read(box / ('main.dll' if runtime['artifact'] == 'dotnet' else 'main'), 32 * 1024 * 1024)
     # Build a jar ourselves; never execute a submission-supplied packager or

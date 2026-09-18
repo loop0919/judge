@@ -17,6 +17,15 @@ var Runtimes = []Runtime{
 	{"java24", "Java (OpenJDK 24)"},
 	{"java25", "Java (Temurin 25)"}, {"csharp14", "C# 14 (.NET 10)"},
 	{"nim22", "Nim 2.2"}, {"go127", "Go 1.27"},
+	{"haskell-ghc910", "Haskell (GHC 9.10 LTS)"},
+	{"javascript-node24", "JavaScript (Node.js 24 LTS)"},
+	{"typescript-node24", "TypeScript (Node.js 24 LTS)"},
+	{"javascript-deno29", "JavaScript (Deno 2.9)"},
+	{"typescript-deno29", "TypeScript (Deno 2.9)"},
+	{"javascript-bun14", "JavaScript (Bun 1.4)"},
+	{"typescript-bun14", "TypeScript (Bun 1.4)"},
+	{"ruby40", "Ruby (CRuby 4.0)"},
+	{"ruby-truffle40", "Ruby (TruffleRuby 40)"},
 }
 
 func IsolateRuntimeIDs() []string {

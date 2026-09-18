@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from runtimes import RUNTIMES
+from interactive_smoke import failure_program
 
 with slot():
     runtime = verify_assets(full=True)
@@ -61,19 +62,25 @@ with slot():
                 print(name, 'checker FAILED', result, flush=True)
                 failed.append(name)
                 continue
-            assertion = ('#include <assert.h>\nint main(){assert(0);}' if name.startswith(('cpp', 'c23')) else
-                         'fn main(){assert!(false);}' if name == 'rust2024-isolate' else
-                         'public class Main { public static void main(String[] args){assert false;} }' if name.startswith('java') else
-                         'class Program { static void Main(){throw new System.Exception();} }' if name.startswith('csharp') else
-                         'package main\nfunc main(){panic("rejected")}' if name.startswith('go') else
-                         'doAssert false' if name.startswith('nim') else
-                         'assert False')
+            assertion = failure_program(name)
             job['checker'] = dict(runtime=name.removesuffix('-isolate'), source=assertion)
             result = judge(job, runtime)
             if result['verdict'] != 'WA':
                 print(name, 'checker assertion FAILED', result, flush=True)
                 failed.append(name)
                 continue
+            outputs = []
+            generated = judge(dict(runtime=name, runtimeDigest=runtime, source=fixture['source'],
+                generate=True, generationPrefix='test-files/' + 'a' * 32 + '/11111111-1111-4111-8111-111111111111/generated/',
+                timeLimitMs=5000, memoryLimitMb=512,
+                cases=[dict(input=fixture.get('input', ''), output='')] * 2), runtime,
+                save_output=lambda data: outputs.append(data) or {})
+            if generated['verdict'] != 'AC' or len(outputs) != 2 or any(
+                    output.decode().split() != fixture.get('output', '3').split() for output in outputs):
+                print(name, 'generation FAILED', generated, flush=True)
+                failed.append(name)
+                continue
+            print(name, 'generation OK', flush=True)
             if name == 'cpp17-isolate':
                 checker_source = r'''#include <cassert>
 #include <fstream>

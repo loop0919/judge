@@ -3,6 +3,26 @@ import json
 from pathlib import Path
 
 
+def failure_program(name):
+    if name.startswith(('cpp', 'c23')):
+        return '#include <assert.h>\nint main(){assert(0);}'
+    if name.startswith(('javascript-', 'typescript-')):
+        return 'throw new Error("rejected");'
+    families = {
+        'rust2024-isolate': 'fn main(){assert!(false);}',
+        'java24-isolate': 'public class Main { public static void main(String[] args){assert false;} }',
+        'java25-isolate': 'public class Main { public static void main(String[] args){assert false;} }',
+        'csharp14-isolate': 'class Program { static void Main(){throw new System.Exception();} }',
+        'go127-isolate': 'package main\nfunc main(){panic("rejected")}',
+        'nim22-isolate': 'doAssert false',
+        'haskell-ghc910-isolate': 'main :: IO ()\nmain = error "rejected"',
+        'ruby40-isolate': 'raise "rejected"',
+        'ruby-truffle40-isolate': 'raise "rejected"',
+        **{key: 'assert False' for key in ('python314-isolate', 'pypy311-isolate', 'codon020-isolate')},
+    }
+    return families[name]  # Missing fixtures must never authorize publication.
+
+
 def run(runtime, requested, fixtures, judge):
     c = '#include <stdio.h>\n#include <assert.h>\nint main(){for(int n=10;n<12;n++){printf("%d\\n",n);fflush(stdout);int x;assert(scanf("%d",&x)==1 && x==2*n);}}'
     python = 'for n in range(10,12):\n print(n, flush=True)\n assert int(input()) == n*2'
@@ -11,6 +31,10 @@ def run(runtime, requested, fixtures, judge):
     csharp = 'using System; class Program { static void Main(){ for(int n=10;n<12;n++){ Console.WriteLine(n); Console.Out.Flush(); if(int.Parse(Console.ReadLine())!=2*n)throw new Exception(); } } }'
     go = 'package main\nimport "fmt"\nfunc main(){for n:=10;n<12;n++ {fmt.Println(n);var x int;if _,e:=fmt.Scan(&x);e!=nil||x!=2*n{panic("answer")}}}'
     nim = 'import std/strutils\nfor n in 10..11:\n echo n\n flushFile(stdout)\n doAssert parseInt(stdin.readLine())==2*n'
+    haskell = 'import System.IO\nmain = mapM_ (\\n -> do { print n; hFlush stdout; x <- readLn; if x == 2*n then pure () else error "answer" }) ([10,11] :: [Int])'
+    ruby = '$stdout.sync = true\n[10,11].each { |n| puts n; raise "answer" unless gets.to_i == 2*n }'
+    js = 'import {readSync,writeSync} from "node:fs"; const b=new Uint8Array(1); for(let n=10;n<12;n++){writeSync(1,n+"\\n");let s="";while(readSync(0,b,0,1,null)&&b[0]!==10)s+=String.fromCharCode(b[0]);if(Number(s)!==2*n)throw new Error("answer");}'
+    deno = 'const b=new Uint8Array(1);for(let n=10;n<12;n++){Deno.stdout.writeSync(new TextEncoder().encode(n+"\\n"));let s="";while(Deno.stdin.readSync(b)&&b[0]!==10)s+=String.fromCharCode(b[0]);if(Number(s)!==2*n)throw new Error("answer");}'
     solution = '#include <cstdio>\nint main(){int n;while(scanf("%d",&n)==1){printf("%d\\n",2*n);fflush(stdout);}}'
     def check(name, source, code, want, *, submitted='cpp17-isolate', cases=None):
         job = dict(runtime=submitted, runtimeDigest=runtime, source=source,
@@ -22,11 +46,30 @@ def run(runtime, requested, fixtures, judge):
         print(name, 'interactive', want, 'OK', flush=True)
         return result
     for name in requested:
-        code = (c if name.startswith(('cpp', 'c23')) else rust if name.startswith('rust') else
-                java if name.startswith('java') else csharp if name.startswith('csharp') else
-                go if name.startswith('go') else nim if name.startswith('nim') else python)
+        if name.startswith(('cpp', 'c23')):
+            code = c
+        elif name.startswith(('javascript-', 'typescript-')):
+            code = deno if '-deno' in name else js
+        else:
+            code = {'rust2024-isolate': rust, 'java24-isolate': java, 'java25-isolate': java,
+                    'csharp14-isolate': csharp, 'go127-isolate': go, 'nim22-isolate': nim,
+                    'haskell-ghc910-isolate': haskell, 'ruby40-isolate': ruby, 'ruby-truffle40-isolate': ruby,
+                    'python314-isolate': python, 'pypy311-isolate': python, 'codon020-isolate': python}[name]
         check(name, solution, code, 'AC')
         check(name, solution.replace('2*n', '3*n'), code, 'WA')
+        # Verify the added runtimes on the submitted side too, with two flushed exchanges.
+        response = None
+        if name.startswith(('javascript-', 'typescript-')):
+            if '-deno' in name:
+                response = 'const b=new Uint8Array(1);for(let i=0;i<2;i++){let s="";while(Deno.stdin.readSync(b)&&b[0]!==10)s+=String.fromCharCode(b[0]);Deno.stdout.writeSync(new TextEncoder().encode(2*Number(s)+"\\n"));}'
+            else:
+                response = 'import {readSync,writeSync} from "node:fs";const b=new Uint8Array(1);for(let i=0;i<2;i++){let s="";while(readSync(0,b,0,1,null)&&b[0]!==10)s+=String.fromCharCode(b[0]);writeSync(1,2*Number(s)+"\\n");}'
+        elif name.startswith('ruby'):
+            response = '$stdout.sync = true\n2.times { puts gets.to_i*2 }'
+        elif name.startswith('haskell-'):
+            response = 'import System.IO\nimport Control.Monad\nmain = replicateM_ 2 $ do { n <- readLn :: IO Int; print (2*n); hFlush stdout }'
+        if response is not None:
+            check('cpp17-isolate', response, c, 'AC', submitted=name)
         # Library fixtures also execute under the interactor's 256 MiB limit.
         for fixture in fixtures[name]:
             if fixture['verdict'] != 'AC':

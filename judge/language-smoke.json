@@ -581,5 +581,527 @@
       "output": "3",
       "timeLimitMs": 5000
     }
+  ],
+  "javascript-node24-isolate": [
+    {
+      "name": "stdin",
+      "source": "import {readFileSync} from \"node:fs\";console.log(readFileSync(0,\"utf8\").trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "commonjs",
+      "verdict": "AC",
+      "source": "const {readFileSync}=require(\"node:fs\");console.log(Number(readFileSync(0,\"utf8\"))+1);",
+      "input": "2"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "import {existsSync,writeFileSync} from \"node:fs\"; if(existsSync(\"marker\")) throw new Error(\"leaked\");writeFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "typescript-node24-isolate": [
+    {
+      "name": "stdin",
+      "source": "import {readFileSync} from \"node:fs\";console.log(readFileSync(0,\"utf8\").trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "type-error",
+      "verdict": "CE",
+      "source": "const x: number = \"wrong\"; console.log(x);"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "import {existsSync,writeFileSync} from \"node:fs\"; if(existsSync(\"marker\")) throw new Error(\"leaked\");writeFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "javascript-deno29-isolate": [
+    {
+      "name": "stdin",
+      "source": "const b=new Uint8Array(32);const n=Deno.stdin.readSync(b)??0;console.log(new TextDecoder().decode(b.subarray(0,n)).trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "libraries-std",
+      "source": "import \"@std/assert\";\nimport \"@std/async\";\nimport \"@std/bytes\";\nimport \"@std/cache\";\nimport \"@std/cbor\";\nimport \"@std/cli\";\nimport \"@std/collections\";\nimport \"@std/crypto\";\nimport \"@std/csv\";\nimport \"@std/data-structures\";\nimport \"@std/datetime\";\nimport \"@std/dotenv\";\nimport \"@std/encoding\";\nimport \"@std/expect\";\nimport \"@std/fmt/bytes\";\nimport \"@std/front-matter\";\nimport \"@std/fs\";\nimport \"@std/html\";\nimport \"@std/http\";\nimport \"@std/ini\";\nimport \"@std/internal\";\nimport \"@std/io\";\nimport \"@std/json\";\nimport \"@std/jsonc\";\nimport \"@std/log\";\nimport \"@std/media-types\";\nimport \"@std/msgpack\";\nimport \"@std/net\";\nimport \"@std/path\";\nimport \"@std/random\";\nimport \"@std/regexp\";\nimport \"@std/semver\";\nimport \"@std/streams\";\nimport \"@std/tar\";\nimport \"@std/testing/bdd\";\nimport \"@std/text\";\nimport \"@std/toml\";\nimport \"@std/ulid\";\nimport \"@std/uuid\";\nimport \"@std/webgpu\";\nimport \"@std/yaml\";\nimport { assertEquals } from \"@std/assert\";\nimport { parse } from \"@std/yaml\";\nimport { BinaryHeap } from \"@std/data-structures\";\nimport { encodeBase64 } from \"@std/encoding/base64\";\nassertEquals(parse(\"a: 3\"), {a:3});\nconst h=new BinaryHeap();h.push(3);assertEquals(h.pop(),3);\nassertEquals(encodeBase64(new Uint8Array([3])),\"Aw==\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "try { Deno.statSync(\"marker\"); throw new Error(\"leaked\"); } catch(e) { if (!(e instanceof Deno.errors.NotFound)) throw e; } Deno.writeTextFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "typescript-deno29-isolate": [
+    {
+      "name": "stdin",
+      "source": "const b=new Uint8Array(32);const n=Deno.stdin.readSync(b)??0;console.log(new TextDecoder().decode(b.subarray(0,n)).trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "type-error",
+      "verdict": "CE",
+      "source": "const x: number = \"wrong\"; console.log(x);"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "libraries-std",
+      "source": "import \"@std/assert\";\nimport \"@std/async\";\nimport \"@std/bytes\";\nimport \"@std/cache\";\nimport \"@std/cbor\";\nimport \"@std/cli\";\nimport \"@std/collections\";\nimport \"@std/crypto\";\nimport \"@std/csv\";\nimport \"@std/data-structures\";\nimport \"@std/datetime\";\nimport \"@std/dotenv\";\nimport \"@std/encoding\";\nimport \"@std/expect\";\nimport \"@std/fmt/bytes\";\nimport \"@std/front-matter\";\nimport \"@std/fs\";\nimport \"@std/html\";\nimport \"@std/http\";\nimport \"@std/ini\";\nimport \"@std/internal\";\nimport \"@std/io\";\nimport \"@std/json\";\nimport \"@std/jsonc\";\nimport \"@std/log\";\nimport \"@std/media-types\";\nimport \"@std/msgpack\";\nimport \"@std/net\";\nimport \"@std/path\";\nimport \"@std/random\";\nimport \"@std/regexp\";\nimport \"@std/semver\";\nimport \"@std/streams\";\nimport \"@std/tar\";\nimport \"@std/testing/bdd\";\nimport \"@std/text\";\nimport \"@std/toml\";\nimport \"@std/ulid\";\nimport \"@std/uuid\";\nimport \"@std/webgpu\";\nimport \"@std/yaml\";\nimport { assertEquals } from \"@std/assert\";\nimport { parse } from \"@std/yaml\";\nimport { BinaryHeap } from \"@std/data-structures\";\nimport { encodeBase64 } from \"@std/encoding/base64\";\nassertEquals(parse(\"a: 3\"), {a:3});\nconst h=new BinaryHeap();h.push(3);assertEquals(h.pop(),3);\nassertEquals(encodeBase64(new Uint8Array([3])),\"Aw==\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "try { Deno.statSync(\"marker\"); throw new Error(\"leaked\"); } catch(e) { if (!(e instanceof Deno.errors.NotFound)) throw e; } Deno.writeTextFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "javascript-bun14-isolate": [
+    {
+      "name": "stdin",
+      "source": "import {readFileSync} from \"node:fs\";console.log(readFileSync(0,\"utf8\").trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "import {existsSync,writeFileSync} from \"node:fs\"; if(existsSync(\"marker\")) throw new Error(\"leaked\");writeFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "typescript-bun14-isolate": [
+    {
+      "name": "stdin",
+      "source": "import {readFileSync} from \"node:fs\";console.log(readFileSync(0,\"utf8\").trim().split(/\\s+/).map(Number).reduce((a,b)=>a+b,0));",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "console.log(4);",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "const = ;",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "throw new Error(\"failure\");",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "while(true){}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "while(true)console.log(\"x\".repeat(4096));",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "const chunks=[];while(true){const b=new Uint8Array(16*1024*1024);b.fill(1);chunks.push(b);}",
+      "verdict": "MLE"
+    },
+    {
+      "name": "type-error",
+      "verdict": "CE",
+      "source": "const x: number = \"wrong\"; console.log(x);"
+    },
+    {
+      "name": "libraries-npm",
+      "source": "import { DSU } from \"ac-library-js\";\nimport { Stack } from \"data-structure-typed\";\nimport { List } from \"immutable\";\nimport lodash from \"lodash\";\nimport { add } from \"mathjs\";\nimport { Vector } from \"tstl\";\nconst d=new DSU(3); d.merge(0,1);\nconst s=new Stack(); s.push(3);\nconst v=new Vector(); v.push_back(3);\nif(d.size(0)!==2||s.pop()!==3||List([1,2]).reduce((a,b)=>a+b,0)!==3||lodash.sum([1,2])!==3||Number(add(1,2))!==3||v.at(0)!==3)throw new Error(\"library\");\nconsole.log(3);\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "import {existsSync,writeFileSync} from \"node:fs\"; if(existsSync(\"marker\")) throw new Error(\"leaked\");writeFileSync(\"marker\",\"x\");console.log(3);",
+      "verdict": "AC"
+    }
+  ],
+  "ruby40-isolate": [
+    {
+      "name": "stdin",
+      "source": "puts STDIN.read.split.map(&:to_i).sum",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "puts 4",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "def (",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "raise \"failure\"",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "loop {}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "loop { puts \"x\"*4096 }",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "a=[]; loop { a << \"x\"*(16*1024*1024) }",
+      "verdict": "MLE"
+    },
+    {
+      "name": "library-containers",
+      "source": "require \"ac-library-rb/dsu\";require \"bit_utils\";require \"bitarray\";require \"faster_prime\";require \"immutable\";require \"rbtree\";require \"rgl/adjacency\";require \"sorted_containers\";require \"sorted_set\"\nd=AcLibraryRb::DSU.new(3);d.merge(0,1);raise unless d.size(0)==2\nraise unless BitUtils.popcount(7)==3\nb=BitArray.new(5);b[2]=1;raise unless b[2]==1\nraise unless 7.prime?\nraise unless Immutable::Vector[1,2].sum==3\nt=RBTree.new;t[1]=3;raise unless t[1]==3\nraise unless RGL::DirectedAdjacencyGraph[1,2].has_edge?(1,2)\nraise unless SortedContainers::SortedArray.new([2,1]).to_a==[1,2]\nraise unless SortedSet.new([2,1]).to_a==[1,2]\nputs 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-geos",
+      "source": "require \"ffi-geos\"; r=Geos::WktReader.new; raise unless r.read(\"POINT (0 0)\").distance(r.read(\"POINT (3 0)\"))==3; puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-z3",
+      "source": "require \"z3\";x=Z3.Int(\"x\");s=Z3::Solver.new;s.assert(x==3);raise unless s.satisfiable?;raise unless s.model[x].to_i==3;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-ortools",
+      "source": "require \"or-tools\";m=ORTools::CpModel.new;x=m.new_int_var(0,3,\"x\");m.add(x==3);s=ORTools::CpSolver.new;s.parameters.num_workers=1;raise unless s.solve(m)==:optimal;raise unless s.value(x)==3;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-fast-trie",
+      "source": "require \"trie\";t=Trie.new;t.add(\"a\",3);raise unless t.get(\"a\")==3;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-numo",
+      "source": "require \"numo/narray\";require \"numo/linalg\";require \"numo/openblas\";raise unless Numo::DFloat[1,2].sum==3;raise unless (Numo::Linalg.det(Numo::DFloat[[1,0],[0,3]])-3).abs<1e-6;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-polars",
+      "source": "require \"polars-df\";raise unless Polars::Series.new(\"x\",[1,2]).sum==3;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "raise \"leaked\" if File.exist?(\"marker\"); File.write(\"marker\",\"x\"); puts 3",
+      "verdict": "AC"
+    }
+  ],
+  "haskell-ghc910-isolate": [
+    {
+      "name": "stdin",
+      "source": "main = interact ((++\"\\n\") . show . sum . map (read :: String -> Int) . words)",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "main = print 4",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "main = )",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "main = error \"failure\"",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "import Control.Monad\nmain = forever (pure () :: IO ())",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "import Control.Monad\nmain = forever (putStrLn (replicate 4096 'x'))",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "import qualified Data.ByteString as B\nimport Data.IORef\nimport Control.Monad\nmain = do\n r <- newIORef []\n forever $ do\n  b <- B.readFile \"/dev/zero\"\n  modifyIORef' r (b:)",
+      "verdict": "MLE"
+    },
+    {
+      "name": "libraries",
+      "source": "import qualified Distribution.Backpack () -- Cabal\nimport qualified Distribution.Backpack () -- Cabal-syntax\nimport qualified Test.QuickCheck () -- QuickCheck\nimport qualified AtCoder.Convolution () -- ac-library-hs\nimport qualified Control.Comonad.Representable.Store () -- adjunctions\nimport qualified Data.Array () -- array\nimport qualified Data.Attoparsec () -- attoparsec\nimport qualified Control.Applicative () -- base\nimport qualified Data.Biapplicative () -- bifunctors\nimport qualified Data.Binary () -- binary\nimport qualified Data.Bit () -- bitvec\nimport qualified Data.ByteString () -- bytestring\nimport qualified Control.Comonad () -- comonad\nimport qualified Data.Containers.ListUtils () -- containers\nimport qualified Data.Functor.Contravariant.Compose () -- contravariant\nimport qualified Control.DeepSeq () -- deepseq\nimport qualified System.Directory () -- directory\nimport qualified Data.Distributive () -- distributive\nimport qualified Control.Monad.Catch () -- exceptions\nimport qualified Control.Concurrent.Extra () -- extra\nimport qualified Data.Graph.Inductive () -- fgl\nimport qualified System.FilePath () -- filepath\nimport qualified Flow () -- flow\nimport qualified Control.Alternative.Free () -- free\nimport qualified GHC.Num.Backend () -- ghc-bignum\nimport qualified GHC.CString () -- ghc-prim\nimport qualified Data.Hashable () -- hashable\nimport qualified Data.Heap () -- heaps\nimport qualified Numeric.LinearAlgebra () -- hmatrix\nimport qualified Numeric.LinearProgramming () -- hmatrix-glpk\nimport qualified Graphics.Plot () -- hmatrix-gsl\nimport qualified Numeric.GSL.Special () -- hmatrix-special\nimport qualified Data.List.Index () -- ilist\nimport qualified Data.Foldable.WithIndex () -- indexed-traversable\nimport qualified Data.Functor.WithIndex.Instances () -- indexed-traversable-instances\nimport qualified GHC.Integer.GMP.Internals () -- integer-gmp\nimport qualified GHC.Integer.Logarithms.Compat () -- integer-logarithms\nimport qualified Control.Comonad.Density () -- kan-extensions\nimport qualified Control.Exception.Lens () -- lens\nimport qualified Control.Functor.Linear () -- linear-base\nimport qualified ListT () -- list-t\nimport qualified Data.Massiv.Array () -- massiv\nimport qualified Text.Megaparsec () -- megaparsec\nimport qualified Control.Monad.Memo () -- monad-memo\nimport qualified Data.Containers () -- mono-traversable\nimport qualified Control.Monad.Accum () -- mtl\nimport qualified Data.Mutable () -- mutable-containers\nimport qualified System.Random.MWC () -- mwc-random\nimport qualified Control.Parallel () -- parallel\nimport qualified Text.Parsec () -- parsec\nimport qualified Control.Applicative.Combinators () -- parser-combinators\nimport qualified Text.PrettyPrint () -- pretty\nimport qualified Control.Monad.Primitive () -- primitive\nimport qualified System.Cmd () -- process\nimport qualified Data.Profunctor () -- profunctors\nimport qualified Data.HashPSQ () -- psqueues\nimport qualified System.Random () -- random\nimport qualified Data.Reflection () -- reflection\nimport qualified Data.IntMap.CharMap2 () -- regex-tdfa\nimport qualified Control.Exception.Safe () -- safe-exceptions\nimport qualified Data.ByteString.Builder.Scientific () -- scientific\nimport qualified Data.Align () -- semialign\nimport qualified Data.Bifunctor.Apply () -- semigroupoids\nimport qualified Data.List.Split () -- split\nimport qualified Control.Concurrent.STM () -- stm\nimport qualified Data.Strict () -- strict\nimport qualified Data.Strict.Lens () -- strict-lens\nimport qualified Data.Proxy.TH () -- tagged\nimport qualified Test.Tasty () -- tasty\nimport qualified Language.Haskell.TH () -- template-haskell\nimport qualified Data.Text () -- text\nimport qualified System.Random.TF () -- tf-random\nimport qualified Data.Functor.These () -- these\nimport qualified Data.These.Lens () -- these-lens\nimport qualified Data.Time () -- time\nimport qualified Control.Applicative.Backwards () -- transformers\nimport qualified Text.Trifecta () -- trifecta\nimport qualified Data.Vector.Unboxing () -- unboxing-vector\nimport qualified System.Posix () -- unix\nimport qualified Data.HashMap.Internal () -- unordered-containers\nimport qualified Control.Applicative.HT () -- utility-ht\nimport qualified Data.Vector () -- vector\nimport qualified Data.Vector.Algorithms () -- vector-algorithms\nimport qualified Data.Vector.Split () -- vector-split\nimport qualified Data.Stream.Monadic () -- vector-stream\nimport qualified Data.Vector.Unboxed.Deriving () -- vector-th-unbox\nimport qualified Data.WideWord () -- wide-word\nimport qualified Witherable () -- witherable\nimport qualified Text.XHtml () -- xhtml\nimport qualified Numeric.LinearAlgebra as L\nimport Numeric.GSL.Integration (integrateQNG)\nimport Numeric.GSL.Special.Gamma (gamma)\nimport Numeric.LinearProgramming\nmain = do\n let determinant = L.det ((2 L.>< 2) [1,0,0,3] :: L.Matrix Double)\n let (integral,_) = integrateQNG 1e-6 (\\x -> x*x) 0 1\n let lp = simplex (Maximize [1]) (Dense [[1] :<=: 3]) [1 :>=: 0]\n case lp of\n  Optimal (v,_) | abs (v-3)<1e-6 && abs (determinant-3)<1e-6 && abs (integral-1/3)<1e-6 && abs(gamma 4-6)<1e-6 -> print (3 :: Int)\n  _ -> error \"native libraries\"\n",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "import System.Directory\nmain = do { exists <- doesFileExist \"marker\"; if exists then error \"leaked\" else writeFile \"marker\" \"x\"; print (3 :: Int) }",
+      "verdict": "AC"
+    }
+  ],
+  "ruby-truffle40-isolate": [
+    {
+      "name": "stdin",
+      "source": "puts STDIN.read.split.map(&:to_i).sum",
+      "verdict": "AC",
+      "input": "1 2\n"
+    },
+    {
+      "name": "wrong",
+      "source": "puts 4",
+      "verdict": "WA"
+    },
+    {
+      "name": "syntax",
+      "source": "def (",
+      "verdict": "CE"
+    },
+    {
+      "name": "exception",
+      "source": "raise \"failure\"",
+      "verdict": "RE"
+    },
+    {
+      "name": "timeout",
+      "source": "loop {}",
+      "verdict": "TLE"
+    },
+    {
+      "name": "output",
+      "source": "loop { puts \"x\"*4096 }",
+      "verdict": "OLE"
+    },
+    {
+      "name": "memory",
+      "source": "require \"ffi\"; a=[]; loop { p=FFI::MemoryPointer.new(:char,16*1024*1024); p.put_bytes(0,\"x\"*(16*1024*1024)); a << p }",
+      "verdict": "MLE"
+    },
+    {
+      "name": "library-containers",
+      "source": "require \"ac-library-rb/dsu\";require \"bit_utils\";require \"bitarray\";require \"faster_prime\";require \"immutable\";require \"rbtree\";require \"rgl/adjacency\";require \"sorted_containers\";require \"sorted_set\"\nd=AcLibraryRb::DSU.new(3);d.merge(0,1);raise unless d.size(0)==2\nraise unless BitUtils.popcount(7)==3\nb=BitArray.new(5);b[2]=1;raise unless b[2]==1\nraise unless 7.prime?\nraise unless Immutable::Vector[1,2].sum==3\nt=RBTree.new;t[1]=3;raise unless t[1]==3\nraise unless RGL::DirectedAdjacencyGraph[1,2].has_edge?(1,2)\nraise unless SortedContainers::SortedArray.new([2,1]).to_a==[1,2]\nraise unless SortedSet.new([2,1]).to_a==[1,2]\nputs 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-geos",
+      "source": "require \"ffi-geos\"; r=Geos::WktReader.new; raise unless r.read(\"POINT (0 0)\").distance(r.read(\"POINT (3 0)\"))==3; puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "library-z3",
+      "source": "require \"z3\";x=Z3.Int(\"x\");s=Z3::Solver.new;s.assert(x==3);raise unless s.satisfiable?;raise unless s.model[x].to_i==3;puts 3",
+      "verdict": "AC",
+      "timeLimitMs": 5000
+    },
+    {
+      "name": "cleanup",
+      "source": "raise \"leaked\" if File.exist?(\"marker\"); File.write(\"marker\",\"x\"); puts 3",
+      "verdict": "AC"
+    }
   ]
 }

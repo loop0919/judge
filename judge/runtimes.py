@@ -52,6 +52,61 @@ RUNTIMES['nim22-isolate'] = dict(source='main.nim',
     run=['/box/main'], artifact='native',
     env=['LD_LIBRARY_PATH=' + ROOT + '/nim-deps/lib:' + ROOT + '/gcc/lib64'])
 
+# Module resolution requires the original suffix; dependencies are operator-owned mounts.
+NODE = ROOT + '/node/bin/node'
+NATIVE_ENV = ['LD_LIBRARY_PATH=' + ROOT + '/addition-native/lib:' + ROOT + '/ruby/lib']
+RUNTIMES['haskell-ghc910-isolate'] = dict(source='Main.hs',
+    compile=[ROOT + '/ghc/bin/ghc', '-O2', '-threaded', '-rtsopts', '-j1',
+             '@' + ROOT + '/haskell-deps/compile.args', '/box/Main.hs', '-o', '/box/main'],
+    run=['/box/main', '+RTS', '-N1', '-RTS'], artifact='native',
+    env=[*NATIVE_ENV, 'PATH=' + ROOT + '/haskell-deps/bin:/usr/bin:/bin'])
+RUNTIMES['ruby40-isolate'] = dict(source='main.rb', program='main.rb', artifact='source',
+    compile=[ROOT + '/ruby/bin/ruby', '-c', '/box/main.rb'],
+    run=[ROOT + '/ruby/bin/ruby', '-rbundler/setup', '/box/main.rb'],
+    env=[*NATIVE_ENV, 'BUNDLE_GEMFILE=' + ROOT + '/ruby-deps/Gemfile',
+         'BUNDLE_PATH=' + ROOT + '/ruby-deps/bundle', 'BUNDLE_FROZEN=true'])
+RUNTIMES['ruby-truffle40-isolate'] = dict(source='main.rb', program='main.rb', artifact='source',
+    compile=[ROOT + '/truffleruby/bin/ruby', '-c', '/box/main.rb'],
+    run=[ROOT + '/truffleruby/bin/ruby', '-rbundler/setup', '/box/main.rb'],
+    env=[*NATIVE_ENV, 'BUNDLE_GEMFILE=' + ROOT + '/truffleruby-deps/Gemfile',
+         'BUNDLE_PATH=' + ROOT + '/truffleruby-deps/bundle', 'BUNDLE_FROZEN=true'])
+
+for engine, executable in [('node24', NODE), ('bun14', ROOT + '/bun/bun'), ('deno29', ROOT + '/deno/deno')]:
+    deno = engine == 'deno29'
+    env = ['NO_COLOR=1', 'UV_THREADPOOL_SIZE=1']
+    if deno:
+        env += ['DENO_NO_UPDATE_CHECK=1', 'DENO_DIR=/box/deno-cache']
+    if engine == 'bun14':
+        env += ['BUN_INSTALL_CACHE_DIR=/box/bun-cache', 'BUN_RUNTIME_TRANSPILER_CACHE_PATH=0',
+                'BUN_CONFIG_NO_CLEAR_TERMINAL=1']
+    for language, extension in [('javascript', 'js'), ('typescript', 'ts')]:
+        source = 'main.' + extension
+        if deno:
+            command = [executable, 'run', '--no-check', '--cached-only', '--no-prompt',
+                       '--allow-read=/box,' + ROOT, '--allow-write=/box', '--allow-env',
+                       '--config=' + ROOT + '/deno-deps/deno.json', '/box/' + source]
+        elif engine == 'bun14':
+            command = [executable, '--no-install', '/box/' + source]
+        else:
+            command = [executable, '/box/main.js']
+        compile = [NODE, '--check', '/box/' + source]
+        artifact, output, program = 'source', source, source
+        if language == 'typescript':
+            if deno:
+                compile = [executable, 'check', '--cached-only',
+                           '--config=' + ROOT + '/deno-deps/deno.json', '/box/main.ts']
+            else:
+                compile = [NODE, ROOT + '/js-deps/node_modules/typescript/bin/tsc',
+                           '/box/main.ts', '--target', 'ES2022', '--module', 'NodeNext',
+                           '--moduleResolution', 'NodeNext', '--skipLibCheck', '--noEmitOnError',
+                           '--pretty', 'false', '--outDir', '/box/compiled',
+                           '--types', 'node' if engine == 'node24' else 'bun']
+                artifact, output, program = 'generated-source', 'compiled/main.js', 'main.js'
+                command = [executable, *(['--no-install'] if engine == 'bun14' else []), '/box/main.js']
+        RUNTIMES[language + '-' + engine + '-isolate'] = dict(source=source, program=program,
+            compile=compile, run=command, artifact=artifact, compile_output=output,
+            node_modules='js-deps/node_modules', deno_cache=deno, env=env)
+
 ENVIRONMENT = ['LANG=C.UTF-8', 'LC_ALL=C.UTF-8', 'HOME=/box',
                'OPENBLAS_NUM_THREADS=1', 'OMP_NUM_THREADS=1', 'MKL_NUM_THREADS=1',
                'NUMEXPR_NUM_THREADS=1', 'PYTHONDONTWRITEBYTECODE=1',

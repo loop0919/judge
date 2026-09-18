@@ -5,7 +5,7 @@ import concurrent.futures
 import hashlib
 import json
 from pathlib import Path
-import shutil
+import subprocess
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
@@ -48,8 +48,7 @@ def download(item):
     if not target.exists():
         print('Downloading', name, flush=True)
         temporary = target.with_suffix(target.suffix + '.part')
-        with urllib.request.urlopen(entry['url'], timeout=120) as response, temporary.open('wb') as output:
-            shutil.copyfileobj(response, output)
+        subprocess.run(['curl', '--fail', '--location', '--retry', '3', '--output', str(temporary), entry['url']], check=True)
         temporary.replace(target)
     with target.open('rb') as file:
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
@@ -62,12 +61,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lock', action='store_true', help='Resolve and pin upstream inputs for a new runtime')
     parser.add_argument('--extensions', action='store_true', help='Verify and download ADR 0010 inputs')
+    parser.add_argument('--additions', action='store_true', help='Verify and download Haskell, JS/TS and Ruby inputs')
     args = parser.parse_args()
-    if args.extensions:
+    if args.extensions and args.additions:
+        parser.error('select one extension set')
+    if args.extensions or args.additions:
         if args.lock:
             parser.error('extension versions must be selected and pinned explicitly')
-        LOCK = HERE / 'runtime-extension-sources.lock.json'
-        DEST = HERE / '.build/extension-inputs'
+        LOCK = HERE / ('runtime-addition-sources.lock.json' if args.additions else 'runtime-extension-sources.lock.json')
+        DEST = HERE / ('.build/addition-inputs' if args.additions else '.build/extension-inputs')
     manifest = sources() if args.lock else json.loads(LOCK.read_text())
     if not args.lock and any(len(entry.get('sha256', '')) != 64 for entry in manifest['files'].values()):
         parser.error('every locked input must have a SHA-256 checksum')

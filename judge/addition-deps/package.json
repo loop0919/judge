@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "dependencies": {
+    "ac-library-js": "0.1.1",
+    "data-structure-typed": "2.6.4",
+    "immutable": "5.1.9",
+    "lodash": "4.18.1",
+    "mathjs": "15.2.0",
+    "tstl": "3.0.0",
+    "typescript": "7.0.2",
+    "@types/lodash": "4.17.25",
+    "@types/node": "24.13.5",
+    "@types/bun": "1.4.2"
+  }
+}

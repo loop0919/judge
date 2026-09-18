@@ -155,6 +155,7 @@ class CheckerTests(unittest.TestCase):
                 artifact = root / 'checker'
                 artifact.write_bytes(b'compiled checker')
                 (root / 'dotnet-libs').mkdir()
+                (root / 'deno-deps/cache').mkdir(parents=True)
                 for filename in runtime.get('files', []):
                     (root / 'dotnet-libs' / filename).write_bytes(b'operator library')
                 meta = root / 'meta'
@@ -163,7 +164,7 @@ class CheckerTests(unittest.TestCase):
                     from subprocess import CompletedProcess
                     commands.append(args)
                     if '--run' in args:
-                        program = 'main.dll' if runtime['artifact'] == 'dotnet' else 'main'
+                        program = runtime.get('program', 'main.dll' if runtime['artifact'] == 'dotnet' else 'main')
                         self.assertEqual((box / program).read_bytes(), b'compiled checker')
                         for filename in runtime.get('files', []):
                             self.assertEqual((box / filename).read_bytes(), b'operator library')

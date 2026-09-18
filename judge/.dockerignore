@@ -1,6 +1,10 @@
 *
 !runtime.Dockerfile
 !runtime-extension.Dockerfile
+!runtime-additions.Dockerfile
+!build-runtime-additions.py
+!addition-deps/
+!addition-deps/**
 !nim-gmp-refc.patch
 !bignum-refc.patch
 !build-runtimes.sh
@@ -16,4 +20,6 @@
 .build/*
 !.build/runtime-inputs/
 !.build/extension-inputs/
+!.build/addition-inputs/
 !.build/runtime.tar.gz
+!.build/runtime-adr0010.tar.gz
