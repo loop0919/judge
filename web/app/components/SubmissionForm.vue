@@ -85,7 +85,11 @@ async function submit(easyTest = false) {
     <h2 id="submission-title">提出</h2>
     <p class="muted">ソースコードは64 KiBまで</p>
     <form @submit.prevent="submit()">
-      <SubmissionLanguageSelect v-model="runtime" :items="available" :disabled="sending" @change="rememberRuntime" />
+      <label for="submission-language">言語</label>
+      <select id="submission-language" v-model="runtime" :disabled="sending" @change="rememberRuntime">
+        <option value="">-- 未選択 --</option>
+        <option v-for="item in available" :key="item.id" :value="item.id">{{ item.label }}</option>
+      </select>
       <p><NuxtLink to="/blog/language-guide" target="_blank" rel="noopener noreferrer">使える言語と実行環境の仕様 ↗</NuxtLink></p>
       <p v-if="catalogError || !available.length" class="notice" role="status">現在、提出受付を停止しています。</p>
       <SourceCodeEditor v-model="source" :disabled="sending" />
@@ -128,7 +132,10 @@ async function submit(easyTest = false) {
 .submission-login h2 { margin-bottom: 8px; }
 .submission-login p { color: var(--color-muted); font-size: .875rem; }
 .submission-login a { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 24px; font-weight: 600; text-decoration: none; }
-.submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
+label { display: block; margin-block: 20px 8px; }
+select { width: 100%; max-width: 320px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-paper); color: var(--color-ink); font: inherit; cursor: pointer; }
+select:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+select:disabled, .submission-actions button:disabled { opacity: .5; cursor: not-allowed; }
 .submission-actions .editor-button { min-height: 44px; padding: 10px 28px; font-weight: 600; }
 .submission-actions button:disabled { transform: none; text-decoration: none; }
 .submission-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 16px; }
