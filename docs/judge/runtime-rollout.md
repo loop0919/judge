@@ -22,6 +22,10 @@ TerraformのplanでDB、ジョブ用S3、キューが削除対象に含まれな
 
 ## ランタイム配布物の構築
 
+Haskell、JS／TS、CRuby、TruffleRubyの追加版は、[追加環境のビルド手順](runtime-additions.md#ビルド)に従う。
+`build-assets.sh`の既定入力は`judge/.build/runtime-additions.tar.gz`である。
+以下のADR 0010単独版を構築する場合は、入力アーカイブを明示する。
+
 ADR 0010の追加環境は、既存の検証済みアーカイブを拡張する。
 ベースの`judge/.build/runtime.tar.gz`は上書きせず、追加版を別のファイル名で保存する。
 ベースのSHA-256は`runtime-extension.Dockerfile`で検証する。
@@ -33,10 +37,9 @@ docker build -f judge/runtime-extension.Dockerfile -t openoj-runtime:adr0010 jud
 docker create --name openoj-runtime-export openoj-runtime:adr0010
 docker cp openoj-runtime-export:/runtime.tar.gz judge/.build/runtime-adr0010.tar.gz
 docker rm openoj-runtime-export
-bash judge/build-assets.sh
+RUNTIME_ARCHIVE=.build/runtime-adr0010.tar.gz bash judge/build-assets.sh
 ```
 
-`build-assets.sh`は追加版を既定で使う。
 旧版を復元する場合は`RUNTIME_ARCHIVE=.build/runtime.tar.gz`を明示する。
 変更前後のruntime treeを比較し、既存C++のコンパイラとライブラリの実体が変わっていないことを確認する。
 インストーラーは追加版を一時ディレクトリへ展開してから切り替え、旧ツリーを`/opt/judge-runtimes.previous-旧アーカイブSHA256`へ退避する。
@@ -606,3 +609,122 @@ JUDGE_ENABLED_RUNTIMES=["c23-gcc","c23-clang","cpp23-gcc","cpp23-clang","python3
 APIとサイト側のカタログは12言語と`maintenance=false`を返した。
 静的ファイルの同時取得を3にした本番ブラウザでは、ページが200で表示され、カタログの定期取得を2回確認し、メンテナンスバナーが消えていることも確認した。
 前述したLambdaの同時実行上限に伴う初回読み込みの503は、この作業では解消していない。
+
+## 2026年9月19日：9ランタイム追加とDB smallへの変更
+
+Haskell、JS／TSのNode.js・Deno・Bun、CRuby、TruffleRubyを追加する。
+バージョン、固定依存、機械学習系依存の除外とTruffleRubyだけのOR-Tools除外は[追加環境の構成](runtime-additions.md)を参照する。
+既存84,718ファイルとシンボリックリンクをベース配布物と比較し、既存処理系の実体が維持されていることを確認した。
+
+### 受付停止とDB変更
+
+受付停止後、DBの未処理提出・未dispatch提出と、要求・結果・両失敗キューが0件であることを確認した。
+認証済みAPIからの通常提出・サンプル検証・生成は`503 judge_maintenance`となった。
+GitHubの`dev` Environmentも受付停止用の設定に同期してから、dispatch・結果受信とworkerを停止した。
+
+DB定義は既に`db.t4g.small`だったが、実体は`db.t4g.micro`でsmallへの変更が適用待ちだった。
+DBだけを対象にしたTerraform planで追加・削除・置換がないことを確認し、メンテナンス中にクラス変更を即時適用した。
+変更後は`db.t4g.small`、`available`、`PendingModifiedValues={}`を確認した。
+PostgreSQL 17.9、20 GiB、gp3を維持し、DBを読む`GET /problems`が200を返すことを確認した。
+
+### 一次修正版の配布と対話テストの修正
+
+実機検証で見つかったネイティブ依存の探索、TruffleRubyの起動負荷、TypeScriptの型検査時ファイル数、出力超過判定を`c07a212`で修正した。
+Python 57テストとGitHub ActionsのAPI・Web・Terraformの検証が成功した。
+Actions run `35359023513`でAPIとfrontendの配布も成功した。
+
+| 配布物 | SHA-256 |
+| --- | --- |
+| `runtime-additions.tar.gz` | `863ead3a3743fb120678517debc933db8c25d24d6018b2a2302f72dcc97f5d97` |
+| `worker.tar.gz` | `a0464edec86e4750c4de5e94a2d4fc1645594ae55b22536097e423c25d7a9871` |
+| `runtime-fix.tar.gz` | `88df1f6146d481a58df6d64733bc013217a7d91a23307a832c2119b76fc2fa25` |
+| 全ランタイムの`runtime-tree.json` | `7769fce9f981e9988743468f25b6b38bc778f78b3473c6b3b5b018e2c7a2b8e2` |
+
+配布先は非公開の`judge-dev-judge-5983370c65ca9cd6b9cd685c8d`バケットで、`releases/workerのSHA-256/`配下に完成品と差分を保存した。
+修正の適用はSSM command `d14f65ff-b32c-45e1-b91b-98aa2aa88b9c`で成功した。
+workerのディスク使用量を抑えるため差分を適用し、適用後の全ランタイムツリーが完成品アーカイブと一致することを検証した。
+初回インストールでOSの`libsqlite3-0`が`3.45.1-1ubuntu2.8`へ更新されたため、その状態をfingerprintへ含めた。
+再起動は不要だった。
+
+この版のSSM command `06bbd295-76ec-4def-9bb6-bd578a29dae6`では、全23ランタイムの通常判定・ライブラリ・checker・生成が通過した。
+対話検証では、EOFを待つバッチ用のプログラムを応答待ちの相手と組み合わせたため、Haskellのテストが停止した。
+公開判定用レポートは全言語を不合格とし、この版は公開しなかった。
+
+`7bdcee4`でバッチ用入力例の流用をやめ、対話入力をflush付きの専用例で検証するよう修正した。
+Rubyの対話例も、引数のファイルを読む`gets`から`STDIN.gets`へ修正した。
+通常提出でのEOF読み込みテストと全ライブラリの対話用上限での検証は維持する。
+SSM command `4147a71a-8dc9-4e11-afcd-6d0fd2a5f085`で、新9言語の対話と共通隔離テストが通過した。
+実行制限やランタイム本体を変更する修正ではない。
+
+退避先はスナップショット`judge-dev-before-language-additions-20260919`、worker上の`/opt/judge-backup-additions/control.tar.gz`と旧ランタイムツリーである。
+旧配布物とLambdaのコード・設定も保持する。
+
+### 最終配布物
+
+`7bdcee4`の対話テスト修正を含む完成版を再構築した。
+ランタイムアーカイブと依存ツリーのSHA-256は一次修正版と同一である。
+
+| 配布物 | SHA-256 |
+| --- | --- |
+| `worker.tar.gz` | `4c97dc38c7bd8ee9eb90b8a53ad7a95fed95504c0b6bf65886206ca325628e64` |
+| `runtime-fix.tar.gz` | `d5b378c8077c7b72068dd899b366fa66d644f658f1eb6932eba2bedb459b488b` |
+
+SSM command `46ffd5ef-a613-4e49-b8a9-6e82d06da8e3`で適用し、全ランタイムツリーと完成品の一致を再確認した。
+Actions run `35362521713`でもCIとAPI・frontend配布が成功した。
+
+### 最終実機検証
+
+SSM command `80ce6772-deea-4d21-9800-eff638c13486`で、同じdigestの全23ランタイムが合格した。
+新9ランタイムのAC・WA・CE・RE・TLE・MLE・OLE、全対象ライブラリ、checker、生成、flush付き対話とケース間清掃を確認した。
+既存14ランタイム、両C++23のtestlib、秘密ファイルの非公開、ネットワーク遮断、子プロセス回収も通過した。
+レポートの`failedRuntimes`は空で、`judge/.build/smoke-report-additions.json`へ保存した。
+
+検証サービスのCPU時間は23分19.078秒、観測したピークメモリは1,137,688,576 bytes、swap使用は0だった。
+検証済みdigestは`sha256:ce6202402d020f6a6b1f7bc508b4925f97b461063099f30a43e341e59caab196`である。
+
+### 本番API・画面の検証と受付再開
+
+worker起動時に制御コードとmanifestの一致を確認し、準備完了イベントを待ってからdispatchと結果受信を有効化した。
+API・bridge・workerの採点環境digestを一致させ、実機で合格した21言語を公開した。
+C++17とJava 24は回帰検証だけを行い、公開保留を維持する。
+GitHub Actionsの`dev` Environment変数と、ローカルのAPI・judge用Terraform設定も同期した。
+judge側のTerraform stateはrefresh-onlyで更新し、インフラの追加・変更・削除は0件だった。
+bridgeの予約同時実行数は既存の未予約設定を維持し、今回と無関係な変更は適用していない。
+
+本番APIから21言語の代表提出と、新9言語の出力生成を実行し、次の30件すべてがACとなった。
+各提出は2ケースを含む。
+生成ファイルは画面と同じ`/complete`で確定し、ダウンロード後の内容とSHA-256も検証した。
+
+| 公開ID | 代表提出 | 出力生成 |
+| --- | --- | --- |
+| `c23-gcc` | `87777cbb-1f88-492c-928b-79e64bfffd42` | — |
+| `c23-clang` | `7476c635-9dcf-4d28-bc2d-6b8738695896` | — |
+| `cpp23-gcc` | `bd881c30-094d-4d6f-b658-617f4447120a` | — |
+| `cpp23-clang` | `ef735a1e-045d-49d6-bd8b-fc6d83d11d15` | — |
+| `python314` | `5f73521c-aec4-40bf-9750-f2a8559c2659` | — |
+| `pypy311` | `56e5b3c1-4983-4d7f-8c41-95bfa0947248` | — |
+| `codon020` | `29d58e6f-ef7a-4d45-8991-665663572afc` | — |
+| `rust2024` | `ce8725ca-540f-4810-9aee-2c987d009a7d` | — |
+| `java25` | `84b7f206-d2bf-4e73-9f49-6ca900dd64c0` | — |
+| `csharp14` | `e9dcc961-b786-457a-a84a-20c3d7695b67` | — |
+| `nim22` | `4eb87d4b-3301-4d09-89d4-e5a288d51b4e` | — |
+| `go127` | `24c732fd-12f1-4907-b3a2-d3f6bd21bc34` | — |
+| `haskell-ghc910` | `cdcc9e2b-117f-40fe-b7d6-b05876932c4e` | `1a92aca7-7731-4a52-a08e-164042f354b4` |
+| `javascript-node24` | `26396717-d0ab-4db0-8b31-9794f195b854` | `0e7e3f50-6d36-4dc6-97e5-2a09c6b23a8d` |
+| `typescript-node24` | `2103f418-df66-4ee6-ad3a-b6094d9970a4` | `0ecad884-7a1b-4fae-90c4-2b804dc51c9f` |
+| `javascript-deno29` | `11224236-9521-4e62-ab35-301e8ad541d8` | `2bcf1043-0c67-4ee9-b6e3-41ffa97f9a46` |
+| `typescript-deno29` | `f9078720-0095-4a0f-96b9-0ae3feb817ce` | `27691941-af95-45f0-b9ed-186e0d5333a8` |
+| `javascript-bun14` | `b42c35f9-03b0-4b21-bc7a-f5409dd8d4ba` | `4a3584cb-1759-4d06-9e3c-0d1c166f8d6c` |
+| `typescript-bun14` | `0a86e95b-d140-4d4c-8102-12cc17738944` | `7e2320f4-6669-4b70-855e-ca4f228a2978` |
+| `ruby40` | `6eafa718-5ac4-4c7c-8e69-50a5b26b2c7b` | `a9b2416a-5ea0-4c19-a753-558e3a872fbf` |
+| `ruby-truffle40` | `c0cbe033-95ee-4857-b6e0-148c125ee4bc` | `f909e7e6-2952-46f5-bda0-5cd2a078593c` |
+
+検証用の非公開問題と、メール送信を抑止して作成した一時Cognitoアカウントを削除した。
+プロフィールと提出の監査記録は残る。
+APIとサイト側カタログは21言語・`maintenance=false`で一致した。
+ログイン済みの実ブラウザで、checker・interactorの選択欄に新9言語が表示されること、利用ガイドの版、メンテナンスバナーの解除を確認した。
+既存のLambda同時実行上限に合わせ、画面検証では静的ファイルの同時取得を3にした。
+
+最終確認でDBは`db.t4g.small / available`、適用待ち変更なしだった。
+要求・結果・両失敗キューの可視・処理中・遅延メッセージはすべて0件、workerのエラーと再起動も0件だった。
+受付は再開済みである。
