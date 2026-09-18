@@ -19,7 +19,11 @@ func TestPublicSubmissionCaseResults(t *testing.T) {
 			CheckerLog: &TextPreview{Text: "private diagnostic"}, SampleDetails: &SampleDetails{},
 		}, {Name: "test_2", Verdict: "SKIPPED"}},
 	}}
+	original.Result.summarizeUsage()
 	got := publicSubmission(original)
+	if got.Result.CPUTimeMS == nil || *got.Result.CPUTimeMS != cpu || got.Result.MemoryBytes == nil || *got.Result.MemoryBytes != memory {
+		t.Fatal("lost public usage summary")
+	}
 	if got.Result.Verdict != "WA" || got.Result.Passed != 1 || got.Result.Total != 2 || len(got.Result.Cases) != 2 {
 		t.Fatalf("lost result summary: %+v", got.Result)
 	}
@@ -44,5 +48,29 @@ func TestPublicSubmissionCaseResults(t *testing.T) {
 	}
 	if publicSubmission(Submission{}).Result != nil {
 		t.Fatal("created a result for a pending submission")
+	}
+}
+
+func TestResultUsageSummary(t *testing.T) {
+	zero, cpu := 0.0, 12.25
+	small, large := int64(1000000), int64(2500000)
+	r := Result{Cases: []CaseResult{
+		{CPUTimeMS: &cpu, MemoryBytes: &small},
+		{CPUTimeMS: &zero, MemoryBytes: &large},
+		{Verdict: "SKIPPED"},
+	}}
+	r.summarizeUsage()
+	if r.CPUTimeMS == nil || *r.CPUTimeMS != cpu || r.MemoryBytes == nil || *r.MemoryBytes != large {
+		t.Fatalf("expected independent maxima, got %+v", r)
+	}
+	r.Cases = []CaseResult{{CPUTimeMS: &zero}}
+	r.summarizeUsage()
+	if r.CPUTimeMS == nil || *r.CPUTimeMS != 0 || r.MemoryBytes != nil {
+		t.Fatal("zero is measured; missing memory is not zero")
+	}
+	r.Cases = nil
+	r.summarizeUsage()
+	if r.CPUTimeMS != nil || r.MemoryBytes != nil {
+		t.Fatal("unmeasured result must stay empty")
 	}
 }

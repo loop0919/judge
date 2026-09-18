@@ -9,7 +9,8 @@ import (
 func publicSubmission(s Submission) Submission {
 	// Public results must not expose private checker diagnostics or test data.
 	if s.Result != nil {
-		result := &Result{Verdict: s.Result.Verdict, Passed: s.Result.Passed, Total: s.Result.Total}
+		result := &Result{Verdict: s.Result.Verdict, Passed: s.Result.Passed, Total: s.Result.Total,
+			CPUTimeMS: s.Result.CPUTimeMS, MemoryBytes: s.Result.MemoryBytes}
 		for _, c := range s.Result.Cases {
 			result.Cases = append(result.Cases, CaseResult{
 				Name: c.Name, Verdict: c.Verdict,

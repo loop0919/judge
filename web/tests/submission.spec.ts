@@ -19,8 +19,10 @@ for (const scope of ['problem', 'contest']) {
     await expect(page.getByRole('row', { name: '提出者 alice', exact: true })).toBeVisible()
     await expect(page.getByRole('row', { name: '言語 C++17 (GCC)', exact: true })).toBeVisible()
     await expect(page.getByRole('row', { name: 'コード長 12 bytes', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: '実行時間 2 ms', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'メモリ使用量 1.05 MB', exact: true })).toBeVisible()
     await expect(page.getByRole('row', { name: '正解したケース 1 / 1', exact: true })).toBeVisible()
-    await expect(page.getByRole('row', { name: 'sample_1 AC 2 ms 4 ms 1.00 MiB', exact: true })).toBeVisible()
+    await expect(page.getByRole('row', { name: 'sample_1 AC 2 ms 4 ms 1.05 MB', exact: true })).toBeVisible()
     const source = page.getByRole('textbox', { name: 'ソースコード', exact: true })
     await expect(source).toHaveText('int main(){}')
     await expect(source).toHaveAttribute('aria-readonly', 'true')
@@ -120,7 +122,7 @@ test('C++ submission opens its result and polls until completion', async ({ page
     await route.fulfill({ status: 202, json: item })
   })
   let reads = 0
-  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: ++reads === 1 ? item : { ...item, status: 'DONE', result: { verdict: 'AC', passed: 2, total: 2, cases: [{ name: 'sample', verdict: 'AC' }, { name: 'large', verdict: 'AC' }] } } }))
+  await page.route(`**/api/my/submissions/${submissionId}`, route => route.fulfill({ json: ++reads === 1 ? item : { ...item, status: 'DONE', result: { verdict: 'AC', passed: 2, total: 2, cpuTimeMs: 3.25, memoryBytes: 12345000, cases: [{ name: 'sample', verdict: 'AC' }, { name: 'large', verdict: 'AC' }] } } }))
   await page.goto(`/problems/${problemId}`)
   await expect(page.getByRole('heading', { name: 'ログインして解答を提出' })).toBeHidden()
   await page.getByLabel('ソースコード', { exact: true }).fill('int main(){}')
@@ -132,6 +134,8 @@ test('C++ submission opens its result and polls until completion', async ({ page
   await expect(page).toHaveURL(`/my/submissions/${submissionId}`)
   await expect(page.getByRole('status')).toHaveText('AC：正解')
   await expect(page.getByRole('row', { name: '正解したケース 2 / 2' })).toBeVisible()
+  await expect(page.getByRole('row', { name: '実行時間 4 ms', exact: true })).toBeVisible()
+  await expect(page.getByRole('row', { name: 'メモリ使用量 12.35 MB', exact: true })).toBeVisible()
   await expect(page.getByRole('row', { name: '言語 C++17 (GCC)', exact: true })).toBeVisible()
   await expect(page.getByRole('row', { name: '問題の版', exact: false })).toHaveCount(0)
   await expect(page.getByRole('table', { name: 'テストケースごとの結果' }).getByRole('row', { name: 'sample AC' })).toBeVisible()
@@ -339,3 +343,26 @@ test('submission frequency limit preserves the wait time and styles both actions
     await expect(page.getByLabel('ソースコード', { exact: true })).toHaveText('// rate-limit-fixture')
   }
 })
+
+for (const view of ['all', 'mine', 'history']) {
+  test(`${view} submission list shows measured resource usage`, async ({ page }) => {
+    await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+    await page.route('**/api/my/profile', route => route.fulfill({ json: { profile: { handle: 'alice', avatar: '', version: 1, createdAt: '2026-09-01T00:00:00Z' } } }))
+    const base = { id: submissionId, problemId, problemTitle: 'A + B', problemVersion: 1, author: 'alice', runtime: 'python314', createdAt: '2026-09-01T00:00:00Z', status: 'DONE' }
+    const items = [
+      { ...base, result: { verdict: 'AC', passed: 2, total: 2, cpuTimeMs: 1234.1, memoryBytes: 12345678 } },
+      { ...base, id: 'zero', result: { verdict: 'AC', passed: 1, total: 1, cpuTimeMs: 0, memoryBytes: 0 } },
+      { ...base, id: 'missing', result: { verdict: 'CE', passed: 0, total: 1 } },
+      { ...base, id: 'pending', status: 'RUNNING', result: null },
+    ]
+    const endpoint = view === 'history' ? '**/api/my/submissions' : `**/api/problems/${problemId}/submissions?*`
+    await page.route(endpoint, route => route.fulfill({ json: { items, hasMore: false } }))
+    await page.goto(view === 'history' ? '/my/submissions' : `/problems/${problemId}?view=${view === 'mine' ? 'my-submissions' : 'submissions'}`)
+    await expect(page.getByRole('columnheader', { name: '実行時間・メモリ', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: '1235 ms・ 12.35 MB', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: '0 ms・ 0.00 MB', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: '—・ —', exact: true })).toHaveCount(2)
+    await page.setViewportSize({ width: 375, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}

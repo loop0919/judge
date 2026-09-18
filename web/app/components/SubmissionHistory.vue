@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { submissionUsage } from '~/utils/submission-usage'
 import { runtimeLabel } from '~/utils/runtime-label'
 import type { Submission } from '~~/shared/types/submission'
 withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
@@ -27,12 +28,13 @@ usePolling(load, 2000, () => !message.value && (items.value.some(item => item.st
     <p v-else-if="!items.length && !message">提出はまだありません。</p>
     <div v-if="items.length" class="submission-table-scroll" role="region" aria-labelledby="submission-history-title" tabindex="0">
       <table aria-label="提出履歴">
-        <thead><tr><th scope="col">提出日時</th><th scope="col">問題</th><th scope="col">言語</th><th scope="col">結果</th><th scope="col">詳細</th></tr></thead>
+        <thead><tr><th scope="col">提出日時</th><th scope="col">問題</th><th scope="col">言語</th><th scope="col" title="各テストケースの最大CPU時間・最大メモリ使用量">実行時間・メモリ</th><th scope="col">結果</th><th scope="col">詳細</th></tr></thead>
         <tbody>
           <tr v-for="item in items" :key="item.id">
             <td class="submission-date"><time :datetime="item.createdAt">{{ new Date(item.createdAt).toLocaleString('ja-JP') }}</time></td>
             <td class="submission-problem"><NuxtLink :to="item.contestId ? `/contests/${item.contestId}/problems/${item.problemId}` : `/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td>
             <td class="submission-language">{{ runtimeLabel(item.runtime) }}</td>
+            <td class="submission-usage">{{ submissionUsage(item.result) }}</td>
             <td class="submission-result"><span role="status"><SubmissionStatus :item="item" /></span></td>
             <td><NuxtLink :to="`/my/submissions/${item.id}`" :aria-label="`${item.problemTitle}の提出詳細`">詳細</NuxtLink></td>
           </tr>
@@ -60,6 +62,7 @@ tbody tr:hover { background: var(--color-accent-soft); }
 tbody tr:last-child td { border-bottom: 0; }
 .submission-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .submission-problem { min-width: 200px; overflow-wrap: anywhere; }
+.submission-usage { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .submission-language, .submission-result, td:last-child { white-space: nowrap; }
 .submission-result { text-align: center; }
 </style>

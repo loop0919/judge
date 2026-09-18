@@ -9,7 +9,7 @@ const submission = {
   id: '22222222-2222-4222-8222-222222222222', problemId: problem.id, problemTitle: problem.title,
   problemVersion: 1, author: 'alice', runtime: 'cpp17', source: 'int main(){}', status: 'DONE',
   createdAt: '2026-09-10T00:00:00Z',
-  result: { verdict: 'AC', passed: 1, total: 1, cases: [{ name: 'sample_1', verdict: 'AC', cpuTimeMs: 2, wallTimeMs: 4, memoryBytes: 1048576 }] },
+  result: { verdict: 'AC', passed: 1, total: 1, cpuTimeMs: 2, memoryBytes: 1048576, cases: [{ name: 'sample_1', verdict: 'AC', cpuTimeMs: 2, wallTimeMs: 4, memoryBytes: 1048576 }] },
 }
 createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json')

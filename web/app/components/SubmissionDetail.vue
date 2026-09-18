@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { executionTime, memoryUsage } from '~/utils/submission-usage'
 import { runtimeLabel } from '~/utils/runtime-label'
 import type { Submission } from '~~/shared/types/submission'
 const props = defineProps<{ item: Submission }>()
@@ -43,6 +44,8 @@ const verdicts: Record<string, string> = { AC: '正解', WA: '不正解', CE: '�
             <tr><th scope="row">問題</th><td><NuxtLink :to="item.contestId ? `/contests/${item.contestId}/problems/${item.problemId}` : `/problems/${item.problemId}`">{{ item.problemTitle }}</NuxtLink></td></tr>
             <tr><th scope="row">言語</th><td>{{ runtimeLabel(item.runtime) }}</td></tr>
             <tr><th scope="row">コード長</th><td>{{ codeBytes === null ? '—' : `${codeBytes.toLocaleString('en-US')} bytes` }}</td></tr>
+            <tr><th scope="row" title="各テストケースの最大CPU時間">実行時間</th><td>{{ executionTime(item.result?.cpuTimeMs) }}</td></tr>
+            <tr><th scope="row" title="各テストケースの最大メモリ使用量">メモリ使用量</th><td>{{ memoryUsage(item.result?.memoryBytes) }}</td></tr>
             <tr><th scope="row">結果</th><td><span role="status" aria-live="polite"><SubmissionStatus :item="item" /><template v-if="item.result">：{{ verdicts[item.result.verdict] ?? '' }}</template></span></td></tr>
             <tr><th scope="row">正解したケース</th><td>{{ item.result ? `${item.result.passed} / ${item.result.total}` : '—' }}</td></tr>
           </tbody>
@@ -60,7 +63,7 @@ const verdicts: Record<string, string> = { AC: '正解', WA: '不正解', CE: '�
               <td><span class="verdict-badge" :data-verdict="testCase.verdict === 'SKIPPED' ? undefined : testCase.verdict" :title="verdicts[testCase.verdict]">{{ testCase.verdict === 'SKIPPED' ? '未実行' : testCase.verdict }}</span></td>
               <td>{{ testCase.cpuTimeMs == null ? '—' : `${testCase.cpuTimeMs} ms` }}</td>
               <td>{{ testCase.wallTimeMs == null ? '—' : `${testCase.wallTimeMs} ms` }}</td>
-              <td>{{ testCase.memoryBytes == null ? '—' : `${(testCase.memoryBytes / 1048576).toFixed(2)} MiB` }}</td>
+              <td>{{ memoryUsage(testCase.memoryBytes) }}</td>
             </tr>
           </tbody>
         </table>

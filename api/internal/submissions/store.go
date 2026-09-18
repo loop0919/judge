@@ -63,6 +63,8 @@ type CaseResult struct {
 }
 
 type Result struct {
+	CPUTimeMS   *float64     `json:"cpuTimeMs,omitempty"`
+	MemoryBytes *int64       `json:"memoryBytes,omitempty"`
 	Interactive bool         `json:"interactive,omitempty"`
 	CheckerLog  string       `json:"checkerLog,omitempty"`
 	Cases       []CaseResult `json:"cases,omitempty"`
@@ -70,6 +72,19 @@ type Result struct {
 	Passed      int          `json:"passed"`
 	Total       int          `json:"total"`
 	CompileLog  string       `json:"compileLog,omitempty"`
+}
+
+// Summaries use the maximum measured value across cases, not the sum.
+func (r *Result) summarizeUsage() {
+	r.CPUTimeMS, r.MemoryBytes = nil, nil
+	for _, c := range r.Cases {
+		if c.CPUTimeMS != nil && (r.CPUTimeMS == nil || *c.CPUTimeMS > *r.CPUTimeMS) {
+			r.CPUTimeMS = c.CPUTimeMS
+		}
+		if c.MemoryBytes != nil && (r.MemoryBytes == nil || *c.MemoryBytes > *r.MemoryBytes) {
+			r.MemoryBytes = c.MemoryBytes
+		}
+	}
 }
 
 type Progress struct {
@@ -105,6 +120,9 @@ func scan(row pgx.Row) (Submission, error) {
 	err := row.Scan(&s.ID, &s.ProblemID, &s.ProblemVersion, &s.ProblemTitle, &s.Runtime, &s.Source, &s.Status, &result, &s.CreatedAt, &progress, &s.EasyTest, &s.ContestID, &s.Author)
 	if err == nil && result != nil {
 		err = json.Unmarshal(result, &s.Result)
+		if err == nil && s.Result != nil {
+			s.Result.summarizeUsage()
+		}
 	}
 	if err == nil && progress != nil {
 		err = json.Unmarshal(progress, &s.Progress)

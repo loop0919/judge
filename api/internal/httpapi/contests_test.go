@@ -386,6 +386,7 @@ func TestContestsPostgres(t *testing.T) {
 	if rows = rank(); rows[1].Points != 100 {
 		t.Fatal("practice counted", rows)
 	}
+	exec(`UPDATE submissions SET result=result || '{"cases":[{"name":"a","verdict":"AC","cpuTimeMs":12.25,"memoryBytes":1000000},{"name":"b","verdict":"AC","cpuTimeMs":0,"memoryBytes":2500000}]}'::jsonb WHERE id=$1`, accepted.ID)
 	detail = request("GET", "/contests/"+cid+"/submissions/"+accepted.ID, "", nil, 200)
 	if !strings.Contains(detail, "code of bob") || strings.Contains(detail, "private diagnostic") {
 		t.Fatal("public source/diagnostic", detail)
@@ -410,7 +411,32 @@ func TestContestsPostgres(t *testing.T) {
 	if !strings.Contains(list, accepted.ID) || strings.Contains(list, pre.ID) || strings.Contains(list, "code of") {
 		t.Fatal("normal problem list", list)
 	}
-	request("GET", "/problems/"+a+"/submissions/"+accepted.ID, "", nil, 200)
+	for _, path := range []string{"/contests/" + cid + "/submissions", "/contests/" + cid + "/problems/" + a + "/submissions", "/problems/" + a + "/submissions", "/my/problems/" + a + "/submissions?mine=1", "/my/submissions"} {
+		var response submissions.ContestSubmissionList
+		json.Unmarshal([]byte(request("GET", path, "bob", nil, 200)), &response)
+		found := false
+		for _, item := range response.Items {
+			if item.ID != accepted.ID {
+				continue
+			}
+			found = true
+			if item.Result.CPUTimeMS == nil || *item.Result.CPUTimeMS != 12.25 || item.Result.MemoryBytes == nil || *item.Result.MemoryBytes != 2500000 {
+				t.Fatalf("missing usage summary on %s: %+v", path, item.Result)
+			}
+			if path != "/my/submissions" && len(item.Result.Cases) != 0 {
+				t.Fatal("public list exposed case details")
+			}
+		}
+		if !found {
+			t.Fatal("missing submission", path)
+		}
+	}
+	var measured submissions.Submission
+	json.Unmarshal([]byte(request("GET", "/problems/"+a+"/submissions/"+accepted.ID, "", nil, 200)), &measured)
+	if measured.Result.CPUTimeMS == nil || *measured.Result.CPUTimeMS != 12.25 || measured.Result.MemoryBytes == nil || *measured.Result.MemoryBytes != 2500000 {
+		t.Fatal("missing detail usage summary")
+	}
+
 	request("GET", "/problems/"+b+"/submissions/"+accepted.ID, "", nil, 404)
 	request("GET", "/problems/"+a+"/submissions/"+pre.ID, "", nil, 404)
 	request("GET", "/problems/"+b+"/submissions/"+easy.ID, "", nil, 404)
