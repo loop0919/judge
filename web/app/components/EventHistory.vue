@@ -19,10 +19,10 @@ onMounted(load)
 
 <template>
   <section class="draft-library" aria-labelledby="events-heading">
-    <header class="draft-library-heading"><h2 id="events-heading">イベント</h2></header>
+    <h2 id="events-heading">イベント</h2>
     <p v-if="loading" role="status">イベントを読み込んでいます…</p>
     <p v-else-if="error" role="alert">{{ error }} <button class="editor-button" @click="load">再試行</button></p>
-    <p v-else-if="!items.length">イベントはまだありません。</p>
+    <p v-else-if="!items.length">イベントはまだありません</p>
     <ul v-else class="event-list">
       <li v-for="item in items" :key="item.id">
         <NuxtLink :to="`/problems/${item.problemId}`">{{ item.title }}</NuxtLink>
@@ -34,6 +34,7 @@ onMounted(load)
 </template>
 
 <style scoped>
+#events-heading { margin: 0 0 32px; }
 .event-list { list-style: none; padding: 0; margin: 0; }
 .event-list li { padding: 16px 0; border-bottom: 1px solid var(--color-line); overflow-wrap: anywhere; }
 .event-list a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; }
