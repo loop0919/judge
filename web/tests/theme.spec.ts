@@ -64,9 +64,10 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion })
     await page.goto('/')
     const toggle = page.getByRole('button', { name: /モードに切り替え$/ })
-    const home = page.getByRole('navigation', { name: 'メインナビゲーション' }).getByRole('link', { name: 'ホーム', exact: true })
+    const navigation = page.getByRole('navigation', { name: 'メインナビゲーション' })
     const themeBounds = (await toggle.boundingBox())!
-    expect(themeBounds.x + themeBounds.width).toBeLessThanOrEqual((await home.boundingBox())!.x)
+    const navBounds = (await navigation.boundingBox())!
+    expect(navBounds.x + navBounds.width).toBeLessThanOrEqual(themeBounds.x)
     if (reducedMotion === 'no-preference') {
       await page.locator('.grid-dot').evaluateAll(dots => dots.forEach(dot => dot.getAnimations().forEach(animation => {
         animation.pause()

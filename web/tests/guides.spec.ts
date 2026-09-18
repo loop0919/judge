@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-for (const [slug, codeBlocks, tables] of [['generator-guide', 3, 1], ['language-guide', 2, 8]] as const) {
+for (const [slug, codeBlocks, tables] of [['generator-guide', 3, 1], ['language-guide', 2, 9]] as const) {
   test(`${slug} renders Markdown, highlighted code and stable section links`, async ({ page, request }, testInfo) => {
     const path = `/blog/${slug}`
     const response = await request.get(path)
