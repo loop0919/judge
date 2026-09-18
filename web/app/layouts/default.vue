@@ -33,7 +33,6 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
     <header v-if="!route.meta.editorLayout" class="site-header">
       <NuxtLink class="wordmark" to="/" aria-label="ShareOJ ホーム">Share<span>OJ</span><span class="wordmark-beta">(β)</span></NuxtLink>
       <nav aria-label="メインナビゲーション">
-        <ThemeSelect />
         <NuxtLink to="/">ホーム</NuxtLink>
         <NuxtLink to="/problems">問題</NuxtLink>
         <NuxtLink to="/contests">コンテスト</NuxtLink>
@@ -46,10 +45,13 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
             <NuxtLink to="/blog/new"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z" /><path d="m13 6 5 5" /></svg>新規記事</NuxtLink>
           </div>
         </details>
+      </nav>
+      <div class="header-tools">
+        <ThemeSelect />
         <NotificationBell v-if="user" />
         <NuxtLink v-if="user" to="/my" class="account-nav" aria-label="マイページ" title="マイページ"><UserAvatar :handle="profile?.handle ?? ''" :avatar="profile?.avatar" :size="32" /></NuxtLink>
         <NuxtLink v-else to="/login">ログイン</NuxtLink>
-      </nav>
+      </div>
     </header>
     <main id="main" tabindex="-1"><slot /></main>
     <footer v-if="!route.meta.editorLayout" class="site-footer">
@@ -63,9 +65,19 @@ onMounted(() => { void refreshAccount().then(account => { if (account) return re
 </template>
 
 <style scoped>
+/* Hallmark · component: two-row mobile header · existing green theme
+ * pre-emit critique: P4 H5 E4 S5 R5 V4 */
 .judge-banner { flex-shrink: 0; padding: 12px 16px; background: var(--color-surface); color: var(--color-ink); border-bottom: 2px solid var(--color-accent); font-size: .875rem; overflow-wrap: anywhere; }
 .account-nav { min-width: 44px; min-height: 44px; justify-content: center; }
-.site-header nav { position: relative; }
+.site-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+.site-header nav { position: relative; width: auto; justify-content: flex-end; }
+.header-tools { position: relative; display: flex; align-items: center; gap: 4px; }
+.header-tools a { font-size: .875rem; text-decoration: none; }
+@media (max-width: 59.999rem) {
+  .site-header { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+  .header-tools { grid-column: 2; grid-row: 1; gap: 0; }
+  .site-header nav { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; gap: 0 8px; flex-wrap: nowrap; }
+}
 .create-menu { font-size: .875rem; }
 .create-menu summary { display: flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; list-style: none; color: var(--color-accent); }
 .create-menu summary::-webkit-details-marker { display: none; }
