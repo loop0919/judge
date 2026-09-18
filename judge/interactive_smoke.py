@@ -32,7 +32,7 @@ def run(runtime, requested, fixtures, judge):
     go = 'package main\nimport "fmt"\nfunc main(){for n:=10;n<12;n++ {fmt.Println(n);var x int;if _,e:=fmt.Scan(&x);e!=nil||x!=2*n{panic("answer")}}}'
     nim = 'import std/strutils\nfor n in 10..11:\n echo n\n flushFile(stdout)\n doAssert parseInt(stdin.readLine())==2*n'
     haskell = 'import System.IO\nmain = mapM_ (\\n -> do { print n; hFlush stdout; x <- readLn; if x == 2*n then pure () else error "answer" }) ([10,11] :: [Int])'
-    ruby = '$stdout.sync = true\n[10,11].each { |n| puts n; raise "answer" unless gets.to_i == 2*n }'
+    ruby = '$stdout.sync = true\n[10,11].each { |n| puts n; raise "answer" unless STDIN.gets.to_i == 2*n }'
     js = 'import {readSync,writeSync} from "node:fs"; const b=new Uint8Array(1); for(let n=10;n<12;n++){writeSync(1,n+"\\n");let s="";while(readSync(0,b,0,1,null)&&b[0]!==10)s+=String.fromCharCode(b[0]);if(Number(s)!==2*n)throw new Error("answer");}'
     deno = 'const b=new Uint8Array(1);for(let n=10;n<12;n++){Deno.stdout.writeSync(new TextEncoder().encode(n+"\\n"));let s="";while(Deno.stdin.readSync(b)&&b[0]!==10)s+=String.fromCharCode(b[0]);if(Number(s)!==2*n)throw new Error("answer");}'
     solution = '#include <cstdio>\nint main(){int n;while(scanf("%d",&n)==1){printf("%d\\n",2*n);fflush(stdout);}}'
@@ -65,7 +65,7 @@ def run(runtime, requested, fixtures, judge):
             else:
                 response = 'import {readSync,writeSync} from "node:fs";const b=new Uint8Array(1);for(let i=0;i<2;i++){let s="";while(readSync(0,b,0,1,null)&&b[0]!==10)s+=String.fromCharCode(b[0]);writeSync(1,2*Number(s)+"\\n");}'
         elif name.startswith('ruby'):
-            response = '$stdout.sync = true\n2.times { puts gets.to_i*2 }'
+            response = '$stdout.sync = true\n2.times { puts STDIN.gets.to_i*2 }'
         elif name.startswith('haskell-'):
             response = 'import System.IO\nimport Control.Monad\nmain = replicateM_ 2 $ do { n <- readLn :: IO Int; print (2*n); hFlush stdout }'
         if response is not None:
@@ -73,6 +73,11 @@ def run(runtime, requested, fixtures, judge):
         # Library fixtures also execute under the interactor's 256 MiB limit.
         for fixture in fixtures[name]:
             if fixture['verdict'] != 'AC':
+                continue
+            # Batch readers wait for EOF, but isolate holds the pipe open until
+            # their peer exits. The flushed exchanges above cover interactive
+            # stdin; do not reuse EOF-based batch programs as interactors.
+            if fixture['name'] in ('stdin', 'commonjs'):
                 continue
             source = '''#include <iostream>
 #include <sstream>

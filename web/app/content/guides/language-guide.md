@@ -162,6 +162,9 @@ ACLのUnion-Findは`require "ac-library-rb/dsu"`と`AcLibraryRb::DSU.new(n)`で�
 
 CRubyではOR-Tools、fast_trie、numo-narray、numo-linalg、numo-openblas、polars-dfも利用できます。
 TruffleRubyはOR-ToolsのC拡張と互換性がないため、OR-Toolsを含みません。
+
+Rubyの対話判定では`STDIN.gets`で通信入力を読み、`$stdout.sync = true`または`STDOUT.flush`で出力を送ってください。
+引数なしの`gets`は、判定コードに渡されるファイル名を入力として扱います。
 Torch、LightGBM、Rumaleは導入していません。
 対話問題では`$stdout.sync = true`または`STDOUT.flush`を使用してください。
 
