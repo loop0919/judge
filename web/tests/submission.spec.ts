@@ -40,6 +40,42 @@ for (const scope of ['problem', 'contest']) {
   })
 }
 
+test('language search filters fuzzy names while preserving the selected runtime', async ({ page }) => {
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
+  await page.goto(`/problems/${problemId}`)
+  const search = page.getByRole('searchbox', { name: '言語名で検索' })
+  const language = page.getByRole('combobox', { name: '言語', exact: true })
+  const options = language.locator('option:not([hidden])')
+  await expect(language).toHaveValue('cpp17')
+  for (const query of ['Python', 'pYtN', ' Ｐｙ Ｔｎ ']) {
+    await search.fill(query)
+    await expect(options).toHaveText(['-- 未選択 --', 'Python 3.14'])
+    await expect(language).toHaveValue('cpp17')
+  }
+  await language.selectOption('python314')
+  await search.fill('no-such-language')
+  await expect(page.getByRole('status').filter({ hasText: '一致する言語がありません。' })).toBeVisible()
+  await expect(options).toHaveText(['-- 未選択 --'])
+  await expect(language).toHaveValue('python314')
+  await search.fill('Ｃ＋＋')
+  await expect(options).toHaveText(['-- 未選択 --', 'C++17 (GCC)'])
+  await search.fill('')
+  await expect(options).toHaveText(['-- 未選択 --', 'C++17 (GCC)', 'Python 3.14'])
+  await expect(language).toHaveValue('python314')
+  await page.getByLabel('ソースコード', { exact: true }).fill('print(3)')
+  let submitted = false
+  await page.route('**/api/my/submissions', route => {
+    submitted = true
+    return route.fulfill({ status: 503, json: {} })
+  })
+  await search.press('Enter')
+  await expect(page.getByRole('button', { name: '提出する', exact: true })).toBeEnabled()
+  expect(submitted).toBe(false)
+  await page.reload()
+  await expect(language).toHaveValue('python314')
+  await expect(search).toHaveValue('')
+})
+
 test('language selection survives reloads and returning to the problem', async ({ page }) => {
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: { id: 'alice' } } }))
   await page.goto(`/problems/${problemId}`)
