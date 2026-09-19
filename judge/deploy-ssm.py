@@ -2,16 +2,12 @@
 """Upload a pinned worker release and install it via SSM Run Command."""
 import argparse
 import hashlib
-import json
 from pathlib import Path
 import re
 import shlex
 import subprocess
-import time
-
-
-def aws(*args):
-    return json.loads(subprocess.check_output(['aws', *args, '--output', 'json']) or '{}')
+import uuid
+from verify import collect, new_run, submit
 
 
 if __name__ == '__main__':
@@ -20,9 +16,16 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', required=True)
     parser.add_argument('--region', default='ap-northeast-1')
     parser.add_argument('--release', type=Path, default=Path('judge/.build/worker.tar.gz'))
+    parser.add_argument('--run-dir', type=Path, help='Save durable SSM command IDs for later collection')
+    parser.add_argument('--no-wait', action='store_true', help='Return after submission; requires --run-dir')
     args = parser.parse_args()
     if not re.fullmatch('mi-[a-f0-9]+', args.instance):
         parser.error('expected a Lightsail SSM managed-node ID')
+    if args.no_wait and not args.run_dir:
+        parser.error('--no-wait requires --run-dir')
+    # Create the receipt before uploading or changing a host; never overwrite an earlier run.
+    directory = args.run_dir or Path('judge/.build/install-' + uuid.uuid4().hex)
+    receipt = new_run(directory, args.region, [args.instance], 'install')
     with args.release.open('rb') as file:
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
     uri = 's3://' + args.bucket + '/releases/' + digest + '/worker.tar.gz'
@@ -39,23 +42,8 @@ if __name__ == '__main__':
         'rm /opt/judge-release/worker.tar.gz',
         'bash /opt/judge-release/install.sh',
     ])
-    sent = aws('ssm', 'send-command', '--region', args.region, '--instance-ids', args.instance,
-        '--document-name', 'AWS-RunShellScript', '--parameters', json.dumps({'commands': [command], 'executionTimeout': ['7200']}),
-        '--comment', 'Install verified ADR 0007 worker; judging remains stopped')
-    command_id = sent['Command']['CommandId']
-    print('SSM install command:', command_id, flush=True)
-    # Keep a bounded polling loop; no success is inferred from a timeout.
-    for _ in range(720):
-        time.sleep(10)
-        result = aws('ssm', 'list-command-invocations', '--region', args.region, '--command-id', command_id, '--details')
-        if not result['CommandInvocations']:
-            continue
-        status = result['CommandInvocations'][0]['Status']
-        if status in ('Pending', 'InProgress', 'Delayed'):
-            continue
-        print('SSM install:', status)
-        if status != 'Success':
-            raise SystemExit('Install failed; inspect command ' + command_id)
-        break
-    else:
-        raise SystemExit('Install did not finish before deadline')
+    receipt['releaseSHA256'] = digest
+    submit(directory, receipt, args.instance, command)
+    print('Receipt:', directory / 'receipt.json', flush=True)
+    if not args.no_wait:
+        raise SystemExit(collect(directory, receipt, wait=True))

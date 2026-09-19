@@ -23,6 +23,16 @@ def publication(report, runtimes):
             not name or name + '-isolate' not in passed or
             name + '-isolate' in report.get('failedRuntimes', []) for name in requested):
         raise ValueError('requested runtimes have not passed smoke for this digest')
+    if 'hosts' in report:
+        hosts = report['hosts']
+        if report.get('ready') is not True or not isinstance(hosts, dict) or not hosts or \
+                not isinstance(report.get('runId'), str) or not re.fullmatch('[a-f0-9]{32}', report['runId']):
+            raise ValueError('all verified workers must be ready before publication')
+        for host in hosts.values():
+            if not isinstance(host, dict) or 'hosts' in host or host.get('ready') is not True or host.get('runId') != report.get('runId') or \
+                    host.get('runtimeDigest') != digest or host.get('failedRuntimes') != []:
+                raise ValueError('worker readiness or digest mismatch')
+            publication(host, runtimes)
     return digest, ','.join(requested)
 
 

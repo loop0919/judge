@@ -5,6 +5,7 @@ Ubuntu 24.04のLightsail（IPv6のみ、2 GB、2 vCPU）で、ホストごとに
 2台なら最大2提出を同時に採点できる。
 C、C++、Python、RustとJavaを構築し、実機検証済みのランタイムを段階的に公開する。
 再構築・SSM接続・段階公開の操作は[ランタイムの再構築と公開](../docs/judge/runtime-rollout.md)に従う。
+日々の配布と実機検証は[定型コマンド](../docs/judge/deployment-checks.md)を使い、SSMコマンドIDと合否レポートを保存する。
 APIとDBは既存のAWS環境を使い、専用の管理ワーカーがSQSとS3を介して処理する。
 Terraformは[infra/judge](../infra/judge/)に置く。
 
