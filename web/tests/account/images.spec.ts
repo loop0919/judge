@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('images drop into all editors, deduplicate, follow publication, and can be reclaimed', async ({ page, browser, baseURL }) => {
+test('images drop into all editors, deduplicate, follow publication, and can be reclaimed', async ({ page, browser, baseURL }, testInfo) => {
   await page.goto('/login')
   await page.getByLabel('メールアドレス').fill('alice@example.test')
   await page.getByLabel('パスワード', { exact: true }).fill('test-password')
@@ -63,6 +63,21 @@ test('images drop into all editors, deduplicate, follow publication, and can be 
   await expect(page.getByRole('status')).toHaveText('保存済み')
   await page.getByRole('button', { name: '画像', exact: true }).click()
   await expect(page.getByRole('region', { name: '保存した画像' })).toBeVisible()
+  const panel = page.getByRole('region', { name: '保存した画像' })
+  await expect(panel.getByRole('button', { name: '画像を追加', exact: true })).toHaveText('追加')
+  await expect(panel.getByRole('button', { name: '閉じる', exact: true })).toHaveText('')
+  await expect(panel.getByRole('button', { name: '削除', exact: true })).toHaveText('')
+  await panel.getByRole('button', { name: '画像を本文に挿入', exact: true }).click()
+  await expect(page.locator('#post-body')).toContainText(imageURL)
+  await expect(panel.getByRole('button', { name: '削除', exact: true })).toBeDisabled()
+  await page.locator('#post-body').press('ControlOrMeta+z')
+  await expect(page.locator('#post-body')).toHaveText('画像を外した本文')
+  await page.getByRole('button', { name: 'ダークモードに切り替え' }).click()
+  for (const width of [1280, 320, 375, 414, 768]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath(`image-panel-${width}.png`) })
+  }
   await page.getByRole('region', { name: '保存した画像' }).getByRole('button', { name: '削除', exact: true }).click()
   await expect(page.getByText('保存した画像はありません。')).toBeVisible()
   expect((await page.request.get(imageURL)).status()).toBe(404)
