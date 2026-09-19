@@ -145,7 +145,7 @@ async function generate() {
       <p v-else-if="mode === 'output'">全{{ cases.length }}件のテストケースの入力を読み、標準出力で出力を置き換えます。</p>
       <p v-else>全{{ cases.length }}件のテストケースの入力を標準入力で読み、終了コード0で合格、0以外で不合格とします。標準出力は保存せず、テストケースは変更しません。</p>
       <p class="muted">コードは自動保存。各ファイル16 MiB、全体512 MiBまで。</p>
-      <SourceCodeEditor v-model="program.source" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />
+      <SourceCodeEditor v-model="program.source" :runtime="program.runtime" :label="`${modeLabel}のコード`" :disabled="disabled || busy" :key="mode" />
       <p v-if="failure" class="notice notice-error" role="alert">{{ failure }}</p>
       <div class="generator-actions"><button type="button" class="editor-button primary" :disabled="disabled || busy || !available.length" @click="generate">{{ mode === 'validation' ? (busy ? '検証中…' : '検証する') : (busy ? '生成中…' : '生成する') }}</button><button type="button" class="editor-button" @click="emit('show-cases')">テストケースを確認</button></div>
     </div>

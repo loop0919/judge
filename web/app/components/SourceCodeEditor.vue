@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { basicSetup } from 'codemirror'
-import { cpp } from '@codemirror/lang-cpp'
+import { codeLanguage, codeLanguageSupport } from '~/utils/code-language'
 import { Compartment, EditorState } from '@codemirror/state'
 import { indentWithTab } from '@codemirror/commands'
 import { indentUnit, defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorView, keymap } from '@codemirror/view'
 
 const source = defineModel<string>({ required: true })
-const props = defineProps<{ disabled?: boolean, readonly?: boolean, label?: string }>()
+const props = defineProps<{ disabled?: boolean, readonly?: boolean, label?: string, runtime?: string }>()
 const labelId = useId()
 const container = ref<HTMLDivElement>()
 const bytes = computed(() => new TextEncoder().encode(source.value).length)
-const { settings, indentation } = useEditorSettings('code')
+const language = computed(() => codeLanguage(props.runtime ?? ''))
+const { settings, indentation } = useEditorSettings('code', language)
+const languageConfig = new Compartment()
 const indentConfig = new Compartment()
 const indentExtensions = () => [indentUnit.of(indentation.value), EditorState.tabSize.of(settings.value.width)]
 const editable = new Compartment()
@@ -26,7 +28,7 @@ onMounted(() => {
     extensions: [
       basicSetup,
       themeExtension(),
-      cpp(),
+      languageConfig.of(codeLanguageSupport(language.value)),
       syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(style => ({
         ...style,
         ...(style.color ? { color: `light-dark(${style.color}, color-mix(in srgb, ${style.color} 35%, white))` } : {}),
@@ -53,6 +55,7 @@ onMounted(() => {
 })
 watch(() => [props.disabled, props.readonly], () => editor?.dispatch({ effects: editable.reconfigure(editing()) }))
 watch(() => [settings.value.style, settings.value.width], () => editor?.dispatch({ effects: indentConfig.reconfigure(indentExtensions()) }))
+watch(language, value => editor?.dispatch({ effects: languageConfig.reconfigure(codeLanguageSupport(value)) }))
 watch(source, value => {
   if (editor && value !== editor.state.doc.toString()) {
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
@@ -65,7 +68,7 @@ onBeforeUnmount(() => editor?.destroy())
   <div class="source-code-editor" :class="{ 'is-disabled': disabled, 'is-readonly': readonly }">
     <div class="pane-heading">
       <span :id="labelId">{{ label || 'ソースコード' }}</span>
-      <div class="source-editor-actions"><span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span><EditorSettings kind="code" v-if="!readonly" :disabled="disabled" /></div>
+      <div class="source-editor-actions"><span class="byte-count">{{ bytes.toLocaleString('en-US') }}{{ readonly ? ' bytes' : ' / 65,536 bytes' }}</span><EditorSettings kind="code" :language="language" v-if="!readonly" :disabled="disabled" /></div>
     </div>
     <div ref="container" class="code-surface" />
   </div>

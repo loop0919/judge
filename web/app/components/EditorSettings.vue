@@ -1,6 +1,6 @@
 <script setup lang="ts">
-const props = defineProps<{ kind: 'code' | 'markdown', disabled?: boolean }>()
-const { settings, saveSettings } = useEditorSettings(props.kind)
+const props = defineProps<{ kind: 'code' | 'markdown', disabled?: boolean, language?: string }>()
+const { settings, saveSettings } = useEditorSettings(props.kind, () => props.language ?? 'cpp')
 const dialog = ref<HTMLDialogElement>()
 const titleId = useId()
 </script>

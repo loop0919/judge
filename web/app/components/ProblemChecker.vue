@@ -58,7 +58,7 @@ const error = computed(() => code.value && (!code.value.source.trim() || new Tex
         <option v-if="supportsTestlib" value="testlib">testlib形式（Codeforces互換）</option>
       </select>
       <p class="muted">コードは自動保存。64 KiBまで。ジャッジ側は各ケースCPU 5秒・{{ interactor ? 256 : 512 }} MiBで実行し、制限超過はJEになります。</p>
-      <SourceCodeEditor v-model="code.source" :label="codeLabel" :disabled="disabled" />
+      <SourceCodeEditor v-model="code.source" :runtime="code.runtime" :label="codeLabel" :disabled="disabled" />
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
     </template>
     <p v-if="published">提出は公開中の設定で採点します。編集内容を採点へ反映するには、問題管理から公開内容を更新してください。</p>

@@ -30,7 +30,7 @@ const verdicts: Record<string, string> = { AC: '正解', WA: '不正解', CE: '�
           <button class="editor-button" :disabled="copying" @click="copySource">{{ copying ? 'コピー中…' : 'コピー' }}</button>
         </div>
       </div>
-      <SourceCodeEditor v-if="item.source !== undefined" id="submitted-code" :model-value="item.source" readonly />
+      <SourceCodeEditor v-if="item.source !== undefined" id="submitted-code" :model-value="item.source" :runtime="item.runtime" readonly />
       <p v-else class="muted">ソースコードを取得できませんでした。</p>
       <p v-if="copyMessage" class="copy-message" role="status">{{ copyMessage }}</p>
     </section>

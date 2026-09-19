@@ -92,7 +92,7 @@ async function submit(easyTest = false) {
       </select>
       <p><NuxtLink to="/blog/language-guide" target="_blank" rel="noopener noreferrer">使える言語と実行環境の仕様 ↗</NuxtLink></p>
       <p v-if="catalogError || !available.length" class="notice" role="status">現在、提出受付を停止しています。</p>
-      <SourceCodeEditor v-model="source" :disabled="sending" />
+      <SourceCodeEditor v-model="source" :runtime="runtime" :disabled="sending" />
       <p v-if="message" class="notice notice-error" role="alert">{{ message }}</p>
       <div class="submission-actions">
         <div class="sample-action">

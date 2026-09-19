@@ -133,3 +133,62 @@ test('legacy shared settings are retained only for the code editor', async ({ pa
   await code.press('Tab')
   expect(await code.textContent()).toBe('\tx')
 })
+
+
+test('language switching updates highlighting and keeps indentation settings per language', async ({ page }) => {
+  await page.route('**/api/runtimes', route => route.fulfill({ json: { items: [
+    { id: 'cpp17', label: 'C++' }, { id: 'python314', label: 'Python' },
+    { id: 'javascript-node24', label: 'JavaScript' }, { id: 'go127', label: 'Go' },
+  ] } }))
+  await page.goto(problem)
+  const editor = page.getByLabel('ソースコード', { exact: true })
+  const language = page.getByLabel('言語', { exact: true })
+  await editor.fill('# hello')
+  await language.selectOption('python314')
+  await expect(editor).toHaveText('# hello')
+  await expect(editor.locator('span').filter({ hasText: '# hello' })).toHaveCount(1)
+  await editor.fill('x')
+  await editor.press('Tab')
+  expect(await editor.textContent()).toBe('    x')
+  await page.getByRole('button', { name: 'エディタ設定', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'エディタ設定' })
+  await dialog.getByLabel('インデント幅').selectOption('8')
+  await dialog.getByRole('button', { name: '閉じる', exact: true }).click()
+  for (const [runtime, indent] of [['javascript-node24', '  '], ['go127', '\t'], ['cpp17', '    '], ['python314', '        ']]) {
+    await language.selectOption(runtime!)
+    await editor.fill('x')
+    await editor.press('Tab')
+    expect(await editor.textContent()).toBe(`${indent}x`)
+    await editor.press('Shift+Tab')
+    await expect(editor).toHaveText('x')
+  }
+  await page.reload()
+  await language.selectOption('python314')
+  await editor.fill('x')
+  await editor.press('Tab')
+  expect(await editor.textContent()).toBe('        x')
+  await language.selectOption('')
+  await editor.fill('# hello')
+  await expect(editor.locator('span')).toHaveCount(0)
+})
+
+
+test('all runtime families highlight comments using their selected language', async ({ page }) => {
+  const samples = [
+    ['c23-clang', '// hello'], ['cpp23-gcc', '// hello'], ['pypy311', '# hello'],
+    ['codon020', '# hello'], ['rust2024', '// hello'], ['java25', '// hello'],
+    ['csharp14', '// hello'], ['nim22', '#[ outer #[ inner ]# end ]#'],
+    ['go127', '// hello'], ['haskell-ghc910', '-- hello'],
+    ['javascript-deno29', '// hello'], ['typescript-bun14', '// hello'], ['ruby-truffle40', '# hello'],
+  ]
+  await page.route('**/api/runtimes', route => route.fulfill({ json: {
+    items: samples.map(([id]) => ({ id, label: id })),
+  } }))
+  await page.goto(problem)
+  const editor = page.getByLabel('ソースコード', { exact: true })
+  for (const [runtime, comment] of samples) {
+    await page.getByLabel('言語', { exact: true }).selectOption(runtime!)
+    await editor.fill(comment!)
+    await expect(editor.locator('span').filter({ hasText: comment! })).toHaveCount(1)
+  }
+})
