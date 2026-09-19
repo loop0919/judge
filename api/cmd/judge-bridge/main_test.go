@@ -113,6 +113,46 @@ func TestResultValidation(t *testing.T) {
 	}
 }
 
+func TestKnockoutResultValidation(t *testing.T) {
+	cpu, wall, memory := 1.0, 2.0, int64(1024)
+	for _, tc := range []struct {
+		verdicts []string
+		valid    bool
+	}{
+		{[]string{"TLE", "AC", "TLE", "SKIPPED", "SKIPPED"}, true},
+		{[]string{"WA", "TLE", "TLE", "SKIPPED"}, true},
+		{[]string{"TLE", "TLE"}, true},
+		{[]string{"TLE", "TLE", "TLE"}, true}, // Existing workers still execute all cases.
+		{[]string{"TLE", "SKIPPED"}, false},
+		{[]string{"WA", "WA", "SKIPPED"}, false},
+		{[]string{"SKIPPED", "TLE", "TLE"}, false},
+		{[]string{"TLE", "TLE", "SKIPPED", "AC"}, false},
+	} {
+		t.Run(strings.Join(tc.verdicts, "/"), func(t *testing.T) {
+			r := submissions.Result{Verdict: tc.verdicts[0], Total: len(tc.verdicts)}
+			for _, verdict := range tc.verdicts {
+				c := submissions.CaseResult{Name: "case", Verdict: verdict}
+				if verdict != "SKIPPED" {
+					c.CPUTimeMS, c.WallTimeMS, c.MemoryBytes = &cpu, &wall, &memory
+				}
+				if verdict == "AC" {
+					r.Passed++
+				}
+				r.Cases = append(r.Cases, c)
+			}
+			if validResult(r) != tc.valid {
+				t.Fatalf("unexpected validation: %+v", r)
+			}
+			if tc.valid && r.Cases[len(r.Cases)-1].Verdict == "SKIPPED" {
+				r.Cases[len(r.Cases)-1].CPUTimeMS = &cpu
+				if validResult(r) {
+					t.Fatal("skipped case must not carry measurements")
+				}
+			}
+		})
+	}
+}
+
 func TestOutboxAndResultIdempotency(t *testing.T) {
 	for _, runtime := range []string{"cpp17-isolate", "rust2024-isolate"} {
 		t.Run(runtime, func(t *testing.T) { checkOutboxAndResultIdempotency(t, runtime) })

@@ -179,6 +179,7 @@ func Judge(ctx context.Context, source string, job Job) Result {
 		}
 	}
 	r.Verdict = "AC"
+	tleCount := 0
 	generatedBytes := job.GenerationBaseBytes
 	if generatedBytes < 0 || generatedBytes > GenerationOutputLimit {
 		r.Verdict = "JE"
@@ -282,6 +283,12 @@ func Judge(ctx context.Context, source string, job Job) Result {
 		}
 		if r.Verdict == "AC" && verdict != "AC" {
 			r.Verdict = verdict
+		}
+		if verdict == "TLE" {
+			tleCount++
+		}
+		if tleCount >= 2 && !job.EasyTest && !job.Validate && !job.Generate {
+			break
 		}
 	}
 	return r

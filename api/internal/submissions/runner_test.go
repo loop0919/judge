@@ -164,6 +164,36 @@ func TestGeneratorDocker(t *testing.T) {
 	}
 }
 
+func TestKnockoutDocker(t *testing.T) {
+	image := os.Getenv("TEST_JUDGE_CPP_IMAGE")
+	if image == "" {
+		t.Skip("TEST_JUDGE_CPP_IMAGE required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	source := "#include <iostream>\nint main(){int n;std::cin>>n;if(n==1||n==3)for(;;){};}"
+	for _, mode := range []string{"normal", "sample", "validation", "generation"} {
+		t.Run(mode, func(t *testing.T) {
+			job := Job{Image: image, TimeLimitMS: 100, MemoryLimitMB: 64,
+				EasyTest: mode == "sample", Validate: mode == "validation", Generate: mode == "generation",
+				Cases: []Case{{Input: "1"}, {Input: "2"}, {Input: "3"}, {Input: "4"}}}
+			r := Judge(ctx, source, job)
+			last, passed := "AC", 2
+			if mode == "normal" {
+				last, passed = "SKIPPED", 1
+			}
+			if r.Verdict != "TLE" || r.Total != 4 || r.Passed != passed || len(r.Cases) != 4 {
+				t.Fatalf("unexpected knockout result: %+v", r)
+			}
+			for i, want := range []string{"TLE", "AC", "TLE", last} {
+				if r.Cases[i].Verdict != want {
+					t.Fatalf("case %d: %+v, want %s", i, r.Cases[i], want)
+				}
+			}
+		})
+	}
+}
+
 func TestSpecialJudgeDocker(t *testing.T) {
 	image := os.Getenv("TEST_JUDGE_CPP_IMAGE")
 	if image == "" {

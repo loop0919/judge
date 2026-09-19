@@ -101,7 +101,23 @@ func validResult(r submissions.Result) bool {
 	passed := 0
 	verdict := "AC"
 	previewBytes := 0
+	tleCount := 0
+	skipped := false
 	for _, c := range r.Cases {
+		if len(c.Name) > 256 {
+			return false
+		}
+		if c.Verdict == "SKIPPED" {
+			if tleCount < 2 || c.CPUTimeMS != nil || c.WallTimeMS != nil || c.MemoryBytes != nil ||
+				c.Output != nil || c.OutputFile != nil || c.SampleDetails != nil || c.CheckerLog != nil {
+				return false
+			}
+			skipped = true
+			continue
+		}
+		if skipped {
+			return false
+		}
 		if c.CheckerLog != nil {
 			if c.SampleDetails != nil || len(c.CheckerLog.Text) > 4096 || strings.ContainsRune(c.CheckerLog.Text, 0) {
 				return false
@@ -134,8 +150,11 @@ func validResult(r submissions.Result) bool {
 		if !allowed[c.Verdict] || c.Verdict == "CE" || c.Verdict == "JE" || c.CPUTimeMS == nil || c.WallTimeMS == nil || c.MemoryBytes == nil {
 			return false
 		}
-		if len(c.Name) > 256 || *c.CPUTimeMS < 0 || *c.CPUTimeMS > 120000 || *c.WallTimeMS < 0 || *c.WallTimeMS > 120000 || *c.MemoryBytes < 0 || *c.MemoryBytes > 4<<30 {
+		if *c.CPUTimeMS < 0 || *c.CPUTimeMS > 120000 || *c.WallTimeMS < 0 || *c.WallTimeMS > 120000 || *c.MemoryBytes < 0 || *c.MemoryBytes > 4<<30 {
 			return false
+		}
+		if c.Verdict == "TLE" {
+			tleCount++
 		}
 		if c.Verdict == "AC" {
 			passed++

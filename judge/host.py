@@ -185,6 +185,7 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
     deadline = time.monotonic() + 1800
     generated_bytes = job.get('generationBaseBytes', 0)
     result = dict(verdict='AC', passed=0, total=len(job['cases']), cases=[])
+    tle_count = 0
     checker = job.get('checker')
     judge_code = job.get('interactor') or checker
     checker_artifact = sandbox.ARTIFACT.with_name('checker')
@@ -276,6 +277,12 @@ def judge(job, runtime, load_file=None, progress=None, save_output=None):
                 progress('JUDGING', index + 1, result['total'], result['verdict'] if result['verdict'] != 'AC' else None)
             if time.monotonic() >= deadline:
                 raise telemetry.PlatformError('job_deadline_exceeded')
+            if item['verdict'] == 'TLE':
+                tle_count += 1
+            if tle_count >= 2 and not any(job.get(mode) for mode in ('easyTest', 'validate', 'generate')):
+                result['cases'].extend(dict(name=remaining.get('name') or f'ケース{i + 1}', verdict='SKIPPED')
+                                       for i, remaining in enumerate(job['cases'][index + 1:], index + 1))
+                break
     finally:
         sandbox.ARTIFACT.unlink(missing_ok=True)
         checker_artifact.unlink(missing_ok=True)

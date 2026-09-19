@@ -12,6 +12,50 @@ from runtimes import RUNTIMES
 
 
 class RunnerTests(unittest.TestCase):
+    def test_two_tles_skip_remaining_cases_only_for_normal_submissions(self):
+        import tempfile
+        for mode in (None, 'easyTest', 'validate', 'generate', 'interactive'):
+            for verdicts in (['TLE', 'AC', 'TLE', 'AC'], ['TLE', 'TLE', 'AC', 'AC'],
+                             ['RE', 'TLE', 'TLE', 'AC'], ['TLE', 'AC', 'AC', 'AC']):
+                with self.subTest(mode=mode, verdicts=verdicts):
+                    job = dict(runtime='cpp17-isolate', runtimeDigest='sha256:test', source='int main(){}',
+                               memoryLimitMb=512, timeLimitMs=1000,
+                               cases=[dict(input=str(i), output='') for i in range(4)])
+                    if mode == 'interactive':
+                        job['interactor'] = dict(runtime='cpp17', source='int main(){}')
+                    elif mode:
+                        job[mode] = True
+                    if mode == 'generate':
+                        job['generationPrefix'] = 'test-files/' + 'a' * 32 + '/11111111-1111-4111-8111-111111111111/generated/'
+                    executed, progress = [], []
+                    def reply(index):
+                        executed.append(index)
+                        return dict(verdict=verdicts[index], cpuTimeMs=1, wallTimeMs=1, memoryBytes=1024)
+                    def execute(request, compile_phase=False, **kwargs):
+                        if compile_phase:
+                            return dict(compiled=True)
+                        item = reply(int(base64.b64decode(request['input'])))
+                        return dict(status='TO' if item['verdict'] == 'TLE' else '', oom=False,
+                                    overflow=False, exitCode=1 if item['verdict'] == 'RE' else 0,
+                                    signal=0, output='', **item)
+                    def interact(job, case, artifact, diagnostic):
+                        return reply(int(case['input']))
+                    with tempfile.TemporaryDirectory() as tmp, patch.object(sandbox, 'execute', execute), \
+                            patch.object(host.interactive, 'execute', interact), \
+                            patch.object(sandbox, 'ARTIFACT', Path(tmp) / 'main'), \
+                            patch.object(sandbox, 'META', Path(tmp) / 'meta'):
+                        result = host.judge(job, 'sha256:test', progress=lambda *args: progress.append(args))
+                    stop = 4
+                    if mode in (None, 'interactive') and verdicts.count('TLE') >= 2:
+                        stop = [i for i, v in enumerate(verdicts) if v == 'TLE'][1] + 1
+                    self.assertEqual(executed, list(range(stop)))
+                    self.assertEqual(result['total'], 4)
+                    self.assertEqual(result['passed'], verdicts[:stop].count('AC'))
+                    self.assertEqual(progress[-1][1:3], (stop, 4))
+                    self.assertEqual(result['verdict'], verdicts[0])
+                    self.assertEqual(result['cases'][stop:], [dict(name=f'ケース{i + 1}', verdict='SKIPPED')
+                                                           for i in range(stop, 4)])
+
     def test_compiler_failure_preserves_roslyn_stdout_diagnostics(self):
         import tempfile
         from subprocess import CompletedProcess
