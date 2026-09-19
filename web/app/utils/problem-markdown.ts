@@ -123,11 +123,15 @@ markdown.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const language = token.info.trim().split(/\s+/, 1)[0]!.toLowerCase()
   if (language !== 'input') {
     const registeredLanguage = codeLanguages.get(language)
-    if (!registeredLanguage) return defaultFence(tokens, index, options, env, renderer)
+    const button = '<button type="button" class="code-copy" aria-label="コードをコピー" title="コードをコピー"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg></button>'
+    if (!registeredLanguage) {
+      const rendered = defaultFence(tokens, index, options, env, renderer)
+      return rendered.startsWith('<pre') ? `<div class="copyable-code">${button}${rendered}</div>\n` : rendered
+    }
     const highlighted = hljs.highlight(token.content, { language: registeredLanguage, ignoreIllegals: true }).value
     const lineCount = token.content.replace(/\n$/, '').split('\n').length
     const lineNumbers = Array.from({ length: lineCount }, (_, line) => line + 1).join('\n')
-    return `<pre class="highlighted-code"><span class="code-line-numbers" aria-hidden="true">${lineNumbers}</span><code class="language-${registeredLanguage}">${highlighted}</code></pre>\n`
+    return `<div class="copyable-code">${button}<pre class="highlighted-code"><span class="code-line-numbers" aria-hidden="true">${lineNumbers}</span><code class="language-${registeredLanguage}">${highlighted}</code></pre></div>\n`
   }
   const content = renderMathText(token.content.trimEnd()).map(part => {
     if (part.kind === 'text') return markdown.utils.escapeHtml(part.text)

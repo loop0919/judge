@@ -62,6 +62,12 @@ pre { margin: 0; background: var(--color-surface); border: 1px solid var(--color
 .highlighted-code { display: grid; grid-template-columns: max-content max-content; padding: 0; }
 .code-line-numbers { position: sticky; left: 0; z-index: 1; padding: 16px 12px; border-inline-end: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-muted); text-align: end; user-select: none; }
 .highlighted-code code { padding: 16px 20px; }
+.copyable-code { position: relative; }
+.copyable-code pre { padding-inline-end: 56px; }
+.code-copy { position: absolute; top: 8px; right: 8px; z-index: 2; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; }
+.code-copy:hover, .code-copy:focus-visible { color: var(--color-accent); border-color: currentColor; }
+.code-copy-status { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 100; padding: 8px 16px; border: 1px solid var(--color-line); border-radius: 4px; background: var(--color-surface); }
+.code-copy-status:empty { display: none; }
 .hljs-comment, .hljs-quote { color: light-dark(#66717e, #a8b6c5); font-style: italic; }
 .hljs-keyword, .hljs-selector-tag, .hljs-type { color: light-dark(#8250df, #c5a1ff); }
 .hljs-string, .hljs-meta .hljs-string { color: light-dark(#0a6b3f, #70dba2); }

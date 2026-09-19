@@ -2,6 +2,31 @@ import { expect, test } from '@playwright/test'
 import { renderProblemMarkdown } from '../app/utils/problem-markdown'
 import { draftErrors, exportProblemMarkdown } from '../app/utils/problem-draft'
 
+test('copy controls are available for code fences but not input or math', () => {
+  for (const language of ['text', 'py', 'cpp', 'javascript', '']) {
+    expect(renderProblemMarkdown(`\`\`\`${language}\na < b\n\`\`\``)).toContain('class="code-copy"')
+  }
+  for (const source of ['```input\n$A$ $B$\n```', '```math\nx^2\n```', '`inline`']) {
+    expect(renderProblemMarkdown(source)).not.toContain('class="code-copy"')
+  }
+})
+
+test('copy buttons copy only code text and report clipboard failures', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.goto('/blog/markdown-guide')
+  await expect(page.locator('#input-format .code-copy')).toHaveCount(0)
+  for (const block of await page.locator('.markdown-body .copyable-code').all()) {
+    const source = await block.locator('pre > code').textContent()
+    await block.getByRole('button', { name: 'コードをコピー' }).click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(source)
+  }
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, 'writeText', { value: () => Promise.reject(new Error('denied')) })
+  })
+  await page.locator('#programs .code-copy').click()
+  await expect(page.locator('#programs [role="status"]').filter({ hasText: 'コピーできませんでした' })).toBeVisible()
+})
+
 test('explicit heading anchors preserve formatting and reject attribute injection', () => {
   expect(renderProblemMarkdown('## **判定**の例 {#testlib}\n\n本文'))
     .toBe('<h2 id="testlib"><strong>判定</strong>の例</h2>\n<p>本文</p>\n')
