@@ -1,6 +1,8 @@
 # Lightsail上のisolateジャッジ
 
-Ubuntu 24.04のLightsail（IPv6のみ、2 GB、2 vCPU）で、提出を1件ずつ採点する。
+Ubuntu 24.04のLightsail（IPv6のみ、2 GB、2 vCPU）で、ホストごとに提出を1件ずつ採点する。
+`infra/judge`の`worker_count`で台数を指定し、各ホストが同じSQS要求キューを受信する。
+2台なら最大2提出を同時に採点できる。
 C、C++、Python、RustとJavaを構築し、実機検証済みのランタイムを段階的に公開する。
 再構築・SSM接続・段階公開の操作は[ランタイムの再構築と公開](../docs/judge/runtime-rollout.md)に従う。
 APIとDBは既存のAWS環境を使い、専用の管理ワーカーがSQSとS3を介して処理する。
@@ -15,7 +17,7 @@ APIやDBをこのインスタンスに同居させず、VPCピアリングも設
 
 | 対象 | 制限 |
 | --- | --- |
-| 同時採点 | 1提出。手動テストも同じロックを使用 |
+| 同時採点 | 1ホストにつき1提出。手動テストもホスト内の同じロックを使用 |
 | コンパイル | CPU 30秒、経過40秒、1 GiB |
 | ケース実行 | CPU 100〜5000 ms、経過はCPU上限の3倍＋1秒、512 MiB |
 | ワーカー全体 | systemdで1.5 GiB、128タスク、CPU 1個相当、swapなし |
@@ -128,6 +130,17 @@ APIは公開リストに含まれる言語だけを受け取り、保存時に`-
 
 ## 更新と障害対応
 
+複数台では全ホストのruntime digestをそろえ、それぞれの実機smoke合格後に起動する。
+全台の更新中は受付を止め、要求キューだけでなくDBの未dispatch提出と処理中の提出もなくなるまで待つ。
+`terraform output -json workers`で全ホストの名前とIPv6を確認できる。
+既存の`worker_instance_name`と`worker_ipv6_addresses`出力は1台目を返す。
+CloudWatch Agentには`cloudwatch_agent_configs`のホスト名に対応する設定を配置する。
+各ホストのログストリームと`Worker`ディメンションを分け、片方だけの停止も検知する。
+
+検証済みホストのスナップショットから増設する場合、複製先で元のSSM登録や採点サービスを起動させない。
+複製先を別のSSM管理ノードとして登録し、Terraformの対応する`aws_lightsail_instance.worker[N]`へimportする。
+`user_data`は初回作成専用で、変更しても登録済みホストを置換しないため、既存OSの変更は明示的な配置操作で行う。
+
 IPv6アドレスはDHCPv6のリース更新を必要とする。
 ホストのファイアウォールではDHCPv4（UDP 67→68）とDHCPv6（UDP 547→546）の受信を明示的に許可する。
 マルチキャストやブロードキャスト宛ての要求への応答を、`ct state established,related`だけに依存させない。
@@ -168,6 +181,7 @@ CloudWatchへのログ集約と、原因別のDiscord通知は[監視と障害�
 ## 費用と検証範囲
 
 AWS公式料金のIPv6専用2 GB Linuxプランは月10 USDで、SSD 60 GBを含む。
+2台構成のインスタンス料金は月20 USDとなる。
 DLQアラーム2件の見積もりは月0.20 USDで、S3、SQS、Lambda、ログ、超過通信と既存API/DBの料金は別となる。
 Infracostは同じプランを730時間で約11.77 USDと見積もっており、公式の月額と差がある。
 見積もりだけで月額を確定せず、作成前の`get-bundles`とAWS料金を確認する。

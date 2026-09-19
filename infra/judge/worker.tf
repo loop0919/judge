@@ -4,7 +4,8 @@ resource "aws_lightsail_key_pair" "worker" {
   public_key = var.ssh_public_key
 }
 resource "aws_lightsail_instance" "worker" {
-  name              = "${local.name}-judge-worker"
+  count             = var.worker_count
+  name              = count.index == 0 ? "${local.name}-judge-worker" : "${local.name}-judge-worker-${count.index + 1}"
   availability_zone = var.availability_zone
   blueprint_id      = "ubuntu_24_04"
   bundle_id         = "small_ipv6_3_0"
@@ -12,12 +13,17 @@ resource "aws_lightsail_instance" "worker" {
   key_pair_name     = aws_lightsail_key_pair.worker.name
   # Bootstrap contains no credentials. The release is uploaded over SSH.
   user_data = "bash -c 'echo ${base64encode(templatefile("${path.module}/user-data.sh.tftpl", { admin_ipv6_cidr = var.admin_ipv6_cidr }))} | base64 -d | bash'"
+  lifecycle {
+    # Snapshot clones are imported after enrollment; bootstrap edits must not replace enrolled hosts.
+    ignore_changes = [user_data]
+  }
 }
 resource "aws_lightsail_instance_public_ports" "worker" {
-  instance_name = aws_lightsail_instance.worker.name
+  count         = var.worker_count
+  instance_name = aws_lightsail_instance.worker[count.index].name
   lifecycle {
     # A same-name replacement resets Lightsail's firewall to blueprint defaults.
-    replace_triggered_by = [aws_lightsail_instance.worker]
+    replace_triggered_by = [aws_lightsail_instance.worker[count.index]]
   }
   dynamic "port_info" {
     for_each = var.ssh_enabled ? [1] : []
@@ -36,6 +42,15 @@ resource "aws_lightsail_instance_public_ports" "worker" {
     cidrs      = []
     ipv6_cidrs = ["::/0"]
   }
+}
+
+moved {
+  from = aws_lightsail_instance.worker
+  to   = aws_lightsail_instance.worker[0]
+}
+moved {
+  from = aws_lightsail_instance_public_ports.worker
+  to   = aws_lightsail_instance_public_ports.worker[0]
 }
 
 # Lightsail is enrolled as a hybrid managed node. Activation credentials are

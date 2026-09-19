@@ -28,11 +28,11 @@ locals {
     metrics = {
       namespace              = local.metrics_namespace
       endpoint_override      = "https://monitoring.${var.aws_region}.api.aws"
-      aggregation_dimensions = [[]]
+      aggregation_dimensions = [[], ["Worker"]]
       metrics_collected = {
         mem      = { measurement = ["mem_used_percent"] }
         disk     = { resources = ["/"], measurement = ["used_percent"], drop_device = true, drop_original_metrics = ["disk_used_percent"] }
-        procstat = [{ pattern = "^/usr/bin/python3 /opt/judge/worker.py$", measurement = ["pid_count"] }]
+        procstat = [{ pattern = "^/usr/bin/python3 /opt/judge/worker.py$", measurement = ["pid_count"], append_dimensions = { Worker = "${local.name}-judge-worker" } }]
       }
     }
     logs = {
@@ -41,7 +41,7 @@ locals {
       logs_collected = { files = { collect_list = [{
         file_path       = "/var/log/judge/worker.jsonl"
         log_group_name  = local.worker_log_group
-        log_stream_name = "worker"
+        log_stream_name = "${local.name}-judge-worker"
         timezone        = "UTC"
       }] } }
     }
@@ -100,6 +100,7 @@ resource "aws_cloudwatch_metric_alarm" "judge" {
   alarm_description   = "See docs/judge/observability.md; ${local.logs_url}"
   namespace           = local.metrics_namespace
   metric_name         = each.value.metric
+  dimensions          = each.key == "worker" ? { Worker = "${local.name}-judge-worker" } : {}
   comparison_operator = each.value.comparison
   threshold           = each.value.threshold
   evaluation_periods  = each.value.periods
@@ -107,6 +108,24 @@ resource "aws_cloudwatch_metric_alarm" "judge" {
   period              = each.value.period
   statistic           = each.value.statistic
   treat_missing_data  = each.value.missing
+  actions_enabled     = var.alerts_enabled
+  alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
+}
+resource "aws_cloudwatch_metric_alarm" "additional_worker" {
+  count               = var.worker_count - 1
+  alarm_name          = "${local.name}-judge-worker-${count.index + 2}"
+  alarm_description   = "See docs/judge/observability.md; ${local.logs_url}"
+  namespace           = local.metrics_namespace
+  metric_name         = "procstat_lookup_pid_count"
+  dimensions          = { Worker = aws_lightsail_instance.worker[count.index + 1].name }
+  comparison_operator = "LessThanThreshold"
+  threshold           = 1
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  period              = 60
+  statistic           = "Maximum"
+  treat_missing_data  = "breaching"
   actions_enabled     = var.alerts_enabled
   alarm_actions       = local.alarm_actions
   ok_actions          = local.alarm_actions
@@ -223,6 +242,9 @@ resource "aws_sns_topic_subscription" "notify" {
   depends_on     = [aws_lambda_permission.notify, aws_sqs_queue_policy.notification_dead]
 }
 output "cloudwatch_agent_config" { value = jsonencode(local.agent_config) }
+output "cloudwatch_agent_configs" {
+  value = { for worker in aws_lightsail_instance.worker : worker.name => replace(jsonencode(local.agent_config), "${local.name}-judge-worker", worker.name) }
+}
 output "alerts_topic_arn" { value = aws_sns_topic.alerts.arn }
 output "notification_dead_queue_url" { value = aws_sqs_queue.notification_dead.url }
 resource "aws_cloudwatch_query_definition" "failures" {

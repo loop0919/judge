@@ -36,11 +36,11 @@ run "isolated_worker" {
     error_message = "Host cloud-init must retain access to IMDS across reboot."
   }
   assert {
-    condition     = aws_lightsail_instance.worker.bundle_id == "small_ipv6_3_0" && aws_lightsail_instance.worker.ip_address_type == "ipv6"
+    condition     = aws_lightsail_instance.worker[0].bundle_id == "small_ipv6_3_0" && aws_lightsail_instance.worker[0].ip_address_type == "ipv6"
     error_message = "Worker must use the 2 GB IPv6-only bundle."
   }
   assert {
-    condition = alltrue([for port in aws_lightsail_instance_public_ports.worker.port_info :
+    condition = alltrue([for port in aws_lightsail_instance_public_ports.worker[0].port_info :
       port.protocol == "icmpv6" || (port.protocol == "tcp" && port.from_port == 22 && port.to_port == 22 && port.ipv6_cidrs == toset([var.admin_ipv6_cidr]))
     ])
     error_message = "Only operator IPv6 SSH and ICMPv6 may be exposed."
@@ -102,9 +102,37 @@ run "ssm_only" {
   command = plan
   variables { ssh_enabled = false }
   assert {
-    condition     = alltrue([for port in aws_lightsail_instance_public_ports.worker.port_info : port.protocol == "icmpv6"])
+    condition     = alltrue([for port in aws_lightsail_instance_public_ports.worker[0].port_info : port.protocol == "icmpv6"])
     error_message = "SSM-only mode must expose no TCP ports."
   }
+}
+
+run "two_workers" {
+  command = plan
+  variables { worker_count = 2 }
+  assert {
+    condition = (
+      length(aws_lightsail_instance.worker) == 2 &&
+      length(aws_lightsail_instance_public_ports.worker) == 2 &&
+      aws_lightsail_instance.worker[0].name == "judge-dev-judge-worker" &&
+      aws_lightsail_instance.worker[1].name == "judge-dev-judge-worker-2"
+    )
+    error_message = "Two workers must retain the original host name and receive separate firewalls."
+  }
+  assert {
+    condition = (
+      aws_cloudwatch_metric_alarm.judge["worker"].dimensions.Worker == "judge-dev-judge-worker" &&
+      aws_cloudwatch_metric_alarm.additional_worker[0].dimensions.Worker == "judge-dev-judge-worker-2" &&
+      jsondecode(output.cloudwatch_agent_configs["judge-dev-judge-worker-2"]).metrics.metrics_collected.procstat[0].append_dimensions.Worker == "judge-dev-judge-worker-2"
+    )
+    error_message = "Each worker needs its own process heartbeat and missing-data alarm."
+  }
+}
+
+run "reject_zero_workers" {
+  command = plan
+  variables { worker_count = 0 }
+  expect_failures = [var.worker_count]
 }
 
 run "observability" {

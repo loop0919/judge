@@ -18,6 +18,15 @@ variable "availability_zone" {
   type    = string
   default = "ap-northeast-1a"
 }
+variable "worker_count" {
+  description = "Number of single-slot workers sharing the request queue. Each host must pass smoke with the same runtime digest before starting."
+  type        = number
+  default     = 1
+  validation {
+    condition     = var.worker_count >= 1 && var.worker_count <= 6 && floor(var.worker_count) == var.worker_count
+    error_message = "worker_count must be an integer from 1 to 6."
+  }
+}
 variable "ssh_public_key" {
   description = "Operator SSH public key; private keys are never stored in Terraform."
   type        = string
