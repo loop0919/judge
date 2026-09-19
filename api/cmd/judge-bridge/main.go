@@ -303,6 +303,45 @@ func (b bridge) dispatchOne(ctx context.Context, tx pgx.Tx) (err error) {
 	return err
 }
 
+// Invoked only through the IAM-protected Lambda API, never through the public API.
+func (b bridge) deploymentStatus(ctx context.Context) (any, error) {
+	status := struct {
+		Kind          string `json:"kind"`
+		Pending       int64  `json:"pending"`
+		Undispatched  int64  `json:"undispatched"`
+		RuntimeDigest string `json:"runtimeDigest"`
+	}{Kind: "judge-deployment-status", RuntimeDigest: b.runtime}
+	err := b.db.QueryRow(ctx, `SELECT COUNT(*), COUNT(*) FILTER (WHERE dispatched_at IS NULL)
+      FROM submissions WHERE runtime LIKE '%-isolate' AND status <> 'DONE'`).Scan(&status.Pending, &status.Undispatched)
+	if err != nil {
+		return nil, errors.New("deployment status unavailable")
+	}
+	return status, nil
+}
+
+func (b bridge) handle(ctx context.Context, raw json.RawMessage) (any, error) {
+	var event struct {
+		Operation string `json:"operation"`
+		events.SQSEvent
+	}
+	if err := json.Unmarshal(raw, &event); err != nil {
+		return nil, fmt.Errorf("invalid event")
+	}
+	if event.Operation != "" {
+		if event.Operation != "deployment-status" || len(event.Records) != 0 {
+			return nil, errors.New("invalid operation")
+		}
+		return b.deploymentStatus(ctx)
+	}
+	if len(event.Records) > 0 {
+		return b.results(ctx, event.SQSEvent), nil
+	}
+	if err := b.dispatch(ctx); err != nil {
+		return nil, errors.New("dispatch failed; see operational logs")
+	}
+	return nil, nil
+}
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	ctx := context.Background()
@@ -315,17 +354,5 @@ func main() {
 		panic("AWS configuration unavailable")
 	}
 	b := bridge{db: db, objects: s3.NewFromConfig(sdk), queue: sqs.NewFromConfig(sdk), bucket: os.Getenv("JUDGE_JOB_BUCKET"), queueURL: os.Getenv("JUDGE_REQUEST_QUEUE_URL"), runtime: os.Getenv("JUDGE_RUNTIME_DIGEST")}
-	lambda.Start(func(ctx context.Context, raw json.RawMessage) (any, error) {
-		var event events.SQSEvent
-		if err := json.Unmarshal(raw, &event); err != nil {
-			return nil, fmt.Errorf("invalid event")
-		}
-		if len(event.Records) > 0 {
-			return b.results(ctx, event), nil
-		}
-		if err := b.dispatch(ctx); err != nil {
-			return nil, errors.New("dispatch failed; see operational logs")
-		}
-		return nil, nil
-	})
+	lambda.Start(b.handle)
 }

@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--bucket', required=True)
     parser.add_argument('--region', default='ap-northeast-1')
     parser.add_argument('--release', type=Path, default=Path('judge/.build/worker.tar.gz'))
+    parser.add_argument('--expected-sha256', help='Refuse a release changed since the rollout was started')
     parser.add_argument('--run-dir', type=Path, help='Save durable SSM command IDs for later collection')
     parser.add_argument('--no-wait', action='store_true', help='Return after submission; requires --run-dir')
     args = parser.parse_args()
@@ -28,6 +29,8 @@ if __name__ == '__main__':
     receipt = new_run(directory, args.region, [args.instance], 'install')
     with args.release.open('rb') as file:
         digest = hashlib.file_digest(file, 'sha256').hexdigest()
+    if args.expected_sha256 is not None and digest != args.expected_sha256:
+        parser.error('release SHA-256 differs from the rollout receipt')
     uri = 's3://' + args.bucket + '/releases/' + digest + '/worker.tar.gz'
     subprocess.run(['aws', 's3', 'cp', str(args.release), uri, '--region', args.region, '--only-show-errors'], check=True)
     url = subprocess.check_output(['aws', 's3', 'presign', uri, '--region', args.region,

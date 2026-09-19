@@ -118,6 +118,7 @@ def main():
     parser.add_argument('--function', required=True, help='API Lambda used to resolve the Cognito pool')
     parser.add_argument('--api-url', required=True)
     parser.add_argument('--region', default='ap-northeast-1')
+    parser.add_argument('--runtime', default='python314', help='Published CPython/PyPy runtime used for the API fixture')
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--instance', action='append', default=[], help='Specify both hosts to require concurrent judging')
     parser.add_argument('--cleanup', action='store_true')
@@ -138,8 +139,8 @@ def main():
     if args.report.exists() or cleanup_path.exists():
         parser.error('choose a new report path; use --cleanup for an interrupted run')
     catalog = request(args.api_url, 'GET', '/runtimes')
-    if catalog['maintenance'] or 'python314' not in {r['id'] for r in catalog['items']}:
-        raise ValueError('Python 3.14 must be published before the API smoke test')
+    if catalog['maintenance'] or args.runtime not in {r['id'] for r in catalog['items']}:
+        raise ValueError('the selected Python runtime must be published before the API smoke test')
     args.report.parent.mkdir(parents=True, exist_ok=True)
     users, results, tokens = [], [], []
     save(args.report, dict(status='running', results=[]))
@@ -166,7 +167,7 @@ def main():
                 condition = 'n in (1, 3)' if batch == 0 or sample else 'n == 1'
                 source = 'n=int(input())\nif ' + condition + ':\n while True: pass\nprint(0)\n'
                 item = request(args.api_url, 'POST', '/my/submissions',
-                               dict(problemId=user['problem'], runtime='python314', source=source, easyTest=sample), token)
+                               dict(problemId=user['problem'], runtime=args.runtime, source=source, easyTest=sample), token)
                 expected = ['TLE', 'AC', 'TLE', 'SKIPPED'] if batch == 0 else ['TLE', 'AC', 'TLE', 'AC'] if sample else ['TLE', 'AC', 'AC', 'AC']
                 pending.append((item['id'], token, expected))
             deadline = time.monotonic() + 480

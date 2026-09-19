@@ -43,6 +43,14 @@ func TestOperationalLogsDoNotAcceptUntrustedIdentities(t *testing.T) {
 	}
 }
 
+func TestInvalidDeploymentOperationCannotDispatch(t *testing.T) {
+	for _, raw := range []string{`{"operation":"unknown"}`, `{"operation":"deployment-status","Records":[{}]}`, `{"operation":5}`} {
+		if _, err := (bridge{}).handle(context.Background(), json.RawMessage(raw)); err == nil {
+			t.Fatal("invalid administrative event was accepted")
+		}
+	}
+}
+
 func TestResultValidation(t *testing.T) {
 	cpu, wall, memory := 0.0, 1.0, int64(1024)
 	good := submissions.Result{Verdict: "AC", Total: 1, Passed: 1, Cases: []submissions.CaseResult{{Name: "one", Verdict: "AC", CPUTimeMS: &cpu, WallTimeMS: &wall, MemoryBytes: &memory}}}
@@ -234,6 +242,30 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	b := bridge{db: db, bucket: "test-bucket", queueURL: server.URL + "/queue", runtime: digest,
 		objects: s3.NewFromConfig(cfg, func(o *s3.Options) { o.BaseEndpoint = aws.String(server.URL); o.UsePathStyle = true }),
 		queue:   sqs.NewFromConfig(cfg, func(o *sqs.Options) { o.BaseEndpoint = aws.String(server.URL) })}
+	checkDeployment := func(pending, undispatched float64) {
+		t.Helper()
+		before := len(sent)
+		value, err := b.handle(ctx, json.RawMessage(`{"operation":"deployment-status"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := json.Marshal(value)
+		var got map[string]any
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got["kind"] != "judge-deployment-status" || got["runtimeDigest"] != digest || got["pending"] != pending || got["undispatched"] != undispatched || len(sent) != before {
+			t.Fatalf("invalid or mutating deployment status: %s", data)
+		}
+	}
+	checkDeployment(1, 1)
+	if _, err := db.Exec(ctx, `UPDATE submissions SET runtime='retired-language-isolate' WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	checkDeployment(1, 1)
+	if _, err := db.Exec(ctx, `UPDATE submissions SET runtime=$2 WHERE id=$1`, id, runtime); err != nil {
+		t.Fatal(err)
+	}
 	// The DB query covers undispatched submissions, including an idle zero.
 	var logs bytes.Buffer
 	previous := slog.Default()
@@ -255,6 +287,7 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if err = b.dispatch(ctx); err != nil {
 		t.Fatal(err)
 	}
+	checkDeployment(1, 0)
 	if len(sent) != 2 || sent[0] != sent[1] || strings.Contains(sent[0], "secret") {
 		t.Fatalf("unsafe/unstable queue payloads: %v", sent)
 	}
@@ -324,6 +357,7 @@ func checkOutboxAndResultIdempotency(t *testing.T, runtime string) {
 	if err = db.QueryRow(ctx, `SELECT result->>'verdict' FROM submissions WHERE id=$1`, id).Scan(&verdict); err != nil || verdict != "CE" {
 		t.Fatal("final result overwritten", verdict, err)
 	}
+	checkDeployment(0, 0)
 }
 
 func TestProgressValidation(t *testing.T) {
