@@ -18,7 +18,7 @@ test('guide opens in a separate tab while the editor keeps its draft', async ({ 
   await guide.close()
   await expect(page.getByRole('dialog')).toBeHidden()
   await expect(page.locator('#problem-title')).toHaveValue('記事を読んでも残る下書き')
-  await expect(page.locator('#problem-source')).toHaveValue('## 保存した本文\n\n$A+B$')
+  await expect(page.locator('#problem-source')).toHaveText('## 保存した本文\n\n$A+B$', { useInnerText: true })
   const workspace = await page.locator('.author-workspace').boundingBox()
   expect(workspace!.width).toBeGreaterThan(1440 * .9)
   await expect(page.locator('.source-pane')).toBeVisible()
@@ -29,7 +29,7 @@ test('guide opens in a separate tab while the editor keeps its draft', async ({ 
     element.scrollTop = 100
     return element.scrollTop
   })).toBeGreaterThan(0)
-  expect(await page.locator('#problem-source').evaluate(element => {
+  expect(await page.locator('.markdown-source-editor .cm-scroller').evaluate(element => {
     element.scrollTop = 100
     return element.scrollTop
   })).toBeGreaterThan(0)

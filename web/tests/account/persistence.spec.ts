@@ -33,7 +33,7 @@ test('login, database save, another browser, ownership, conflict and logout', as
   const second = await secondContext.newPage()
   await login(second)
   await second.getByRole('link', { name: 'DBで保存した問題を編集', exact: true }).click()
-  await expect(second.locator('#problem-source')).toHaveValue('## 永続化した本文\n$A+B$')
+  await expect(second.locator('#problem-source')).toHaveText('## 永続化した本文\n$A+B$', { useInnerText: true })
   await page.goto(editorURL)
   await expect(page.locator('#problem-title')).toHaveValue('DBで保存した問題')
   await second.locator('#problem-title').fill('別のブラウザーから再編集')

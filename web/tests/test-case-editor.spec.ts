@@ -365,7 +365,7 @@ test('sample checkbox controls the blue flag, survives rename and reload, and ca
 
 test('append samples preserves the statement, excludes private cases, and saves literal data', async ({ page }) => {
   await page.goto('/problems/new')
-  await expect(page.locator('#problem-source')).not.toHaveValue(/^## サンプル/m)
+  await expect(page.locator('#problem-source')).not.toHaveText(/^## サンプル/m, { useInnerText: true })
   const original = '## 問題文\n\n既存の本文\n\n## サンプル 1\n'
   await page.locator('#problem-source').fill(original)
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
@@ -384,14 +384,19 @@ test('append samples preserves the statement, excludes private cases, and saves 
   await expect(page.getByText('2件のサンプルを問題文の末尾に追加しました。')).toBeVisible()
   await page.getByRole('button', { name: '問題文', exact: true }).click()
   const expected = original + '\n\n## サンプル 2\n\n### 入力\n````text\n3 5\n```\n$literal$\n````\n\n### 出力\n```text\n8\n```\n\n## サンプル 3\n\n### 入力\n```text\n```\n\n### 出力\n```text\n```\n'
-  await expect(page.locator('#problem-source')).toHaveValue(expected)
+  await expect(page.locator('#problem-source')).toHaveText(expected, { useInnerText: true })
   await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
   await page.reload()
-  await expect(page.locator('#problem-source')).toHaveValue(expected)
+  await expect(page.locator('#problem-source')).toHaveText(expected, { useInnerText: true })
   await page.locator('#problem-source').fill('a'.repeat(100_000))
   await page.getByRole('button', { name: 'テストケース', exact: true }).click()
   await append.click()
   await expect(page.getByRole('alert').filter({ hasText: '100,000文字を超えます' })).toBeVisible()
   await page.getByRole('button', { name: '問題文', exact: true }).click()
-  await expect(page.locator('#problem-source')).toHaveValue('a'.repeat(100_000))
+  await expect(page.locator('.source-pane .pane-heading')).toContainText('100,000 / 100,000')
+  await expect(page.getByRole('status').filter({ hasText: /^保存済み$/ })).toBeVisible()
+  // CodeMirror virtualizes long lines; verify the complete saved document instead of its viewport.
+  const id = new URL(page.url()).searchParams.get('problem')
+  const saved = await page.evaluate(async id => (await (await fetch(`/api/my/problems/${id}`)).json()).draft.markdown, id)
+  expect(saved === 'a'.repeat(100_000)).toBe(true)
 })

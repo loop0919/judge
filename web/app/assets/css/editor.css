@@ -36,7 +36,6 @@
 .pane-heading label span { margin-inline-start: 8px; }
 .editor-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 8px; border-bottom: 1px solid var(--color-line); }
 .editor-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: var(--editor-control-size); border-color: transparent; padding: 4px; }
-.source-pane textarea { width: 100%; min-height: 600px; display: block; resize: vertical; padding: 0 16px; border: 1px solid var(--color-paper); background: var(--color-paper); color: var(--color-ink); font-family: var(--font-code); font-size: .875rem; line-height: 22px; tab-size: var(--editor-tab-size, 2); }
 .source-pane .field-error { padding: 12px; }
 .preview-document { padding: 24px 20px; overflow-wrap: anywhere; }
 .preview-title { font-size: 1.625rem; font-weight: 700; line-height: 1.5; }
@@ -73,12 +72,6 @@
 .editor-view-switch .editor-button { padding-inline: 8px; }
 .editor-view-switch .editor-button { width: var(--editor-control-size); display: inline-flex; align-items: center; justify-content: center; }
 .editor-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.numbered-source { position: relative; flex: 1; min-height: 0; overflow: clip; }
-.source-pane .numbered-source textarea { position: relative; height: 100%; padding-left: 64px; border: 0; background: transparent; }
-.source-line-mirror { position: absolute; top: 0; left: 0; padding: 0 16px 0 0; font-family: var(--font-code); font-size: .875rem; line-height: 22px; tab-size: var(--editor-tab-size, 2); pointer-events: none; }
-.source-mirror-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); }
-.source-line-number { text-align: right; padding-right: 12px; color: var(--color-muted); border-right: 1px solid var(--color-line); user-select: none; }
-.source-mirror-text { padding-left: 16px; white-space: pre-wrap; overflow-wrap: break-word; visibility: hidden; }
 .editor-topbar .author-actions { margin-left: auto; align-items: center; gap: 4px; }
 .site-shell--editor .author-fields { margin: 0; padding: 6px 12px; gap: 4px 12px; flex-shrink: 0; border-bottom: 1px solid var(--color-line); }
 .author-fields label { font-size: .6875rem; margin-bottom: 2px; }
@@ -88,7 +81,6 @@
 .author-workspace[data-mode="edit"] .preview-pane, .author-workspace[data-mode="preview"] .source-pane { display: none; }
 .pane-heading, .editor-toolbar { flex-shrink: 0; }
 .pane-heading { min-height: 36px; padding-block: 6px; }
-.source-pane textarea { min-height: 0; flex: 1; resize: none; overscroll-behavior: contain; }
 .author-page textarea:focus-visible { outline-offset: -3px; }
 .preview-document { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 24px clamp(20px, 3vw, 64px); }
 .draft-status { margin: 0; padding: 4px 12px; border-top: 1px solid var(--color-line); flex-shrink: 0; font-size: .6875rem; justify-content: space-between; gap: 2px 12px; }
@@ -111,8 +103,7 @@
 @media (max-width: 39.999rem) {
   .editor-topbar .editor-view-switch { margin-left: auto; }
   .editor-topbar { gap: 4px 8px; padding-inline: 8px; }
-  .author-fields input, .source-pane textarea { font-size: 1rem; }
-  .source-line-mirror { font-size: 1rem; }
+  .author-fields input { font-size: 1rem; }
   .draft-status > :last-child { display: none; }
 }
 

@@ -49,7 +49,7 @@ test('create, reorder and edit an unpublished contest; guests cannot inspect its
   await page.locator(`#points-${first}`).fill('300')
   await page.getByRole('button', { name: 'コンテスト選択Bを上へ' }).click()
   await page.getByRole('button', { name: 'タイトル・説明', exact: true }).click()
-  await expect(page.getByLabel('説明（Markdown）')).toHaveValue('## 開催案内\nどなたでも参加できます。')
+  await expect(page.getByLabel('説明（Markdown）')).toHaveText('## 開催案内\nどなたでも参加できます。', { useInnerText: true })
   await page.screenshot({ path: testInfo.outputPath('contest-editor-desktop.png'), fullPage: true })
   for (const width of [320, 375, 414, 768]) {
     await page.setViewportSize({ width, height: 900 })

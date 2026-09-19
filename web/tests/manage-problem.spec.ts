@@ -30,6 +30,6 @@ for (const width of [320, 375, 414, 768, 1280]) {
     await page.screenshot({ path: testInfo.outputPath(`management-${width}.png`) })
     await page.getByRole('button', { name: '問題文', exact: true }).click()
     await expect(page.locator('#problem-title')).toHaveValue('管理画面へ切り替え')
-    await expect(page.locator('#problem-source')).toHaveValue('## 書きかけの本文\n\n$A+B$')
+    await expect(page.locator('#problem-source')).toHaveText('## 書きかけの本文\n\n$A+B$', { useInnerText: true })
   })
 }

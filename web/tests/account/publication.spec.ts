@@ -112,7 +112,7 @@ test('blog draft, preview, publication, editing and withdrawal', async ({ page, 
   await expect(page.getByRole('status')).toHaveText('保存済み')
   expect((await (await guest.request.get(`/api/posts/${id}`)).json()).markdown).toContain('解説')
   await page.reload()
-  await expect(page.getByLabel('本文（Markdown）')).toHaveValue('下書き変更')
+  await expect(page.getByLabel('本文（Markdown）')).toHaveText('下書き変更', { useInnerText: true })
   await page.getByRole('button', { name: '記事管理', exact: true }).click()
   await page.getByRole('button', { name: '公開内容を更新' }).click()
   await expect(page.getByRole('status')).toHaveText('公開しました')

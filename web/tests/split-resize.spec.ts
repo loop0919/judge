@@ -14,7 +14,7 @@ for (const [path, selector] of [['/problems/new?fresh=1', '#problem-source'], ['
     await page.mouse.move(bounds.x + bounds.width / 2 + 180, bounds.y + 120, { steps: 8 })
     await page.mouse.up()
     expect((await page.locator('.source-pane').boundingBox())!.width).toBeGreaterThan(before + 170)
-    await expect(source).toHaveValue(/長い文章です。/)
+    await expect(source).toHaveText(/長い文章です。/, { useInnerText: true })
     await handle.focus()
     await page.keyboard.press('Home')
     await expect(handle).toHaveAttribute('aria-valuenow', '30')

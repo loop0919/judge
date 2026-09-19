@@ -29,6 +29,6 @@ for (const width of [375, 1280]) {
     await page.getByRole('button', { name: '本文', exact: true }).click()
     await page.getByRole('button', { name: '編集', exact: true }).click()
     await page.getByRole('button', { name: '太字', exact: true }).click()
-    await expect(page.getByLabel('本文（Markdown）')).toHaveValue(/\*\*強調\*\*/)
+    await expect(page.getByLabel('本文（Markdown）')).toHaveText(/\*\*強調\*\*/, { useInnerText: true })
   })
 }

@@ -37,8 +37,8 @@ const memoryLimitPresets = [64, 128, 256, 512]
 const memoryLimitOptions = computed(() => [...new Set([...memoryLimitPresets, Number(draft.memoryLimitMb)])].filter(value => value >= 64 && value <= 512).sort((a, b) => a - b))
 const {
   mode, workspace, splitPercent, resizing, setSplit, startResize, moveResize, stopResize, resizeWithKeyboard,
-  editor, sourceLines, sourceScrollTop, sourceWidth, syncSource, insertSnippet, indentOnTab, settings,
-} = useMarkdownEditor(activeMarkdown)
+  editor, syncSource, insertSnippet,
+} = useMarkdownEditor()
 
 const managing = computed(() => section.value === 'management')
 const sidebarExpanded = ref(false)
@@ -155,7 +155,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
     </div>
     <div ref="workspace" class="author-workspace" :class="{ 'is-resizing': resizing }" :data-mode="mode" :style="{ '--editor-left': `${splitPercent}fr`, '--editor-right': `${100 - splitPercent}fr` }">
       <section id="source-pane" class="source-pane" aria-label="Markdown 編集">
-        <div class="pane-heading"><div class="source-heading-label"><label for="problem-source">{{ section === 'editorial' ? '解説' : '本文' }} <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink><span v-if="section === 'statement'" id="source-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.markdown ? errors.markdown : '' }}</span></div><span>{{ activeMarkdown.length.toLocaleString('en-US') }} / 100,000</span></div>
+        <div class="pane-heading"><div class="source-heading-label"><label id="problem-source-label" for="problem-source" @click="editor?.focus()">{{ section === 'editorial' ? '解説' : '本文' }} <span>(Markdown)</span></label><NuxtLink class="source-guide-link" to="/blog/markdown-guide" target="_blank" rel="noopener noreferrer" aria-label="Markdown・数式の書き方" title="Markdown・数式の書き方"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16h.01" /></svg></NuxtLink><span v-if="section === 'statement'" id="source-error" class="field-error inline-field-error" aria-live="polite">{{ showErrors || touched.markdown ? errors.markdown : '' }}</span></div><span>{{ activeMarkdown.length.toLocaleString('en-US') }} / 100,000</span></div>
         <div class="editor-toolbar" aria-label="記法を挿入">
           <button type="button" :disabled="!ready || publishing" @click="insertSnippet('\n## 見出し\n')" aria-label="見出し" title="見出し"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M19 5v14M5 12h14" /></svg></button>
           <button type="button" :disabled="!ready || publishing" @click="insertSnippet('**強調**')" aria-label="太字" title="太字"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><path stroke-width="2.4" d="M6 12h7a4 4 0 0 1 0 8H6V4h6a4 4 0 0 1 0 8" /></svg></button>
@@ -165,12 +165,7 @@ const mathSnippet = '\n```math\n\\sum_{i=1}^{N} A_i\n```\n'
           <button type="button" :disabled="!ready || publishing" @click="insertSnippet('\n:::details タイトル\n内容\n:::\n')" aria-label="折りたたみ" title="折りたたみ"><svg class="editor-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 8 3 3 3-3M7 15h10" /></svg></button>
           <EditorSettings kind="markdown" />
         </div>
-        <div class="numbered-source" :style="{ '--editor-tab-size': settings.width }">
-          <div class="source-line-mirror" aria-hidden="true" :style="{ width: `${sourceWidth}px`, transform: `translateY(${-sourceScrollTop}px)` }">
-            <div v-for="(line, index) in sourceLines" :key="index" class="source-mirror-row"><span class="source-line-number">{{ index + 1 }}</span><span class="source-mirror-text">{{ line || '\u200b' }}</span></div>
-          </div>
-        <textarea id="problem-source" ref="editor" v-model="activeMarkdown" maxlength="100000" spellcheck="false" :disabled="!ready || publishing" :aria-invalid="section === 'statement' && (showErrors || touched.markdown) && !!errors.markdown" :aria-describedby="section === 'statement' ? 'source-error' : undefined" @scroll="syncSource" @input="syncSource" @keydown="indentOnTab" @blur="section === 'statement' && (touched.markdown = true)" />
-        </div>
+        <MarkdownSourceEditor id="problem-source" ref="editor" v-model="activeMarkdown" label-id="problem-source-label" :disabled="!ready || publishing" :key="section === 'editorial' ? 'editorial' : 'statement'" :invalid="section === 'statement' && (showErrors || touched.markdown) && !!errors.markdown" :describedby="section === 'statement' ? 'source-error' : undefined" @blur="section === 'statement' && (touched.markdown = true)" />
       </section>
       <div class="split-handle" role="separator" tabindex="0" aria-label="編集欄とプレビューの幅を調整" aria-orientation="vertical" aria-controls="source-pane preview-pane" :aria-valuenow="Math.round(splitPercent)" :aria-valuetext="`編集欄 ${Math.round(splitPercent)}%、プレビュー ${100 - Math.round(splitPercent)}%`" :aria-valuemin="30" :aria-valuemax="70" title="ドラッグで幅を調整・ダブルクリックで均等に戻す" @pointerdown="startResize" @pointermove="moveResize" @pointerup="stopResize" @pointercancel="stopResize" @lostpointercapture="resizing = false" @keydown="resizeWithKeyboard" @dblclick="setSplit(50)" />
       <section id="preview-pane" class="preview-pane" :aria-label="section === 'editorial' ? '解説のプレビュー' : '問題のプレビュー'">
