@@ -36,6 +36,7 @@ func newHandler(config AuthConfig, private PrivateProblems) http.Handler {
 	mux.HandleFunc("GET /contests/{id}/standings", private.publicContest)
 	mux.HandleFunc("GET /contests/{id}/submissions", private.publicContest)
 	mux.HandleFunc("GET /contests/{id}/submissions/{submission}", private.publicContest)
+	mux.HandleFunc("GET /images/{id}", private.publicImage)
 	mux.HandleFunc("GET /health", health)
 	mux.HandleFunc("GET /runtimes", private.runtimes)
 	mux.HandleFunc("GET /problems", private.publicContent)

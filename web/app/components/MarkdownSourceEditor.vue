@@ -5,12 +5,19 @@ import { EditorView, keymap } from '@codemirror/view'
 import { indentWithTab } from '@codemirror/commands'
 import { defaultHighlightStyle, HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language'
 import { markdown, markdownLanguage, insertNewlineContinueMarkupCommand, deleteMarkupBackward } from '@codemirror/lang-markdown'
+import { contentImageError, prepareContentImage } from '~/utils/content-image'
 
 defineOptions({ inheritAttrs: false })
 const source = defineModel<string>({ required: true })
 const props = defineProps<{ id: string, labelId: string, disabled?: boolean, invalid?: boolean, describedby?: string }>()
 const emit = defineEmits<{ blur: [] }>()
 const container = ref<HTMLDivElement>()
+const fileInput = ref<HTMLInputElement>()
+const uploading = ref(false)
+const imageMessage = ref('')
+const showImages = ref(false)
+let uploadPosition: number | undefined
+let uploadGeneration = 0
 const { settings, indentation } = useEditorSettings('markdown')
 const indentConfig = new Compartment()
 const editable = new Compartment()
@@ -51,9 +58,32 @@ onMounted(() => {
       EditorState.transactionFilter.of(transaction =>
         transaction.docChanged && transaction.newDoc.length > 100_000 && transaction.newDoc.length > transaction.startState.doc.length ? [] : transaction),
       EditorView.updateListener.of(update => {
+        if (uploadPosition !== undefined) uploadPosition = update.changes.mapPos(uploadPosition, 1)
         if (update.docChanged) source.value = update.state.doc.toString()
       }),
-      EditorView.domEventHandlers({ blur: () => { emit('blur') } }),
+      EditorView.domEventHandlers({
+        blur: () => { emit('blur') },
+        dragover: event => {
+          if (!event.dataTransfer?.types.includes('Files')) return false
+          event.preventDefault()
+          event.dataTransfer.dropEffect = props.disabled || uploading.value ? 'none' : 'copy'
+          return true
+        },
+        drop: (event, view) => {
+          if (!event.dataTransfer?.files.length) return false
+          event.preventDefault()
+          const position = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head
+          void uploadImages(Array.from(event.dataTransfer.files), position)
+          return true
+        },
+        paste: event => {
+          const files = Array.from(event.clipboardData?.files ?? [])
+          if (!files.length) return false
+          event.preventDefault()
+          void uploadImages(files)
+          return true
+        },
+      }),
       EditorView.theme({
         '&': { height: '100%', color: 'var(--color-ink)', backgroundColor: 'var(--color-paper)' },
         '&.cm-focused': { outline: 'none' },
@@ -72,10 +102,43 @@ watch(() => [props.disabled, props.invalid, props.describedby], () => editor?.di
 watch(() => [settings.value.style, settings.value.width], () => editor?.dispatch({ effects: indentConfig.reconfigure(indentExtensions()) }))
 watch(source, value => {
   if (editor && value !== editor.state.doc.toString()) {
+    uploadGeneration++
+    uploadPosition = undefined
     editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value }, annotations: Transaction.addToHistory.of(false), filter: false })
   }
 })
-onBeforeUnmount(() => editor?.destroy())
+onBeforeUnmount(() => { uploadGeneration++; editor?.destroy(); editor = undefined })
+
+async function uploadImages(files: File[], position = editor?.state.selection.main.head) {
+  if (!editor || props.disabled || uploading.value || position === undefined) return
+  if (files.length > 10) { imageMessage.value = '一度に追加できる画像は10枚までです。'; return }
+  uploading.value = true
+  imageMessage.value = ''
+  showImages.value = false
+  uploadPosition = position
+  const generation = uploadGeneration
+  try {
+    for (const file of files) {
+      const data = await prepareContentImage(file)
+      if (generation !== uploadGeneration || props.disabled) break
+      const result = await $fetch<{ url: string }>('/api/my/images', { method: 'POST', body: { data } })
+      if (!editor || generation !== uploadGeneration || props.disabled || uploadPosition === undefined) break
+      const snippet = `![画像の説明](${result.url})\n`
+      if (editor.state.doc.length + snippet.length > 100_000) {
+        throw new Error('本文の文字数上限に達しました。画像は「保存した画像」から再挿入できます。')
+      }
+      editor.dispatch({ changes: { from: uploadPosition, insert: snippet }, userEvent: 'input' })
+    }
+    editor?.focus()
+  } catch (error) { imageMessage.value = contentImageError(error) }
+  finally { uploading.value = false; uploadPosition = undefined }
+}
+
+function chooseImages(event: Event) {
+  const input = event.target as HTMLInputElement
+  void uploadImages(Array.from(input.files ?? []))
+  input.value = ''
+}
 
 function insertSnippet(snippet: string) {
   if (!editor || props.disabled) return
@@ -86,10 +149,24 @@ defineExpose({ insertSnippet, requestMeasure: () => editor?.requestMeasure(), fo
 </script>
 
 <template>
-  <div ref="container" class="markdown-source-editor" />
+  <div class="markdown-source-wrapper">
+    <div class="image-actions">
+      <button type="button" class="editor-button" :disabled="disabled || uploading" @click="fileInput?.click()">画像を追加</button>
+      <button type="button" class="editor-button" :disabled="disabled || uploading" :aria-expanded="showImages" @click="showImages = !showImages">保存した画像</button>
+      <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden @change="chooseImages">
+      <span :role="uploading ? 'status' : undefined">{{ uploading ? '画像を縮小して保存中…' : '画像をドロップ・貼り付けできます（1枚10MBまで・自動縮小）' }}</span>
+    </div>
+    <p v-if="imageMessage" class="image-message" role="alert">{{ imageMessage }}</p>
+    <ContentImageLibrary v-if="showImages" :source="source" :disabled="disabled" @insert="insertSnippet" @close="showImages = false" />
+    <div ref="container" class="markdown-source-editor" />
+  </div>
 </template>
 
 <style scoped>
+.markdown-source-wrapper { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.image-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 16px; border-bottom: 1px solid var(--color-line); }
+.image-actions span { font-size: .75rem; color: var(--color-muted); }
+.image-message { padding: 0 16px; font-size: .8rem; color: var(--color-error, #b42318); }
 .markdown-source-editor { position: relative; flex: 1; min-height: 0; overflow: clip; }
 .markdown-source-editor:focus-within::after { content: ''; position: absolute; inset: 0; z-index: 10; border: 2px solid var(--color-accent); pointer-events: none; }
 </style>

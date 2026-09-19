@@ -82,6 +82,10 @@ var (
 )
 
 func (p PrivateProblems) register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /my/images", p.handle)
+	mux.HandleFunc("POST /my/images", p.handle)
+	mux.HandleFunc("GET /my/images/{id}", p.handle)
+	mux.HandleFunc("DELETE /my/images/{id}", p.handle)
 	mux.HandleFunc("GET /my/notifications", p.handle)
 	mux.HandleFunc("POST /my/notifications/read", p.handle)
 	mux.HandleFunc("POST /my/problems/{id}/tester-invitation", p.handle)
@@ -159,6 +163,10 @@ func (p PrivateProblems) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/my/images") {
+		p.contentImage(w, r.WithContext(ctx), owner)
+		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/my/notifications") {
 		p.notifications(w, r.WithContext(ctx), owner)

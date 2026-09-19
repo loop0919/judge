@@ -74,3 +74,46 @@ test('statement and editorial undo histories do not overwrite each other', async
   await page.getByRole('button', { name: '解説', exact: true }).click()
   await expect(editor).toHaveText('* editorial')
 })
+
+test('image upload keeps its insertion position while typing and rejects unsupported drops', async ({ page }) => {
+  let release!: () => void
+  const waiting = new Promise<void>(resolve => { release = resolve })
+  let uploads = 0
+  await page.route('**/api/my/images', async route => {
+    uploads++
+    await waiting
+    await route.fulfill({ json: { url: '/api/images/11111111-1111-4111-8111-111111111111' } })
+  })
+  await page.goto('/blog/new')
+  const editor = page.locator('#post-body')
+  await editor.fill('before after')
+  await editor.press('Home')
+  for (let i = 0; i < 7; i++) await editor.press('ArrowRight')
+  const transfer = await page.evaluateHandle(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 4; canvas.height = 4
+    const blob = await new Promise<Blob>(resolve => canvas.toBlob(value => resolve(value!)))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([blob], 'diagram.png', { type: 'image/png' }))
+    return transfer
+  })
+  await editor.evaluate((node, clipboardData) => node.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })), transfer)
+  await expect.poll(() => uploads).toBe(1)
+  await editor.press('Home')
+  await editor.pressSequentially('prefix ')
+  release()
+  await expect(editor).toContainText('prefix before ![画像の説明](/api/images/')
+  await expect(editor).toContainText('after')
+  await editor.press('ControlOrMeta+z')
+  await expect(editor).toHaveText('prefix before after')
+  const svg = await page.evaluateHandle(() => {
+    const transfer = new DataTransfer()
+    transfer.items.add(new File(['<svg/>'], 'bad.svg', { type: 'image/svg+xml' }))
+    return transfer
+  })
+  await editor.dispatchEvent('drop', { dataTransfer: svg })
+  await expect(page.getByRole('alert')).toContainText('PNG・JPEG・WebP')
+  expect(uploads).toBe(1)
+  await transfer.dispose()
+  await svg.dispose()
+})

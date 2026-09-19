@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -103,11 +104,20 @@ func TestBrowserFixture(t *testing.T) {
 	}
 	f := newSigningFixture(t)
 	handler := newHandler(AuthConfig{Client: &browserCognito{t: t, signer: f, users: make(map[string]*browserUser)}, ClientID: "client"}, PrivateProblems{Store: store, Profiles: profileStore, Posts: posts.New(store.Pool()), Submissions: &submissions.Store{Pool: store.Pool()}, JudgeImage: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Operators: map[string]bool{"alice@example.test": true}, Verifier: newCognitoVerifier(f.server.URL, "client")})
-	server := &http.Server{Addr: "127.0.0.1:18082", Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	address := os.Getenv("OPENOJ_BROWSER_API_ADDR")
+	if address == "" {
+		address = "127.0.0.1:18082"
+	}
+	server := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("browser API ready")
 	stopCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)
-	go func() { done <- server.ListenAndServe() }()
+	go func() { done <- server.Serve(listener) }()
 	select {
 	case err := <-done:
 		t.Fatal(err)
