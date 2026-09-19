@@ -61,7 +61,7 @@ test('images drop into all editors, deduplicate, follow publication, and can be 
   await page.locator('#post-body').fill('画像を外した本文')
   await page.getByRole('button', { name: '保存', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('保存済み')
-  await page.getByRole('button', { name: '保存した画像', exact: true }).click()
+  await page.getByRole('button', { name: '画像', exact: true }).click()
   await expect(page.getByRole('region', { name: '保存した画像' })).toBeVisible()
   await page.getByRole('region', { name: '保存した画像' }).getByRole('button', { name: '削除', exact: true }).click()
   await expect(page.getByText('保存した画像はありません。')).toBeVisible()

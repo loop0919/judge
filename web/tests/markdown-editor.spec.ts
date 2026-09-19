@@ -5,10 +5,27 @@ for (const [path, selector] of [
   ['/blog/new', '#post-body'],
   ['/my/contests/new', '#contest-description'],
 ]) {
-  test(`Markdown list continuation, exit, and undo work in ${path}`, async ({ page }) => {
+  test(`Markdown list continuation, exit, and undo work in ${path}`, async ({ page }, testInfo) => {
     await page.goto(path!)
     const editor = page.locator(selector!)
     await expect(editor).toBeEditable()
+    const imageButton = page.locator('.editor-toolbar').getByRole('button', { name: '画像', exact: true })
+    await expect(imageButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('button', { name: '画像を追加', exact: true })).toHaveCount(0)
+    expect(await imageButton.evaluate(node => node.previousElementSibling?.getAttribute('aria-label'))).toBe('折りたたみ')
+    await page.route('**/api/my/images*', route => route.fulfill({ json: { items: [], usedBytes: 0, hasMore: false } }))
+    await imageButton.click()
+    await expect(page.getByRole('button', { name: '画像を追加', exact: true })).toBeVisible()
+    await page.getByRole('region', { name: '保存した画像' }).getByRole('button', { name: '閉じる' }).click()
+    await expect(imageButton).toHaveAttribute('aria-expanded', 'false')
+    if (path === '/problems/new') {
+      for (const width of [1280, 320, 375, 414, 768]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+        await page.screenshot({ path: testInfo.outputPath(`image-toolbar-${width}.png`) })
+      }
+      await page.setViewportSize({ width: 1280, height: 900 })
+    }
     for (const [text, marker] of [
       ['- item', '- '], ['* item', '* '], ['+ item', '+ '],
       ['1. item', '2. '], ['- [x] done', '- [ ] '], ['> quote', '> '],

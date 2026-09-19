@@ -34,7 +34,7 @@ export function useMarkdownEditor() {
     setSplit(value)
   }
 
-  const editor = ref<{ insertSnippet: (snippet: string) => void, requestMeasure: () => void, focus: () => void }>()
+  const editor = ref<{ insertSnippet: (snippet: string) => void, toggleImages: () => void, showImages: boolean, uploading: boolean, requestMeasure: () => void, focus: () => void }>()
   const syncSource = () => editor.value?.requestMeasure()
   async function insertSnippet(snippet: string) {
     if (mode.value === 'preview') mode.value = 'edit'

@@ -2,7 +2,7 @@
 import { contentImageError } from '~/utils/content-image'
 
 defineProps<{ source: string, disabled?: boolean }>()
-const emit = defineEmits<{ insert: [snippet: string], close: [] }>()
+const emit = defineEmits<{ insert: [snippet: string], close: [], upload: [] }>()
 const offset = ref(0)
 const busy = ref(false)
 const message = ref('')
@@ -24,9 +24,11 @@ async function remove(id: string) {
   <section class="image-library" aria-label="保存した画像">
     <div class="image-library-heading">
       <strong>保存した画像</strong>
+      <button type="button" class="editor-button" :disabled="disabled || busy" @click="emit('upload')">画像を追加</button>
       <span v-if="data">使用量 {{ (data.usedBytes / 1024 / 1024).toFixed(1) }} MB</span>
       <button type="button" class="editor-button" @click="emit('close')">閉じる</button>
     </div>
+    <p>画像は編集欄へのドロップ・貼り付けでも追加できます（1枚10MBまで・自動縮小）。</p>
     <p>画像を削除するには、使用中の本文から参照を外し、保存・公開内容を更新してください。</p>
     <p v-if="error || message" role="alert">{{ message || '画像一覧を取得できませんでした。' }}</p>
     <div class="image-library-items">

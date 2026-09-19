@@ -145,28 +145,23 @@ function insertSnippet(snippet: string) {
   editor.dispatch(editor.state.replaceSelection(snippet), { scrollIntoView: true, userEvent: 'input' })
   editor.focus()
 }
-defineExpose({ insertSnippet, requestMeasure: () => editor?.requestMeasure(), focus: () => editor?.focus() })
+defineExpose({ insertSnippet, showImages, uploading, toggleImages: () => { showImages.value = !showImages.value }, requestMeasure: () => editor?.requestMeasure(), focus: () => editor?.focus() })
 </script>
 
 <template>
   <div class="markdown-source-wrapper">
-    <div class="image-actions">
-      <button type="button" class="editor-button" :disabled="disabled || uploading" @click="fileInput?.click()">画像を追加</button>
-      <button type="button" class="editor-button" :disabled="disabled || uploading" :aria-expanded="showImages" @click="showImages = !showImages">保存した画像</button>
-      <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden @change="chooseImages">
-      <span :role="uploading ? 'status' : undefined">{{ uploading ? '画像を縮小して保存中…' : '画像をドロップ・貼り付けできます（1枚10MBまで・自動縮小）' }}</span>
-    </div>
+    <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden @change="chooseImages">
+    <p v-if="uploading" class="image-message" role="status">画像を縮小して保存中…</p>
     <p v-if="imageMessage" class="image-message" role="alert">{{ imageMessage }}</p>
-    <ContentImageLibrary v-if="showImages" :source="source" :disabled="disabled" @insert="insertSnippet" @close="showImages = false" />
+    <ContentImageLibrary v-if="showImages" :source="source" :disabled="disabled || uploading" @upload="fileInput?.click()" @insert="insertSnippet" @close="showImages = false; editor?.focus()" />
     <div ref="container" class="markdown-source-editor" />
   </div>
 </template>
 
 <style scoped>
 .markdown-source-wrapper { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-.image-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 6px 16px; border-bottom: 1px solid var(--color-line); }
-.image-actions span { font-size: .75rem; color: var(--color-muted); }
 .image-message { padding: 0 16px; font-size: .8rem; color: var(--color-error, #b42318); }
+.image-message[role="status"] { color: var(--color-muted); }
 .markdown-source-editor { position: relative; flex: 1; min-height: 0; overflow: clip; }
 .markdown-source-editor:focus-within::after { content: ''; position: absolute; inset: 0; z-index: 10; border: 2px solid var(--color-accent); pointer-events: none; }
 </style>
