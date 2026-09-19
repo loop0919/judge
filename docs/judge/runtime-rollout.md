@@ -728,3 +728,56 @@ APIとサイト側カタログは21言語・`maintenance=false`で一致した�
 最終確認でDBは`db.t4g.small / available`、適用待ち変更なしだった。
 要求・結果・両失敗キューの可視・処理中・遅延メッセージはすべて0件、workerのエラーと再起動も0件だった。
 受付は再開済みである。
+
+## 2026-09-19のTLE打ち切りと2台構成
+
+`8c15b05`で、通常提出のTLEが累計2ケースになった時点で残りを`SKIPPED`にする変更を配布した。
+途中にACを挟む場合も累計で数え、サンプル検証、入力検証、出力生成は打ち切りの対象外とする。
+結果受信側を先に更新し、受付停止後に未処理提出とキューが空になったことを確認してworkerを更新した。
+更新前の制御コードは各ホストの`/opt/judge-backup-knockout/control.tar.gz`へ退避した。
+ランタイム本体は変更していない。
+
+新しい採点環境は`sha256:fb4fc4db82b620e4ac4bb0106ea4b8d19570c46ed202bae1f346fa079d97b3de`である。
+1台目のSSM command `3e5c5414-6e2c-4c7c-8f08-e9e2bc2fcd24`で全23ランタイムが通過した。
+API、bridge、workerのdigestとGitHub Environment変数を同期し、既存の21言語で受付を再開した。
+本番APIの一時的な非公開問題で、`TLE, AC, TLE, SKIPPED`、TLEが1回の場合の全件実行、サンプル検証の全件実行を確認した。
+検証用の問題とCognitoアカウントは削除した。
+
+`75bf5d0`でLightsailの複数台管理とホスト別監視に対応し、`worker_count=2`を適用した。
+各ホストは1スロットを持ち、同じSQS要求キューを読む。
+既存ホストのスナップショットから追加ホストを作成し、Terraformへimportした。
+複製時はworkerと管理エージェントの自動起動を抑止し、追加ホストを別のSSM管理対象として登録した。
+再起動後のRun Commandの成功を確認してから公開SSHポートを閉じた。
+
+| ホスト | SSM管理対象ID |
+| --- | --- |
+| `judge-dev-judge-worker` | `mi-08a9ccbdc9116b369` |
+| `judge-dev-judge-worker-2` | `mi-07cb78f3b979951e7` |
+
+両ホストは`small_ipv6_3_0`を使う。
+追加時点のLightsail bundle料金は1台あたり月額10 USDで、2台の基本料金は月額20 USDとなる。
+ログ、監視、スナップショットなどの料金は別途発生する。
+CIとAPI、frontendの配布は[Actions run 35424973491](https://github.com/loop0919/shareoj/actions/runs/35424973491)で成功した。
+
+追加ホストはSSM command `790ac98c-8964-4c4d-8630-e2c7ae86e5d8`で全23ランタイムが通過した。
+両ホストのレポートを`judge/.build/smoke-report-knockout-1.json`と`judge/.build/smoke-report-knockout-2.json`へ保存し、digestの一致と`failedRuntimes=[]`を確認した。
+追加ホストの初回ファイル照合はスナップショット復元後の読み込みに時間を要したため、一時smokeサービスの起動待機上限を90分に延長した。
+提出プログラムの制限時間は変更していない。
+
+2台の起動完了後、本番APIで4件の提出を検証した。
+次の2件はそれぞれ別ホストで採点され、どちらも`TLE, AC, TLE, SKIPPED`となった。
+採点区間が重なることをホストログで確認した。
+
+| ホスト | 提出ID | 採点開始〜終了（UTC） |
+| --- | --- | --- |
+| 1台目 | `f631ae79-50c3-42da-837e-4d93fb34d3d0` | 06:51:43.709〜06:51:46.074 |
+| 2台目 | `9acb0f94-16c0-4e79-8aa2-85c01ab5f3a6` | 06:51:43.650〜06:51:46.031 |
+
+TLEが1回だけの提出`697bacc6-af0c-485e-990e-891fd22fc43a`と、サンプル検証`021bd819-5202-41dd-ae28-c78fb6b8e214`は全4ケースを実行した。
+一時的な非公開問題とCognitoアカウントを削除し、要求、結果、両失敗キューが空であることを確認した。
+両ホストの監視を有効に戻し、全アラームが`OK`、APIとサイトの言語一覧が21言語、`maintenance=false`であることを確認した。
+複製専用スナップショット`judge-dev-knockout-two-workers-20260919`は検証後に削除した。
+
+Terraform stateはrefresh-onlyで実状態へ同期した。
+全体planに残るbridgeの予約同時実行数と配布用S3オブジェクトの差分は適用していない。
+bridge本体はLambda API経由で更新済みで、コードのSHA-256（Base64）は`LUOjofVoh8+8YsruK+ZAADwgaYYMmm+iKIr6V30mmKM=`である。
